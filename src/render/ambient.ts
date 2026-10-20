@@ -9,6 +9,20 @@ import type { MapGeo } from './mapgeo';
 import type { MatLib } from './materials';
 import { buildAmbient, type AmbientId } from './models/ambient';
 import { hash2 } from './noise';
+import { Parts, T, blob } from './geo';
+import { BoxGeometry, type BufferGeometry } from 'three';
+
+/** Low ring of sandstone stones with an ochre band: marks a place the community asked to be consulted about. */
+function markerGeo(): BufferGeometry {
+  const P = new Parts();
+  for (let i = 0; i < 7; i++) {
+    const a = (i / 7) * Math.PI * 2;
+    const g = T(blob(0.035 + (i % 3) * 0.008, 0, 900 + i, 0.4, 0.8), Math.cos(a) * 0.16, 0.02, Math.sin(a) * 0.16);
+    P.add(g, i % 2 ? 0xd9b47a : 0xb5623a, { ao: 0.7 });
+  }
+  P.add(T(new BoxGeometry(0.05, 0.004, 0.05), 0, 0.002, 0), 0xb5623a);
+  return P.merge();
+}
 
 const CAR_COLS = [0xc23b2e, 0x2f5f9a, 0xe8e2d0, 0x3d7a4e, 0xe0b23a, 0x6a6e74, 0x8a3a5a, 0x1f2a36];
 const BOAT_COLS = [0xf2efe6, 0xc23b2e, 0x2f6f9a, 0xe8c24a];
@@ -52,6 +66,13 @@ export class AmbientLayer {
     this.sig = '';
   }
 
+  private putGeo(key: string, make: () => BufferGeometry, x: number, y: number, z: number, yaw: number, s = 1, col?: number): void {
+    const gid = this.batch.geo(key, () => prepBatchGeo(make()));
+    _q.setFromAxisAngle(_up, yaw);
+    _m.compose(_p.set(x, y, z), _q, _s.set(s, s, s));
+    this.ids.push(this.batch.add(gid, _m, col !== undefined ? _c.set(col) : undefined));
+  }
+
   private put(id: AmbientId, x: number, y: number, z: number, yaw: number, s = 1, col?: number): void {
     const gid = this.batch.geo(`${id}:${this.detail}`, () => prepBatchGeo(buildAmbient(id, this.detail)));
     _q.setFromAxisAngle(_up, yaw);
@@ -64,7 +85,8 @@ export class AmbientLayer {
     const est = Math.round(estuaryHealth(s) / 10);
     const act2 = s.phase === 'act2' || s.phase === 'epilogue' || s.phase === 'failed';
     const era = s.year < 1925 ? 0 : s.year < 1950 ? 1 : 2;
-    const sig = `${s.buildings.length}:${s.nextUid}:${era}:${est}:${act2 ? s.year : 0}:${this.density}`;
+    const consulted = (s as { country?: { consulted?: number[] } }).country?.consulted ?? [];
+    const sig = `${s.buildings.length}:${s.nextUid}:${era}:${est}:${act2 ? s.year : 0}:${this.density}:${consulted.length}`;
     if (sig === this.sig) return;
     this.sig = sig;
     for (const id of this.ids) this.batch.remove(id);
@@ -104,6 +126,12 @@ export class AmbientLayer {
         const cx = map.cx(tx);
         const cz = map.cz(ty);
         const own = tAt(tx, ty);
+        const sig = (g as { significant?: Uint8Array }).significant?.[i] ?? 0;
+        if (sig > 0 && !own && r(90) < 0.55) {
+          const mx = cx + (r(91) - 0.5) * 0.4;
+          const mz = cz + (r(92) - 0.5) * 0.4;
+          this.putGeo('marker', markerGeo, mx, map.heightAt(mx, mz) - 0.005, mz, r(93) * 6.28, consulted.includes(sig) ? 1.15 : 1, consulted.includes(sig) ? 0xffffff : 0xe8d0c0);
+        }
         // ---- roads: cars + trucks
         if (own === 'road' && era > 0) {
           const p = (era === 1 ? 0.18 : 0.42) * dens + (near(tx, ty, HOMES, 1) ? 0.15 : 0);

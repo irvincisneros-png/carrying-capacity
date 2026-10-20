@@ -9,7 +9,9 @@ import { bIcon, UI_ICONS } from './icons';
 import type { Tip } from './modal';
 import { sfx } from '../audio/sfx';
 
-export type Tool = BuildingId | 'demolish' | 'clear' | 'inspect' | null;
+export type UtilTool = 'demolish' | 'clear' | 'inspect' | 'comanage' | 'burn' | 'dispose';
+export type Tool = BuildingId | UtilTool | null;
+export const UTIL_TOOLS: readonly string[] = ['demolish', 'clear', 'inspect', 'comanage', 'burn', 'dispose'];
 
 interface Cat { id: string; name: string; icon: string; ids: BuildingId[] }
 
@@ -35,6 +37,7 @@ export class Toolbar {
   private sig = '';
   private seen = new Set<string>();
   onTool: ((t: Tool) => void) | null = null;
+  countryOn: ((s: GameState) => boolean) | null = null;
 
   constructor(private tip: Tip) {
     this.tabsEl = h('div', { class: 'tabs panel', role: 'tablist' });
@@ -66,7 +69,7 @@ export class Toolbar {
     const ids = this.visibleIds(s);
     const cats = CATS.filter((c) => c.ids.some((id) => ids.includes(id)));
     if (!cats.some((c) => c.id === this.cat)) this.cat = cats[0]?.id ?? 'homes';
-    const sig = `${s.phase}|${this.cat}|${ids.join(',')}`;
+    const sig = `${s.phase}|${this.cat}|${ids.join(',')}|${s.circular?.unlocked}|${s.country?.unlocked.culturalBurning}`;
     if (sig !== this.sig) {
       this.sig = sig;
       clear(this.tabsEl);
@@ -96,7 +99,7 @@ export class Toolbar {
         this.toolsEl.appendChild(card);
       }
       // utility tools
-      const util = (key: 'inspect' | 'demolish' | 'clear', label: string, icon: string, hint: string): void => {
+      const util = (key: UtilTool, label: string, icon: string, hint: string): void => {
         const b = h('button', { class: 'tool util', 'aria-label': label, onclick: () => this.select(this.tool === key ? null : key) }, svg(icon), h('span', { class: 'nm' }, label));
         b.addEventListener('pointerenter', () => { const r = b.getBoundingClientRect(); this.tip.show(r.left + r.width / 2, r.top, `<b>${label}</b><br>${hint}`); });
         b.addEventListener('pointerleave', () => this.tip.hide());
@@ -105,11 +108,14 @@ export class Toolbar {
       };
       util('inspect', 'Inspect', UI_ICONS.info, 'Click a tile to see what is there. Shortcut: <kbd>I</kbd>');
       util('demolish', 'Demolish', UI_ICONS.demolish, 'Knock a building down (refunds 25%). Shortcut: <kbd>X</kbd>');
+      if (s.phase === 'act2' && s.circular?.unlocked) util('dispose', 'Old sites', UI_ICONS.demolish, 'Choose a future for an old Act 1 building: repurpose, recycle or landfill. Shortcut: <kbd>O</kbd>');
+      if (s.phase === 'act2' && this.countryOn?.(s)) util('comanage', 'Co-manage', UI_ICONS.sprout, 'Return a patch of bushland to shared care with the Traditional Owners.');
+      if (s.phase === 'act2' && s.country?.unlocked.culturalBurning) util('burn', 'Cool burn', UI_ICONS.fire, 'A small, cool mosaic burn on co-managed bush (autumn or winter). Cuts wildfire risk and helps regrowth.');
       if (s.phase === 'act1') util('clear', 'Clear bush', UI_ICONS.axe, 'Clear bushland for building ($1 per tile, releases CO₂). Placing a building on bush clears it automatically.');
     }
     // per-frame-cheap refresh of costs / locks
     for (const [id, card] of this.cards) {
-      if (id === 'inspect' || id === 'demolish' || id === 'clear') {
+      if (UTIL_TOOLS.includes(id)) {
         card.classList.toggle('sel', this.tool === id);
         continue;
       }
@@ -127,8 +133,8 @@ export class Toolbar {
   }
 
   select(t: Tool): void {
-    if (t && t !== 'demolish' && t !== 'clear' && t !== 'inspect' && this.state) {
-      const av = availability(this.state.scenarioId, t);
+    if (t && !UTIL_TOOLS.includes(t) && this.state) {
+      const av = availability(this.state.scenarioId, t as BuildingId);
       if (this.state.year < av.unlock) {
         sfx('error');
         return;
@@ -144,7 +150,7 @@ export class Toolbar {
 
   /** Number-key selection within the current tab. */
   selectIndex(i: number): void {
-    const keys = [...this.cards.keys()].filter((k) => k !== 'inspect' && k !== 'demolish' && k !== 'clear');
+    const keys = [...this.cards.keys()].filter((k) => !UTIL_TOOLS.includes(k));
     const k = keys[i];
     if (k) this.select(this.tool === k ? null : (k as Tool));
   }

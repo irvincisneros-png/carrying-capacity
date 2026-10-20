@@ -94,9 +94,9 @@ float ccGrowV = 1.0;
 #ifdef CC_SMOKE
 {
   float age = fract(uTime * iSmoke.y + iSmoke.x);
-  float sz = (0.35 + age * 1.6) * (1.0 - smoothstep(0.7, 1.0, age)) * smoothstep(0.0, 0.06, age) * iSmoke.z;
+  float sz = (0.35 + age * 1.6) * (1.0 - smoothstep(0.55, 0.92, age)) * smoothstep(0.0, 0.06, age) * iSmoke.z;
   transformed *= sz;
-  vec2 drift = uWind * age * (1.3 + 0.6 * iSmoke.z);
+  vec2 drift = uWind * age * age * (0.9 + 0.4 * iSmoke.z);
   transformed += vec3(drift.x + sin(age * 7.0 + iSmoke.x * 30.0) * 0.1, age * (1.9 + 0.5 * iSmoke.z), drift.y + cos(age * 5.0 + iSmoke.x * 20.0) * 0.09);
   ccGrowV = age;
   vCcSteam = iSmoke.w;

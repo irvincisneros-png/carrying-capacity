@@ -178,7 +178,8 @@ export function showEnding(s: GameState, onTitle: () => void, card?: ReportCard)
     reportCardView(rc),
     GraphsPanel.staticGraphs(s),
     h('h3', null, 'Think about it'),
-    h('textarea', { class: 'reflect', placeholder: 'What would you tell Sam and Jordan about the world you left them?' }),
+    ...(rc.reflection?.length ? rc.reflection : ['What would you tell Sam and Jordan about the world you left them?']).map((q) =>
+      h('div', { style: 'margin-top:8px' }, h('b', { style: 'font-size:14px' }, q), h('textarea', { class: 'reflect', rows: 2, placeholder: 'Your thoughts' }))),
     h('div', { class: 'modal-actions' }, h('button', { class: 'btn primary', onclick: onTitle }, 'Back to title')),
   ], { wide: true, closable: true });
   void objectiveRow;

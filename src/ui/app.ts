@@ -15,6 +15,7 @@ import { Clock, EnergyPanel, ObjectivesPanel, hazIcon } from './act2';
 import { clear, degC, fmt1, h, svg } from './dom';
 import { showDilemma, SpeciesPanel, Voices } from './empathy';
 import { beatChoice, dilemmaCard, reportCard, speciesList, storyLine } from './adapters';
+import { CountryPanel, ResearchPanel, SatellitePanel, showDisposal, siteName } from './layers';
 import type { DilemmaCard } from './types';
 import { GraphsPanel } from './graphs';
 import { Hud } from './hud';
@@ -62,6 +63,13 @@ export class App {
   private dilemmaQueue: { card: DilemmaCard; kind: 'dilemma' | 'beat' }[] = [];
   private act2Buttons: HTMLElement;
   private speciesYear = -1;
+  country: CountryPanel;
+  research: ResearchPanel;
+  sats: SatellitePanel;
+  private layerBtns: Record<'country' | 'research' | 'sats', HTMLButtonElement>;
+  private warnEl: HTMLElement;
+  private overlayFn: ((s: GameState) => ArrayLike<number>) | null = null;
+  private overlayRamp: import('../render/overlay').Ramp = 'heat';
 
   constructor(root: HTMLElement) {
     this.renderer = new GameRenderer(root);
@@ -81,7 +89,7 @@ export class App {
       graphs: () => this.toggleGraphs(),
       settings: () => showSettings(this.renderer, () => this.resetToTitle()),
       log: () => this.openLog(),
-      voices: () => this.voices.open(),
+      voices: () => { this.loadVoices(); this.voices.open(); },
       species: () => this.species.open(),
     });
     this.toolbar = new Toolbar(this.tip);
@@ -98,6 +106,29 @@ export class App {
     };
     this.voices.onNew = () => this.hud.voicesBtn.classList.remove('hidden');
     this.species = new SpeciesPanel();
+    this.species.onHabitat = (id) => this.setOverlay(id ? (st) => SIM.habitatMask(st, id) : null, 'habitat');
+    this.country = new CountryPanel((t) => this.toolbar.select(t));
+    this.research = new ResearchPanel((id) => {
+      const r = this.game.dispatch({ type: 'research', id });
+      if (r.ok) { sfx('good'); toast('Research complete', SIM.RESEARCH_BY_ID[id]?.name ?? id, 'good', UI_ICONS.sprout, 3500); }
+      else { sfx('error'); toast('Not yet', degC(r.reason ?? ''), 'warn', UI_ICONS.info, 4000); }
+      this.research.render(this.game.state);
+    });
+    this.sats = new SatellitePanel((o) => {
+      const r = this.game.dispatch({ type: 'subscribe', overlay: o });
+      if (r.ok) sfx('good'); else { sfx('error'); toast('Not yet', degC(r.reason ?? ''), 'warn', UI_ICONS.info, 4000); }
+      this.sats.render(this.game.state);
+    }, (o) => this.setOverlay(o ? (st) => SIM.overlayData(st, o) : null, o === 'forest' ? 'forest' : o === 'sealevel' ? 'flood' : o === 'fire' ? 'fire' : 'heat'));
+    this.toolbar.countryOn = (st) => { try { return SIM.countryActive(st); } catch { return false; } };
+    const lb = (title: string, icon: string, fn: () => void): HTMLButtonElement => h('button', { class: 'iconbtn hidden', title, 'aria-label': title, onclick: fn }, svg(icon));
+    this.layerBtns = {
+      country: lb('Caring for Country', UI_ICONS.sprout, () => this.country.open(this.game.state)),
+      research: lb('Recycling innovations', UI_ICONS.rotate, () => this.research.open(this.game.state)),
+      sats: lb('Satellites', UI_ICONS.target, () => this.sats.open(this.game.state)),
+    };
+    this.hud.el.querySelector('.hud-right')?.prepend(this.layerBtns.country, this.layerBtns.research, this.layerBtns.sats);
+    this.warnEl = h('div', { class: 'toast panel bad hidden', style: 'position:fixed;top:140px;left:50%;transform:translateX(-50%);z-index:44;max-width:420px' });
+    document.body.appendChild(this.warnEl);
     this.demand = h('div', { class: 'demand panel' });
     this.nextBtn = h('button', { class: 'btn primary nextbtn', onclick: () => this.nextDecade() }, svg(UI_ICONS.clock), 'Next decade');
     this.action = h('div', { class: 'action' }, this.demand, this.nextBtn);
@@ -285,6 +316,17 @@ export class App {
     this.logDrawer.classList.add('open');
   }
 
+  private loadVoices(): void {
+    if (this.voices.feed.length) return;
+    try {
+      const s = this.game.state;
+      for (const e of SIM.townVoices(s, 40)) {
+        const l = storyLine(s, e);
+        if (l) this.voices.feed.push({ ...l, at: undefined });
+      }
+    } catch { /* ignore */ }
+  }
+
   private toggleGraphs(): void {
     this.graphs.toggle();
     this.graphs.update(this.game.state);
@@ -328,11 +370,27 @@ export class App {
     this.energy.el.classList.toggle('hidden', !act2);
     this.objectives.el.classList.toggle('hidden', !act2);
     this.act2Buttons.classList.toggle('hidden', !act2 || window.innerWidth > 700);
+    const a2 = s.phase === 'act2' || s.phase === 'epilogue';
+    try {
+      this.layerBtns.country.classList.toggle('hidden', !a2 || !SIM.countryActive(s));
+      this.layerBtns.research.classList.toggle('hidden', !a2);
+      this.layerBtns.sats.classList.toggle('hidden', !a2);
+      const w = s.satellites?.warning;
+      const show = s.phase === 'act2' && !!w && !w.mitigated && s.satellites.overlays.sst;
+      this.warnEl.classList.toggle('hidden', !show);
+      if (show && !this.warnEl.childElementCount) {
+        this.warnEl.append(svg(UI_ICONS.coral), h('div', null, h('b', null, 'Satellite warning: marine heatwave coming'),
+          h('p', null, 'Sea-surface temperatures are building offshore. Cutting runoff now gives the reef a better chance.'),
+          h('button', { class: 'btn small teal', onclick: () => { const r = this.game.dispatch({ type: 'mitigate' }); if (r.ok) { sfx('good'); this.warnEl.replaceChildren(); } else toast('Not possible', degC(r.reason ?? ''), 'warn'); } }, `Cut runoff now ($${SIM.MITIGATION.cost}k)`)));
+      } else if (!show) this.warnEl.replaceChildren();
+    } catch { /* layer state missing in old saves */ }
+    if (this.overlayFn) this.renderer.setOverlay(this.overlayFn(s), this.overlayRamp);
     if (s.year !== this.speciesYear) {
       this.speciesYear = s.year;
       const sp = speciesList(s);
       this.species.set(sp);
       this.hud.speciesBtn.classList.toggle('hidden', !sp.length || s.phase === 'act1');
+      if (s.phase !== 'act1') this.hud.voicesBtn.classList.remove('hidden');
     }
     if (act2) {
       this.clock.setSpeed(this.game.speed);
@@ -340,6 +398,12 @@ export class App {
       this.objectives.update(s);
     }
     this.refreshHover();
+  }
+
+  private setOverlay(fn: ((s: GameState) => ArrayLike<number>) | null, ramp: import('../render/overlay').Ramp): void {
+    this.overlayFn = fn;
+    this.overlayRamp = ramp;
+    this.renderer.setOverlay(fn ? fn(this.game.state) : null, ramp);
   }
 
   private demandText(s: GameState): string {
@@ -478,17 +542,35 @@ export class App {
       else this.tip.hide();
       return;
     }
+    if (t === 'dispose') {
+      const it = SIM.itemAt(s, hv.tx, hv.ty);
+      const live = it && it.status === 'standing' ? it : undefined;
+      this.renderer.showCursor('demolish', hv.tx, hv.ty, 0, !!live, live ? { x: live.x, y: live.y, w: live.w, h: live.h } : undefined);
+      this.tip.show(px, py, live ? `<b>${BUILDINGS[live.type].name}</b><br>Click to choose its future` : 'Point at an old Act 1 building', live ? 'ok' : 'bad');
+      return;
+    }
+    if (t === 'comanage' || t === 'burn') {
+      const k = s.grid.kind[hv.ty * s.grid.w + hv.tx];
+      const ok = (k === TileKind.Bush || k === TileKind.Land) && !buildingAt(s, hv.tx, hv.ty);
+      this.renderer.showCursor('inspect', hv.tx, hv.ty, 0, ok, { x: hv.tx, y: hv.ty, w: 1, h: 1 });
+      this.tip.show(px, py, t === 'comanage' ? '<b>Co-manage this bush</b> · $15k<br>Shared care with the Traditional Owners' : '<b>Cool burn</b> · $12k<br>Co-managed bush, autumn or winter', ok ? 'ok' : 'bad');
+      return;
+    }
     if (t === 'clear') {
       const ok = s.grid.kind[hv.ty * s.grid.w + hv.tx] === TileKind.Bush;
       this.renderer.showCursor('clear', hv.tx, hv.ty, 0, ok);
       this.tip.show(px, py, ok ? `<b>Clear bush</b> · $${CLEAR_COST}k<br>Releases stored carbon as CO₂.` : 'Only bushland can be cleared', ok ? '' : 'bad');
       return;
     }
-    const a = this.anchor(t, hv.tx, hv.ty);
-    const chk = canPlace(s, t, a.x, a.y, this.rot);
-    this.renderer.showCursor(t, a.x, a.y, this.rot, chk.ok);
-    const def = BUILDINGS[t];
-    if (chk.ok) this.tip.show(px, py, `<b>${def.name}</b> · $${chk.cost}k${chk.bushCleared ? `<br>Clears ${chk.bushCleared} bush tile${chk.bushCleared > 1 ? 's' : ''} (releases CO₂)` : ''}`, 'ok');
+    const bt = t as BuildingId;
+    const a = this.anchor(bt, hv.tx, hv.ty);
+    const chk = canPlace(s, bt, a.x, a.y, this.rot);
+    this.renderer.showCursor(bt, a.x, a.y, this.rot, chk.ok);
+    const def = BUILDINGS[bt];
+    let sites: number[] = [];
+    try { sites = SIM.countryActive(s) ? SIM.footprintSites(s, a.x, a.y, a.w, a.h).filter((id) => !s.country.consulted.includes(id)) : []; } catch { sites = []; }
+    const siteWarn = sites.length ? '<br><b>⚠ A place that matters to the local community.</b> Inspect it and talk with them first.' : '';
+    if (chk.ok) this.tip.show(px, py, `<b>${def.name}</b> · $${chk.cost}k${chk.bushCleared ? `<br>Clears ${chk.bushCleared} bush tile${chk.bushCleared > 1 ? 's' : ''} (releases CO₂)` : ''}${siteWarn}`, 'ok');
     else this.tip.show(px, py, degC(chk.reason ?? 'Cannot build here'), 'bad');
   }
 
@@ -511,6 +593,22 @@ export class App {
       }
       return;
     }
+    if (t === 'dispose') {
+      this.openDisposal(tx, ty);
+      return;
+    }
+    if (t === 'comanage' || t === 'burn') {
+      const r = this.game.dispatch({ type: t, x: tx, y: ty });
+      if (r.ok) {
+        sfx('good');
+        this.renderer.sparkle(tx, ty, 1, 1, t === 'burn');
+        if (r.spent) floater(cx, cy - 20, `-$${r.spent}k`, 'cost');
+      } else {
+        sfx('error');
+        floater(cx, cy - 30, degC(r.reason ?? ''), 'bad');
+      }
+      return;
+    }
     if (t === 'clear') {
       const r = this.game.dispatch({ type: 'clear', x: tx, y: ty });
       if (r.ok) {
@@ -523,15 +621,16 @@ export class App {
       }
       return;
     }
-    const a = this.anchor(t, tx, ty);
-    const r = this.game.dispatch({ type: 'place', building: t, x: a.x, y: a.y, rotation: this.rot });
+    const bt = t as BuildingId;
+    const a = this.anchor(bt, tx, ty);
+    const r = this.game.dispatch({ type: 'place', building: bt, x: a.x, y: a.y, rotation: this.rot });
     if (r.ok) {
       sfx('place');
       setTimeout(() => sfx('coin'), 90);
       floater(cx, cy - 20, `-$${r.spent}k`, 'cost');
       const big = Math.max(a.w, a.h);
       if (big >= 2) this.renderer.rig?.shake(0.03 * big);
-      if (GREEN.has(t)) setTimeout(() => this.renderer.sparkle(a.x, a.y, a.w, a.h, t === 'nursery'), 450);
+      if (GREEN.has(bt)) setTimeout(() => this.renderer.sparkle(a.x, a.y, a.w, a.h, bt === 'nursery'), 450);
     } else if (!painting) {
       sfx('error');
       floater(cx, cy - 30, degC(r.reason ?? 'Cannot build here'), 'bad');
@@ -570,12 +669,45 @@ export class App {
     rows.push(kv('Water pollution', lvl(g.waterPollution[i] ?? 0)));
     rows.push(kv('Soil contamination', lvl(g.soilContamination[i] ?? 0)));
     rows.push(kv('Height', ['sea level', 'low', 'raised', 'high'][g.elevation[i] ?? 0] ?? '?'));
+    const site = g.significant?.[i] ?? 0;
+    if (site > 0 && SIM.countryActive(s)) {
+      const asked = s.country.consulted.includes(site);
+      rows.push(h('div', { class: 'fact', style: 'margin-top:8px' }, h('p', null, h('b', null, siteName(site)), h('br'),
+        asked ? 'You have talked with the community about this place.' : 'Aunty June has asked to be consulted before anything is built here.')));
+      if (!asked) rows.push(h('button', { class: 'btn small green', style: 'margin-top:6px', onclick: () => {
+        const r = this.game.dispatch({ type: 'consult', x: tx, y: ty });
+        if (r.ok) { sfx('good'); this.renderer.sparkle(tx, ty, 1, 1, true); this.inspectEl.classList.add('hidden'); }
+        else { sfx('error'); toast('Not yet', degC(r.reason ?? ''), 'warn', UI_ICONS.info, 4000); }
+      } }, svg(UI_ICONS.speech), 'Talk with the community first ($3k)'));
+    }
+    if (b && s.phase === 'act2') {
+      const it = SIM.itemAt(s, tx, ty);
+      if (it && it.status === 'standing') {
+        rows.push(h('button', { class: 'btn small teal', style: 'margin-top:6px', disabled: !s.circular.unlocked, title: s.circular.unlocked ? '' : 'Opens with the circular economy', onclick: () => this.openDisposal(tx, ty) }, svg(UI_ICONS.demolish), s.circular.unlocked ? 'Choose its future' : 'Old site: decide later'));
+      }
+    }
     this.inspectEl.replaceChildren(...rows, h('button', { class: 'linkbtn', onclick: () => this.inspectEl.classList.add('hidden') }, 'close'));
     this.inspectEl.classList.remove('hidden');
     const w = 280;
     this.inspectEl.style.left = `${Math.min(window.innerWidth - w - 10, Math.max(10, cx + 16))}px`;
     this.inspectEl.style.top = `${Math.min(window.innerHeight - this.inspectEl.offsetHeight - 10, Math.max(80, cy - 40))}px`;
     sfx('click');
+  }
+
+  private openDisposal(tx: number, ty: number): void {
+    const ok = showDisposal(this.game.state, tx, ty, (plan) => {
+      const r = this.game.dispatch({ type: 'dispose', x: tx, y: ty, how: plan.how, into: plan.how === 'repurpose' ? plan.id : undefined });
+      if (r.ok) {
+        sfx(plan.how === 'landfill' ? 'demolish' : 'good');
+        this.renderer.dust(tx, ty, 2, 2);
+        if (plan.how !== 'landfill') setTimeout(() => this.renderer.sparkle(tx, ty, 2, 2, plan.how === 'repurpose'), 500);
+      } else {
+        sfx('error');
+        toast('Not possible', degC(r.reason ?? ''), 'warn', UI_ICONS.info, 5000);
+      }
+    });
+    if (!ok) { sfx('error'); toast('Nothing to decide here', 'Choose an old Act 1 building that is still standing.', 'info', UI_ICONS.info, 3000); }
+    this.inspectEl.classList.add('hidden');
   }
 
   private exposeDebug(): void {

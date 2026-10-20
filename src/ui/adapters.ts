@@ -24,6 +24,11 @@ export function speaker(s: GameState, id: string | undefined, name?: string): Sp
 /** A tile near where a resident lives, so their speech bubble points somewhere meaningful. */
 export function homeTile(s: GameState, id: string | undefined): { x: number; y: number } | undefined {
   if (!id) return undefined;
+  try {
+    const def = fn('residentDef')?.(s.scenarioId, id);
+    const home = def ? fn('residentHome')?.(s, def) : null;
+    if (isObj(home) && typeof home.x === 'number' && typeof home.y === 'number') return { x: home.x, y: home.y };
+  } catch { /* fall back to the heuristic below */ }
   let near = 'town';
   try {
     const def = fn('residentDef')?.(s.scenarioId, id);
@@ -167,7 +172,7 @@ export function reportCard(s: GameState): ReportCard | undefined {
       stars: (Number(rc.stars) || 0) as 0 | 1 | 2 | 3,
       items,
       epilogues: residents.map((r) => ({ speaker: speaker(s, String(r.id), String(r.name)), text: `${r.title}. ${r.text}` })),
-      reflection: Array.isArray(rc.reflections) ? (rc.reflections as string[]) : undefined,
+      reflection: [...(Array.isArray(rc.reflections) ? (rc.reflections as string[]) : []), ...(typeof rc.letterPrompt === 'string' ? [rc.letterPrompt] : [])],
     };
   } catch {
     return undefined;

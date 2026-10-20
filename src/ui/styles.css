@@ -311,13 +311,13 @@ kbd { font: 700 11px/1 var(--font); background: var(--paper-3); border-radius: 5
   .tool .key { display: none; }
   .tab span.t { display: none; }
   .tab { padding: 6px 10px; }
-  .action { right: 8px; bottom: 136px; max-width: 220px; }
+  .action { right: 8px; bottom: 196px; max-width: 220px; }
   .demand { display: none; }
   .nextbtn { font-size: 15px; padding: 11px 14px; }
-  .undo { left: 8px; bottom: 136px; }
+  .undo { left: 8px; bottom: 196px; }
   .objectives, .energy { display: none; }
   .objectives.open, .energy.open { display: flex; left: 6px; right: 6px; width: auto; top: auto; bottom: 0; max-height: 60vh; z-index: 46; border-radius: 18px 18px 0 0; }
-  .clock { top: auto; bottom: 186px; left: 8px; transform: none; gap: 6px; padding: 4px 6px; }
+  .clock { top: auto; bottom: 250px; left: 8px; transform: none; gap: 6px; padding: 4px 6px; }
   .weather canvas { display: none; }
   .toasts { top: 112px; }
   .modal { padding: 18px 16px; }
@@ -325,3 +325,5 @@ kbd { font: 700 11px/1 var(--font); background: var(--paper-3); border-radius: 5
 }
 
 .side.folded > :not(.panel-head) { display: none; }
+.dil-opt[disabled] { opacity: .62; cursor: not-allowed; }
+.dil-opt[disabled]:hover { border-color: var(--line); background: var(--paper-2); }

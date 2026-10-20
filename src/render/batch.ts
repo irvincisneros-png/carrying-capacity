@@ -54,6 +54,8 @@ export class Batch {
     const m = new BatchedMesh(this.maxInst, this.maxVerts, this.maxVerts * 2, mat);
     m.sortObjects = false;
     m.perObjectFrustumCulled = true;
+    // the whole-batch bounding sphere is computed once and goes stale as instances are added
+    m.frustumCulled = false;
     return m;
   }
 

@@ -22,6 +22,7 @@ import { buildPipeline, type Pipeline } from './post';
 import { AutoTier, loadPref, savePref, TIERS, type GraphicsPref, type Tier } from './quality';
 import { dirtArmGeo, dirtHubGeo, railArmGeo, railHubGeo, roadArmGeo, roadHubGeo } from './roadgeo';
 import { Smoke } from './smoke';
+import { Overlay, type Ramp } from './overlay';
 import { buildTerrain } from './terrain';
 import { TileData } from './tiledata';
 import { Vegetation } from './vegetation';
@@ -53,6 +54,7 @@ interface World {
   fx: Fx;
   cursor: Cursor;
   rig: CameraRig;
+  overlay: Overlay;
   dispose(): void;
 }
 
@@ -186,6 +188,8 @@ export class GameRenderer {
     const smoke = new Smoke(this.lib, group);
     const fx = new Fx(this.lib, group);
     const cursor = new Cursor(map, this.lib.get({ key: 'ghost', kind: 'ghost', transparent: true }));
+    const overlay = new Overlay(tb.terrain, s.grid.w, s.grid.h, this.shared as unknown as Record<string, IUniform>);
+    group.add(overlay.mesh);
     group.add(cursor.group);
     bld.onPop = (x, y, z, size, demolish) => fx.dust(x, y, z, size, demolish);
     const rig = prevCam && prevCam.camera ? new CameraRig(this.renderer.domElement, s.grid.w, s.grid.h) : new CameraRig(this.renderer.domElement, s.grid.w, s.grid.h);
@@ -204,7 +208,7 @@ export class GameRenderer {
     this.clouds = makeClouds(this.shared as unknown as Record<string, IUniform>, Math.max(s.grid.w, s.grid.h));
     this.scene.add(this.clouds.mesh);
     this.world = {
-      key, map, group, tiles, veg, bld, amb, smoke, fx, cursor, rig,
+      key, map, group, tiles, veg, bld, amb, smoke, fx, cursor, rig, overlay,
       dispose: () => {
         this.scene.remove(group);
         group.traverse((o) => {
@@ -375,6 +379,11 @@ export class GameRenderer {
     else w.cursor.hideRing();
   }
 
+  /** Show a per-tile data layer (0..1 values) over the map, or hide it with null. */
+  setOverlay(values: ArrayLike<number> | null, ramp: Ramp = 'heat'): void {
+    this.world?.overlay.set(values, ramp);
+  }
+
   hideCursor(): void {
     this.world?.cursor.hide();
   }
@@ -490,6 +499,7 @@ export class GameRenderer {
     w.bld.update(dt, time);
     w.fx.update(dt);
     w.cursor.update(dt);
+    w.overlay.update(dt);
     if (this.pendingFires.length && this.pendingFires[0]!.until < time) {
       this.pendingFires = this.pendingFires.filter((f) => f.until >= time);
       this.refreshFireSmoke();
