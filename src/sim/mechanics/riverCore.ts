@@ -14,12 +14,12 @@ export const RIVER = {
   baseFlow: 12,
   /** Seasonal shape: summer, autumn, winter, spring. Mean 1. */
   shape: [0.8, 0.6, 1.0, 1.6] as readonly number[],
-  droughtFlow: 0.45,
+  droughtFlow: 0.35,
   /** Share of flow lost per degree of warming above 0.5. */
   warmDry: 0.07,
-  townPerPop: 0.0004,
+  townPerPop: 0.0012,
   townSeason: [1.3, 0.9, 0.8, 1.0] as readonly number[],
-  farmPerFarm: 0.42,
+  farmPerFarm: 0.6,
   irrigation: [1.5, 0.7, 0.15, 1.0] as readonly number[],
   dripSaving: 0.4,
   baseStorage: 1.2,
@@ -32,6 +32,8 @@ export const RIVER = {
   dripSalt: 0.35,
   /** Extra salt decay near the river when it runs high (flushing). */
   flush: 0.03,
+  /** Scales the chance of a blue-green algae bloom. */
+  bloomK: 2,
   townFailBelow: 0.9,
   townFailFromYear: 2041,
 } as const;

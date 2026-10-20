@@ -9,7 +9,7 @@ export const RIVER_TOWN: ScenarioDef = {
   blurb: 'A Murray-Darling inland town: share the river between the taps, the farms and the fish, through droughts, salt and algae.',
   biome: 'inland-river',
   mechanics: ['river'],
-  playMinutes: [70, 110],
+  playMinutes: [75, 110],
   mapW: 32,
   mapH: 32,
   seed: 1901,
@@ -26,7 +26,7 @@ export const RIVER_TOWN: ScenarioDef = {
     resort: { disabled: true },
     seawall: { disabled: true },
   },
-  modifiers: { budgetMult: 1, eventSeverity: 1.3, climateSensitivityMult: 1, remediationYears: 25, hintLevel: 1 },
+  modifiers: { budgetMult: 1, eventSeverity: 1.5, climateSensitivityMult: 1.1, remediationYears: 25, hintLevel: 1 },
   policies: [
     {
       id: 'alloc.town', label: 'Town water share', min: 0.05, max: 0.6, step: 0.05, default: 0.15, unit: 'of the river',
@@ -45,8 +45,9 @@ export const RIVER_TOWN: ScenarioDef = {
     features: { tidal: false },
     weedPressure: 1,
     fireProneness: 1.2,
-    rainfall: 0.8,
-    eventMult: { drought: 1.5, heatwave: 1.2 },
+    rainfall: 0.75,
+    floodRunoff: 0.35,
+    eventMult: { drought: 2.5, heatwave: 1.2 },
     turningPoint: RIVER_TOWN_TURNING,
     objectives: [
       { id: 'river', label: 'Bring the river back to good health (60 or more)', metric: 'riverHealth', op: '>=', target: 60 },
