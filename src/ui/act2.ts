@@ -1,0 +1,249 @@
+// Act 2 widgets: real-time clock + season dial + speed buttons, weather vs 30-year climate, hazard chips,
+// energy (supply vs demand, day / night, blackouts) and objectives.
+import type { Speed } from '../game/controller';
+import { EVENT_NAMES } from '../content/act2';
+import { eventChances } from '../sim/events';
+import { objectiveStatus } from '../sim/objectives';
+import { hash32, seasonWeather } from '../sim/season';
+import { getScenario } from '../sim/scenarios';
+import type { EnergySource, EventType, GameState, GridBlock, ObjectiveResult } from '../sim/types';
+import { clear, degC, fmt1, h, svg } from './dom';
+import { UI_ICONS } from './icons';
+
+const SEASONS = ['Summer', 'Autumn', 'Winter', 'Spring'];
+
+// ---------------------------------------------------------------- clock
+export class Clock {
+  el: HTMLElement;
+  private dial: HTMLElement;
+  private label: HTMLElement;
+  private yearL: HTMLElement;
+  private speedBtns: HTMLButtonElement[] = [];
+  private wIcon: HTMLElement;
+  private wText: HTMLElement;
+  private spark: HTMLCanvasElement;
+  readonly hazards: HTMLElement;
+  private lastSeason = -1;
+  private lastHaz = '';
+
+  constructor(onSpeed: (s: Speed) => void) {
+    this.dial = h('i');
+    this.label = h('span', null, 'Summer');
+    this.yearL = h('small', null, '2025');
+    const sp = (s: Speed, icon: string, label: string): HTMLButtonElement => {
+      const b = h('button', { 'aria-label': label, title: `${label}${s === 0 ? ' (Space)' : ''}`, onclick: () => onSpeed(s) }, svg(icon), s > 1 ? `${s}` : '');
+      this.speedBtns.push(b);
+      return b;
+    };
+    this.wIcon = h('span', { class: 'ic' });
+    this.wText = h('small', null, 'Weather');
+    this.spark = h('canvas', { width: 184, height: 68, title: 'Each dot is one year\'s weather; the line is the 30-year climate average' });
+    this.hazards = h('div', { class: 'hazards' });
+    this.el = h('div', { class: 'clock panel hidden' },
+      h('div', { class: 'season' }, h('div', { class: 'season-dial', 'aria-hidden': 'true' }, this.dial), h('div', null, this.yearL, this.label)),
+      h('div', { class: 'speeds' }, sp(0, UI_ICONS.pause, 'Pause'), sp(1, UI_ICONS.play, 'Play 1x'), sp(2, UI_ICONS.fast, 'Fast 2x'), sp(4, UI_ICONS.faster, 'Fastest 4x')),
+      h('div', { class: 'weather' }, this.wIcon, h('div', null, this.wText, this.spark)),
+      this.hazards);
+  }
+
+  setSpeed(s: Speed): void {
+    const map: Speed[] = [0, 1, 2, 4];
+    this.speedBtns.forEach((b, i) => b.classList.toggle('on', map[i] === s));
+  }
+
+  update(s: GameState, frac: number): void {
+    const season = s.a2.season;
+    const t = (season + frac) / 4;
+    this.dial.style.transform = `rotate(${t * 360 + 180}deg)`;
+    if (season === this.lastSeason) return;
+    this.lastSeason = season;
+    this.label.textContent = SEASONS[season] ?? '';
+    this.yearL.textContent = String(s.year);
+    // weather icon for this season
+    const sc = getScenario(s.scenarioId);
+    const idx = (s.year - sc.startYear) * 4 + season;
+    const w = seasonWeather(s.seed, idx);
+    const active = new Set(s.a2.active.map((a) => a.type));
+    let icon: string = UI_ICONS.sun;
+    let txt = 'Fine';
+    if (active.has('heatwave')) { icon = UI_ICONS.hot; txt = 'Heatwave'; }
+    else if (active.has('drought')) { icon = UI_ICONS.dry; txt = 'Drought'; }
+    else if (w.rain > 1.15) { icon = UI_ICONS.rain; txt = 'Wet'; }
+    else if (w.wind > 1.25) { icon = UI_ICONS.storm; txt = 'Windy'; }
+    else if (w.cloud > 0.95) { icon = UI_ICONS.cloud; txt = 'Cloudy'; }
+    else if (w.cloud > 0.88) { icon = UI_ICONS.partsun; txt = 'Mild'; }
+    this.wIcon.innerHTML = icon;
+    this.wText.textContent = `${txt} · weather vs climate`;
+    this.drawSpark(s);
+    // hazards
+    const ch = eventChances(s).filter((e) => e.type !== 'blackout' && e.type !== 'fish-kill' ? e.p > 0.02 : e.p > 0.05);
+    const sig = ch.map((c) => `${c.type}${Math.round(c.p * 20)}`).join();
+    if (sig !== this.lastHaz) {
+      this.lastHaz = sig;
+      clear(this.hazards);
+      for (const c of ch.sort((a, b) => b.p - a.p).slice(0, 3)) {
+        const lvl = c.p > 0.25 ? 3 : c.p > 0.1 ? 2 : 1;
+        this.hazards.appendChild(h('span', { class: `hz l${lvl}`, title: `${EVENT_NAMES[c.type]}: ${Math.round(c.p * 100)}% chance this season` }, svg(hazIcon(c.type)), `${Math.round(c.p * 100)}%`));
+      }
+    }
+  }
+
+  private drawSpark(s: GameState): void {
+    const c = this.spark;
+    const g = c.getContext('2d');
+    if (!g) return;
+    const W = c.width, H = c.height;
+    g.clearRect(0, 0, W, H);
+    // years of temperature: Act 1 decades interpolated + Act 2 yearly
+    const pts: { y: number; t: number }[] = [];
+    for (const r of s.a2.yearly) pts.push({ y: r.year, t: r.tempC });
+    const hist = s.history;
+    if (pts.length < 30) {
+      for (let y = s.year - 40; y < (pts[0]?.y ?? s.year); y++) {
+        let t = s.tempC;
+        for (let i = 0; i < hist.length - 1; i++) {
+          const a = hist[i]!, b = hist[i + 1]!;
+          if (y >= a.year && y <= b.year) t = a.tempC + ((b.tempC - a.tempC) * (y - a.year)) / (b.year - a.year);
+        }
+        pts.unshift({ y, t });
+      }
+      pts.sort((a, b) => a.y - b.y);
+    }
+    const recent = pts.slice(-40);
+    const wx = recent.map((p) => ({ y: p.y, t: p.t + ((hash32(s.seed, p.y) % 1000) / 1000 - 0.5) * 0.7 }));
+    let lo = Infinity, hi = -Infinity;
+    for (const p of wx) { lo = Math.min(lo, p.t); hi = Math.max(hi, p.t); }
+    lo -= 0.1; hi += 0.1;
+    const X = (i: number): number => 4 + (i / Math.max(1, wx.length - 1)) * (W - 8);
+    const Y = (t: number): number => H - 6 - ((t - lo) / (hi - lo)) * (H - 12);
+    g.fillStyle = 'rgba(61,111,176,0.55)';
+    wx.forEach((p, i) => { g.beginPath(); g.arc(X(i), Y(p.t), 2.4, 0, Math.PI * 2); g.fill(); });
+    g.strokeStyle = '#c0583a';
+    g.lineWidth = 3;
+    g.beginPath();
+    wx.forEach((_, i) => {
+      const a = wx.slice(Math.max(0, i - 29), i + 1);
+      const m = a.reduce((n, q) => n + q.t, 0) / a.length;
+      if (i) g.lineTo(X(i), Y(m)); else g.moveTo(X(i), Y(m));
+    });
+    g.stroke();
+  }
+}
+
+export function hazIcon(t: EventType | 'story' | string): string {
+  switch (t) {
+    case 'heatwave': return UI_ICONS.hot;
+    case 'bushfire': return UI_ICONS.fire;
+    case 'drought': return UI_ICONS.dry;
+    case 'flood': return UI_ICONS.wave;
+    case 'marine-heatwave': return UI_ICONS.coral;
+    case 'fish-kill': return UI_ICONS.fish;
+    case 'blackout': return UI_ICONS.bolt;
+    case 'story': return UI_ICONS.speech;
+    default: return UI_ICONS.info;
+  }
+}
+
+// ---------------------------------------------------------------- energy
+const SRC_COL: Record<EnergySource, string> = {
+  coal: '#4a4442', gas: '#9a8a7a', 'rooftop-solar': '#f2c230', 'solar-farm': '#e0a52a', wind: '#5fb8c8', 'offshore-wind': '#2f8f9d',
+  hydro: '#3d6fb0', 'pumped-hydro': '#5a7ac0', battery: '#5f9a4e', tidal: '#7a5aa8',
+};
+const SRC_NAME: Record<EnergySource, string> = {
+  coal: 'Coal', gas: 'Gas', 'rooftop-solar': 'Rooftop solar', 'solar-farm': 'Solar farm', wind: 'Wind', 'offshore-wind': 'Offshore wind',
+  hydro: 'Hydro', 'pumped-hydro': 'Pumped hydro', battery: 'Battery', tidal: 'Tidal',
+};
+const ORDER: EnergySource[] = ['coal', 'gas', 'hydro', 'wind', 'offshore-wind', 'tidal', 'solar-farm', 'rooftop-solar', 'pumped-hydro', 'battery'];
+
+export class EnergyPanel {
+  el: HTMLElement;
+  private body: HTMLElement;
+  private lastIdx = -1;
+
+  constructor() {
+    this.body = h('div');
+    this.el = h('div', { class: 'side energy panel hidden' }, h('div', { class: 'panel-head' }, h('h3', null, svg(UI_ICONS.bolt), 'Power grid'), h('button', { class: 'linkbtn', onclick: (e: Event) => collapse(this.el, e) }, 'hide')), this.body);
+  }
+
+  update(s: GameState): void {
+    const gr = s.a2.lastGrid;
+    if (!gr) {
+      this.body.innerHTML = '<p class="muted" style="font-size:13px;margin:6px 0">The grid report appears after the first season.</p>';
+      return;
+    }
+    if (gr.seasonIndex === this.lastIdx) return;
+    this.lastIdx = gr.seasonIndex;
+    clear(this.body);
+    const max = Math.max(gr.day.demand, gr.night.demand, gr.day.supply + gr.day.unmet, gr.night.supply, 1) * 1.08;
+    const row = (label: string, icon: string, b: GridBlock): HTMLElement => {
+      const bar = h('div', { class: 'en-bar', title: `${label}: supply ${fmt1(b.supply)} vs demand ${fmt1(b.demand)}` });
+      for (const src of ORDER) {
+        const v = b.bySource[src] ?? 0;
+        if (v <= 0.01) continue;
+        bar.appendChild(h('i', { style: `width:${(v / max) * 100}%;background:${SRC_COL[src]}`, title: `${SRC_NAME[src]} ${fmt1(v)}` }));
+      }
+      if (b.unmet > 0.01) bar.appendChild(h('i', { style: `width:${(b.unmet / max) * 100}%;background:repeating-linear-gradient(45deg,#c0483a 0 4px,#f2c4b6 4px 8px)`, title: `Unmet ${fmt1(b.unmet)}` }));
+      bar.appendChild(h('span', { class: 'dem', style: `left:${(b.demand / max) * 100}%`, title: 'Demand' }));
+      return h('div', { class: 'en-row' }, h('span', { class: 'lbl' }, svg(icon), label), bar);
+    };
+    this.body.appendChild(row('Day', UI_ICONS.sun, gr.day));
+    this.body.appendChild(row('Night', UI_ICONS.moon, gr.night));
+    const used = ORDER.filter((k) => (gr.generation[k] ?? 0) > 0.01 || (gr.capacity[k] ?? 0) > 0);
+    this.body.appendChild(h('div', { class: 'legend', style: 'margin-top:8px' }, ...used.map((k) => h('span', null, h('i', { style: `background:${SRC_COL[k]}` }), SRC_NAME[k])),
+      h('span', null, h('i', { style: 'background:#2d241e;width:3px' }), 'Demand')));
+    this.body.appendChild(h('div', { class: 'en-foot' },
+      h('span', null, `${Math.round(gr.renewableShare * 100)}% renewable`),
+      gr.blackout ? h('span', { class: 'blackout' }, `Blackout ${Math.round(gr.unmetFrac * 100)}%`) : h('span', null, `Storage ${fmt1(gr.storageLevel)}`)));
+  }
+}
+
+// ---------------------------------------------------------------- objectives
+export class ObjectivesPanel {
+  el: HTMLElement;
+  private list: HTMLElement;
+  private sig = '';
+
+  constructor() {
+    this.list = h('div');
+    this.el = h('div', { class: 'side objectives panel hidden' }, h('div', { class: 'panel-head' }, h('h3', null, svg(UI_ICONS.target), 'Goals for 2100'), h('button', { class: 'linkbtn', onclick: (e: Event) => collapse(this.el, e) }, 'hide')), this.list);
+  }
+
+  update(s: GameState): void {
+    let objs: ObjectiveResult[];
+    try {
+      objs = objectiveStatus(s);
+    } catch {
+      objs = [];
+    }
+    const sig = objs.map((o) => `${o.id}:${o.status}:${o.current === null ? 'n' : Math.round(o.current * 10)}`).join('|');
+    if (sig === this.sig) return;
+    this.sig = sig;
+    clear(this.list);
+    for (const o of objs) this.list.appendChild(objectiveRow(o));
+  }
+}
+
+export function objectiveRow(o: ObjectiveResult): HTMLElement {
+  const icon = o.status === 'met' || o.status === 'on-track' ? UI_ICONS.check : o.status === 'missed' ? UI_ICONS.cross : o.status === 'at-risk' ? UI_ICONS.warn : UI_ICONS.clock;
+  let pct = 0;
+  if (o.current !== null) {
+    if (o.op === '>=') pct = Math.max(0, Math.min(1, o.current / Math.max(1e-6, o.target)));
+    else pct = o.current <= o.target ? 1 : Math.max(0, 1 - (o.current - o.target) / Math.max(0.5, o.target));
+  }
+  const unit = o.metric === 'warming' ? ' °C' : '';
+  const val = o.current === null ? (o.pendingTier ? `Comes with a later update (${o.pendingTier})` : 'Not measured yet') : `Now ${o.metric === 'warming' ? fmt1(o.current) : Math.round(o.current)}${unit} · target ${o.op === '<=' ? '≤' : '≥'} ${o.target}${unit}`;
+  const label = { 'on-track': 'On track', 'at-risk': 'At risk', met: 'Met', missed: 'Missed', pending: 'Later' }[o.status];
+  return h('div', { class: `obj ${o.status} ${o.bonus ? 'bonus' : ''}` }, svg(icon),
+    h('div', { style: 'flex:1;min-width:0' }, h('div', { class: 'lab' }, degC(o.label)), h('div', { class: 'val' }, `${label} · ${val}`), h('div', { class: 'bar' }, h('i', { style: `width:${pct * 100}%` }))));
+}
+
+/** Mobile: close the bottom sheet. Desktop: fold the panel down to its title. */
+function collapse(el: HTMLElement, e: Event): void {
+  if (el.classList.contains('open')) {
+    el.classList.remove('open');
+    return;
+  }
+  const folded = el.classList.toggle('folded');
+  const btn = e.currentTarget as HTMLElement;
+  btn.textContent = folded ? 'show' : 'hide';
+}
