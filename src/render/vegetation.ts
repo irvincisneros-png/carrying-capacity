@@ -1,0 +1,251 @@
+// Instanced vegetation, reef and rocks driven by the simulation grid (stage-aware in Act 2).
+import { Color, DoubleSide, type Group, type BufferGeometry } from 'three';
+import { reefHealth } from '../sim/climate';
+import { TileKind, type GameState } from '../sim/types';
+import { InstSet } from './instset';
+import type { MapGeo } from './mapgeo';
+import type { MatLib, MatSpec } from './materials';
+import { hash2 } from './noise';
+import {
+  banksiaGeo, coralGeo, eucalyptGeo, grassTreeGeo, mangroveGeo, rockGeo, saltmarshGeo, seagrassGeo, tuftGeo, wattleGeo,
+} from './vegassets';
+
+const SPEC: Record<string, MatSpec> = {
+  tree: { key: 'tree', kind: 'foliage', anim: true, sway: [0.5, 0.045], sph: true },
+  shrub: { key: 'shrub', kind: 'foliage', anim: true, sway: [0.05, 0.25], sph: true },
+  grassTree: { key: 'grasstree', kind: 'foliage', anim: true, sway: [0.25, 0.35], sph: true, side: DoubleSide },
+  tuft: { key: 'tuft', kind: 'foliage', anim: true, sph: true },
+  mangrove: { key: 'mangrove', kind: 'foliage', anim: true, sway: [0.25, 0.12], sph: true },
+  seagrass: { key: 'seagrass', kind: 'foliage', anim: true, sway: [0.0, 1.6], sph: true, side: DoubleSide, noSmog: true },
+  coral: { key: 'coral', kind: 'coral', anim: true, noSmog: true },
+  rock: { key: 'rock', kind: 'prop' },
+};
+
+const TUFT_GREEN = [0x8aa05a, 0x9fae62, 0x7d9a56, 0x6f8c4a];
+const TUFT_DRY = [0xc2b25e, 0xb7a95a, 0xa9a05c, 0xcdb873];
+const TUFT_DUNE = [0xb9b878, 0xa8b070, 0xc8c38a];
+const SALT = [0xc7b0a0, 0xd4a29a, 0xb8c094];
+const CORAL = [0xe05a8a, 0x9b5bd1, 0xf08a3c, 0x3cc0b0, 0xf2c94c, 0xd6457a, 0x6fa8ff, 0xff7a5c];
+const ROCK = [0xe0c49a, 0xcfa070, 0xe8d2a8, 0xbf8f62, 0xd6b486];
+const BLEACHED = new Color(0xeee8dc);
+const DEAD = new Color(0x8f8576);
+
+const _c = new Color();
+const _c2 = new Color();
+
+/** Slot offsets inside a tile, roughly spread so instances overlap less. */
+const SLOT4: [number, number][] = [[-0.22, -0.2], [0.24, -0.1], [-0.08, 0.25], [0.22, 0.28]];
+const SLOT6: [number, number][] = [[-0.3, -0.28], [0.05, -0.32], [0.32, -0.05], [-0.28, 0.12], [0.02, 0.3], [0.3, 0.32]];
+
+export class Vegetation {
+  private sets: Record<string, InstSet> = {};
+  private frac = 1;
+  private detail: 0 | 1 = 1;
+  readonly group: Group;
+
+  constructor(private map: MapGeo, private lib: MatLib, group: Group) {
+    this.group = group;
+    const n = map.w * map.h;
+    const add = (name: string, geo: BufferGeometry, spec: MatSpec, cap: number, slots: number, color: boolean, cast: boolean): void => {
+      const s = new InstSet(geo, lib.get(spec), cap, n * slots, color);
+      s.mesh.castShadow = cast;
+      s.mesh.receiveShadow = true;
+      const dm = lib.depth(spec);
+      if (dm) s.mesh.customDepthMaterial = dm;
+      s.mesh.name = `veg:${name}`;
+      group.add(s.mesh);
+      this.sets[name] = s;
+    };
+    add('eucA', eucalyptGeo(1, 0, 3), SPEC.tree!, 1200, 4, true, true);
+    add('eucB', eucalyptGeo(1, 1, 8), SPEC.tree!, 800, 4, true, true);
+    add('shrub', banksiaGeo(1), SPEC.shrub!, 800, 4, true, true);
+    add('wattle', wattleGeo(1), SPEC.shrub!, 600, 3, true, true);
+    add('tuft', tuftGeo(), SPEC.tuft!, 3000, 8, true, false);
+    add('grassTree', grassTreeGeo(), SPEC.grassTree!, 300, 2, false, true);
+    add('mangrove', mangroveGeo(1), SPEC.mangrove!, 400, 4, false, true);
+    add('salt', saltmarshGeo(), SPEC.tuft!, 400, 4, true, false);
+    add('seagrass', seagrassGeo(), SPEC.seagrass!, 800, 4, false, false);
+    add('coral', coralGeo(), SPEC.coral!, 800, 6, true, false);
+    add('rock', rockGeo(4), SPEC.rock!, 400, 3, true, true);
+  }
+
+  /** Graphics tier: foliage fraction and model detail. */
+  setTier(frac: number, detail: 0 | 1): void {
+    this.frac = frac;
+    if (detail !== this.detail) {
+      this.detail = detail;
+      this.sets.eucA!.setGeometry(eucalyptGeo(detail, 0, 3));
+      this.sets.eucB!.setGeometry(eucalyptGeo(detail, 1, 8));
+      this.sets.shrub!.setGeometry(banksiaGeo(detail));
+      this.sets.wattle!.setGeometry(wattleGeo(detail));
+      this.sets.mangrove!.setGeometry(mangroveGeo(detail));
+    }
+  }
+
+  snapNext(): void {
+    for (const s of Object.values(this.sets)) s.snapNext();
+  }
+
+  rebuild(s: GameState, now: number): void {
+    const S = this.sets;
+    for (const set of Object.values(S)) {
+      set.now = now;
+      set.begin();
+    }
+    const g = s.grid;
+    const map = this.map;
+    const W = g.w;
+    const act2 = s.phase === 'act2' || s.phase === 'epilogue' || s.phase === 'failed';
+    const ff = this.frac;
+    const keep = (t: number, slot: number, salt: number): boolean => hash2(t * 7 + slot, salt) < ff;
+    for (let ty = 0; ty < g.h; ty++) {
+      for (let tx = 0; tx < W; tx++) {
+        const t = ty * W + tx;
+        if ((g.building[t] ?? 0) !== 0) continue;
+        const k = g.kind[t] ?? 0;
+        const cx = map.cx(tx);
+        const cz = map.cz(ty);
+        const r = (slot: number, salt: number): number => hash2(t * 13 + slot * 101, salt);
+        const pos = (slots: [number, number][], slot: number, jit: number): [number, number] => {
+          const o = slots[slot % slots.length]!;
+          return [cx + o[0] + (r(slot, 1) - 0.5) * jit, cz + o[1] + (r(slot, 2) - 0.5) * jit];
+        };
+        const water = g.waterPollution[t] ?? 0;
+        const stage = g.stage[t] ?? 0;
+        const health = g.health[t] ?? 0;
+        // ---- land
+        if (k === TileKind.Land || k === TileKind.Bush) {
+          let trees = 0, shrubs = 0, tufts = 0, weeds = 0;
+          let young = 1;
+          let dry = false;
+          if (!act2) {
+            if (k === TileKind.Bush) { trees = 3; shrubs = 1; tufts = 1; }
+            else { tufts = 2; dry = true; if (r(9, 3) < 0.07) trees = 1; }
+          } else if ((g.weed[t] ?? 0) === 1) {
+            weeds = 3; tufts = 1; dry = true;
+          } else {
+            const st = k === TileKind.Bush ? Math.max(stage, 3) : stage;
+            if (st === 0) { if (r(9, 4) < 0.25) tufts = 1; dry = true; }
+            else if (st === 1) { tufts = 4; }
+            else if (st === 2) { shrubs = 2; tufts = 2; trees = health > 0.55 ? 1 : 0; young = 0.55; }
+            else { trees = 3; shrubs = 1; tufts = 1; young = Math.min(1, 0.6 + (health - 0.66) * 1.4); }
+          }
+          for (let i = 0; i < trees + (ff > 1 && trees >= 3 ? 1 : 0); i++) {
+            if (!keep(t, i, 11) && !(trees === 1 && i === 0 && ff >= 0.35)) continue;
+            const [x, z] = pos(SLOT4, i, 0.18);
+            const big = r(i, 5) < 0.62;
+            const set = big ? S.eucA! : S.eucB!;
+            _c.setHSL(0.27 + (r(i, 6) - 0.5) * 0.06, 0.2 + r(i, 7) * 0.15, 0.5).lerp(_c2.setRGB(1, 1, 1), 0.72);
+            set.push(t * 4 + i, x, map.heightAt(x, z) - 0.02, z, r(i, 8) * 6.28, (0.72 + r(i, 9) * 0.36) * young, 1, (r(i, 10) - 0.5) * 0.12, _c);
+          }
+          for (let i = 0; i < shrubs; i++) {
+            if (!keep(t, i + 4, 12)) continue;
+            const [x, z] = pos(SLOT6, i + 2, 0.25);
+            const sc = 0.85 + r(i, 13) * 0.45;
+            if (r(i, 14) < 0.5) S.wattle!.push(t * 3 + (i % 3), x, map.heightAt(x, z) - 0.01, z, r(i, 15) * 6.28, sc, 1, 0, 0xffffff);
+            else S.shrub!.push(t * 4 + i, x, map.heightAt(x, z) - 0.01, z, r(i, 15) * 6.28, sc, 1, 0, 0xffffff);
+          }
+          for (let i = 0; i < weeds; i++) {
+            const [x, z] = pos(SLOT6, i, 0.3);
+            S.shrub!.push(t * 4 + 2 + (i % 2), x, map.heightAt(x, z) - 0.01, z, r(i, 16) * 6.28, 0.9 + r(i, 17) * 0.5, 0.8, 0, 0xc49ab8);
+          }
+          for (let i = 0; i < tufts * 2; i++) {
+            if (!keep(t, i + 8, 18)) continue;
+            const [x, z] = pos(SLOT6, i + 3, 0.3);
+            const pal = dry ? TUFT_DRY : TUFT_GREEN;
+            S.tuft!.push(t * 8 + i, x, map.heightAt(x, z) - 0.01, z, r(i, 19) * 6.28, 0.7 + r(i, 20) * 0.8, 1, 0, pal[(r(i, 21) * pal.length) | 0]!);
+          }
+          if (k === TileKind.Bush && (g.elevation[t] ?? 0) >= 2 && r(0, 22) < 0.35) {
+            const [x, z] = pos(SLOT6, 4, 0.2);
+            S.grassTree!.push(t * 2, x, map.heightAt(x, z) - 0.01, z, r(0, 23) * 6.28, 0.9 + r(0, 24) * 0.3);
+          }
+          continue;
+        }
+        // ---- beach dunes
+        if (k === TileKind.Beach) {
+          const n = act2 ? (stage >= 1 ? 2 + stage : 0) : r(0, 30) < 0.5 ? 2 : 0;
+          for (let i = 0; i < n; i++) {
+            if (!keep(t, i + 8, 31)) continue;
+            const [x, z] = pos(SLOT6, i, 0.3);
+            const y = map.heightAt(x, z);
+            if (y < 0.03) continue;
+            S.tuft!.push(t * 8 + i, x, y - 0.01, z, r(i, 32) * 6.28, 0.6 + r(i, 33) * 0.6, 0.8, 0, TUFT_DUNE[(r(i, 34) * TUFT_DUNE.length) | 0]!);
+          }
+          if (act2 && stage >= 2) {
+            const [x, z] = pos(SLOT6, 5, 0.2);
+            const y = map.heightAt(x, z);
+            if (y > 0.03) S.shrub!.push(t * 4, x, y - 0.01, z, r(1, 35) * 6.28, 0.8, 0.8, 0, 0xffffff);
+          }
+          continue;
+        }
+        // ---- sandstone
+        if (k === TileKind.Rock) {
+          const n = 1 + (r(0, 40) < 0.5 ? 1 : 0);
+          for (let i = 0; i < n; i++) {
+            const [x, z] = pos(SLOT4, i, 0.3);
+            S.rock!.push(t * 3 + i, x, map.heightAt(x, z) - 0.07, z, r(i, 41) * 6.28, 0.22 + r(i, 42) * 0.3, 0.45 + r(i, 43) * 0.5, 0, ROCK[(r(i, 44) * ROCK.length) | 0]!);
+          }
+          if (r(0, 45) < 0.45 && keep(t, 1, 46)) {
+            const [x, z] = pos(SLOT4, 2, 0.2);
+            S.grassTree!.push(t * 2 + 1, x, map.heightAt(x, z) - 0.01, z, r(0, 47) * 6.28, 0.85 + r(0, 48) * 0.35);
+          }
+          if (r(0, 49) < 0.35 && keep(t, 2, 50)) {
+            const [x, z] = pos(SLOT4, 3, 0.2);
+            S.shrub!.push(t * 4 + 3, x, map.heightAt(x, z) - 0.01, z, r(0, 51) * 6.28, 0.8, 1, 0, 0xffffff);
+          }
+          continue;
+        }
+        // ---- estuary: mangroves + saltmarsh
+        if (k === TileKind.Estuary) {
+          let st: number;
+          if (act2) st = stage;
+          else {
+            const p = Math.max(0, 0.9 - 0.5 * water);
+            st = p >= 0.65 ? 3 : p >= 0.4 ? 2 : p >= 0.2 ? 1 : 0;
+          }
+          const mang = st >= 3 ? 3 : st >= 2 ? 1 : 0;
+          const salt = st >= 1 ? (st >= 2 ? 3 : 1) : 0;
+          for (let i = 0; i < mang; i++) {
+            if (!keep(t, i, 52)) continue;
+            const [x, z] = pos(SLOT4, i, 0.25);
+            S.mangrove!.push(t * 4 + i, x, Math.max(map.heightAt(x, z), -0.14), z, r(i, 53) * 6.28, (0.8 + r(i, 54) * 0.45) * (st >= 3 ? 1 : 0.7));
+          }
+          for (let i = 0; i < salt; i++) {
+            const [x, z] = pos(SLOT6, i + 2, 0.3);
+            S.salt!.push(t * 4 + i, x, Math.max(map.heightAt(x, z), -0.03), z, r(i, 55) * 6.28, 0.9 + r(i, 56) * 0.6, 1, 0, SALT[(r(i, 57) * SALT.length) | 0]!);
+          }
+          continue;
+        }
+        // ---- shallow sea: seagrass meadows
+        if (k === TileKind.Sea) {
+          if ((map.seaDist[t] ?? 9) > 2.5) continue;
+          let st: number;
+          if (act2) st = stage;
+          else {
+            const p = Math.max(0, 0.85 - 0.35 * water);
+            st = p >= 0.6 ? 2 : p >= 0.35 ? 1 : 0;
+          }
+          const n = st === 0 ? 0 : st === 1 ? 1 : st === 2 ? 3 : 4;
+          for (let i = 0; i < n; i++) {
+            if (!keep(t, i, 58)) continue;
+            const [x, z] = pos(SLOT4, i, 0.35);
+            S.seagrass!.push(t * 4 + i, x, map.heightAt(x, z), z, r(i, 59) * 6.28, 0.9 + r(i, 60) * 0.7);
+          }
+          continue;
+        }
+        // ---- reef: coral coloured by health
+        if (k === TileKind.Reef) {
+          const h = act2 ? health : reefHealth(s.tempC, water);
+          for (let i = 0; i < 6; i++) {
+            const [x, z] = pos(SLOT6, i, 0.25);
+            _c.set(CORAL[(r(i, 61) * CORAL.length) | 0]!);
+            if (h < 0.15) _c.lerp(DEAD, 0.85);
+            else _c.lerp(BLEACHED, Math.max(0, Math.min(1, (0.75 - h) / 0.6)));
+            S.coral!.push(t * 6 + i, x, map.heightAt(x, z) - 0.02, z, r(i, 62) * 6.28, 0.8 + r(i, 63) * 0.8, 1, 0, _c);
+          }
+        }
+      }
+    }
+    for (const set of Object.values(S)) set.end();
+  }
+}
