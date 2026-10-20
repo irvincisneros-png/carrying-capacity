@@ -87,7 +87,7 @@ export interface CityMix {
 }
 
 export const DEFAULT_CITY_MIX: CityMix = {
-  coal: 5, gas: 3, factories: 14, steelworks: 1, ports: 2, highways: 7, landfills: 1, outfalls: 2, farms: 3, rails: 8, radius: 17.5,
+  coal: 5, gas: 4, factories: 18, steelworks: 1, ports: 2, highways: 7, landfills: 1, outfalls: 1, farms: 3, rails: 8, radius: 17.5,
 };
 
 export function buildCity(s: GameState, mix: CityMix = DEFAULT_CITY_MIX): void {
@@ -188,6 +188,10 @@ export function buildCity(s: GameState, mix: CityMix = DEFAULT_CITY_MIX): void {
   for (const b of s.buildings) {
     if (b.type === 'port') for (let y = b.y; y < b.y + b.h; y++) for (let x = b.x; x < b.x + b.w; x++) g.zone[y * g.w + x] = CITY_ZONE.port;
   }
-  // 5. Years of pollution have built up.
-  for (let k = 0; k < 4; k++) updatePollution(g, s.buildings);
+  // 5. Years of pollution have built up (the city already treats most of its sewage and scrubs its stacks a little).
+  for (let k = 0; k < 3; k++) updatePollution(g, s.buildings);
+  for (let i = 0; i < g.waterPollution.length; i++) {
+    g.waterPollution[i] = (g.waterPollution[i] ?? 0) * 0.6;
+    g.airPollution[i] = (g.airPollution[i] ?? 0) * 0.8;
+  }
 }

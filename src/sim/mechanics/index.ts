@@ -26,7 +26,7 @@ const uses = (s: GameState, id: MechanicsId): boolean => (getScenario(s.scenario
 export const MECH_METRIC_KEYS: readonly string[] = [
   'riverHealth', 'farmViability', 'townWaterFailures', 'envFlowPct', 'tourism', 'homesLost', 'seaLevelCm', 'seaRiseCm',
   'rehabPct', 'aquifer', 'waterFailures', 'heatDeaths', 'canopyPct', 'transitPct', 'netZeroYear', 'societyMin', 'capitalSpent',
-  'outbreaks',
+  'outbreaks', 'speciesBack', 'speciesAlive',
 ];
 
 /** Called when Act 2 begins (and by createGame for scenarios that start there). */
@@ -66,7 +66,8 @@ export function mechEmissionFactor(s: GameState, b: PlacedBuilding): number {
 
 /** Called after a successful placement (spending is tracked for the "under budget" bonus). */
 export function mechPlaced(s: GameState, b: PlacedBuilding): void {
-  if (uses(s, 'city')) addFlag(s, 'c.spent', availability(s.scenarioId, b.type).cost);
+  // The 25-year capital programme: spending after 2050 does not count against the budget bonus.
+  if (uses(s, 'city') && s.year <= 2050) addFlag(s, 'c.spent', availability(s.scenarioId, b.type).cost);
 }
 
 /** Share (0..1) of the Environment meter's water term that comes from the scenario's own water, or null for the default. */
@@ -118,6 +119,16 @@ export function mechMetric(s: GameState, key: string): number | null {
     case 'societyMin': return societyMin(s);
     case 'capitalSpent': return Math.round(flag(s, 'c.spent'));
     case 'outbreaks': return flag(s, 'r.outbreaks');
+    case 'speciesBack': return Object.values(s.wildlife.species).filter((x) => x.pop > 0 && x.startPop === 0).length;
+    case 'speciesAlive': return Object.values(s.wildlife.species).filter((x) => x.pop > 0).length;
     default: return null;
   }
 }
+
+// Read-only views the UI can draw (river health bar, sea level, tourism, mine site progress, heat risk).
+export { allocation, farmCount, farmViability, hasFishway, riverHealth, weirTileIdx, RIVER } from './riverCore';
+export type { Allocation } from './riverCore';
+export { homeLevelM, resortCount, seaLevelCm, seaRiseM, surgeHeightM, tourismIncome, tourismIndex, wouldFlood } from './reefCore';
+export { aquifer, boreCount, minesOpen, OUTBACK, rehabPct, siteTiles } from './outbackCore';
+export { canopyShare, coolingCoverage, heatDeathsExpected, HEAT } from './heatCore';
+export { transitCoverage } from './cityCore';
