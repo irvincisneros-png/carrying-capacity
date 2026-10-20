@@ -542,6 +542,8 @@ export class App {
         this.logDrawer.classList.remove('open');
         this.voices.drawer.classList.remove('open');
         this.species.drawer.classList.remove('open');
+        // Country, research, satellites and policies are drawers too: Escape closes whichever is open.
+        document.querySelectorAll('.drawer.open').forEach((d) => d.classList.remove('open'));
         this.inspectEl.classList.add('hidden');
         this.toolbar.select(null);
         return;

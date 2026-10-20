@@ -671,6 +671,10 @@ export function wildlifeSummer(s: GameState): void {
       rt.nests++;
       rt.nestStreak++;
       rt.lastNestYear = s.year;
+      // The streak counts summers with any female nesting, not one turtle. A good beach draws other females back:
+      // each nesting summer there is a chance a new adult joins the local population (turtles mature slowly, so
+      // breeding alone would take decades to show).
+      if (rt.pop < Math.max(1, ev.capacity) && (h >>> 8) % 100 < 35) rt.pop += 1;
       const eggs = 95 + (h % 40);
       const hatch = Math.round(eggs * 0.8);
       const fill = (t: string): string => t.replace(/\{eggs\}/g, String(eggs)).replace(/\{hatch\}/g, String(hatch)).replace(/\{n\}/g, String(rt.nestStreak));

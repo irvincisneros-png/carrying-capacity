@@ -274,8 +274,8 @@ export function objectiveRow(o: ObjectiveResult, s?: GameState): HTMLElement {
         const d = SPECIES_BY_ID[id];
         const rt = s.wildlife?.species?.[id];
         if (!d) return '';
-        const nest = d.thrive.nestStreak !== undefined ? `, nesting ${rt?.nestStreak ?? 0} of ${d.thrive.nestStreak} summers in a row` : '';
-        return `${d.name}: ${rt?.pop ?? 0} of ${d.thrive.pop}${nest}`;
+        const nest = d.thrive.nestStreak !== undefined ? `, nesting ${rt?.nestStreak ?? 0} summer${rt?.nestStreak === 1 ? '' : 's'} in a row (needs ${d.thrive.nestStreak})` : '';
+        return `${d.name}: ${rt?.pop ?? 0} (needs ${d.thrive.pop})${nest}`;
       }).filter(Boolean);
       if (parts.length && o.status !== 'pending') detail = parts.join(' · ');
     } catch { /* keep the plain value */ }

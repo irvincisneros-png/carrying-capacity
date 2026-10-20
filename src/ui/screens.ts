@@ -96,6 +96,7 @@ export function showIntro(s: GameState, onGo: () => void): void {
       ? h('p', null, `There is no boom to play through: ${sc.name} starts in the transition. Time runs season by season to ${sc.act2.endYear}. Cut emissions fast, keep people safe in the heat, and keep the city on side.`)
       : h('p', null, `Your job: grow this settlement into a thriving town, one decade at a time, all the way to ${sc.endYear}. People need homes, jobs and power. Every choice changes the land, the water and the air.`),
     h('p', null, h('b', null, 'Watch what happens to the air.'), ' The graphs track the CO₂ your town adds and how the world warms.'),
+    goalsBox(sc, act2Start),
     h('div', { class: 'stat-grid' },
       h('div', { class: 'stat' }, h('small', null, 'Build'), h('div', { style: 'font-size:13px' }, 'Pick a building below, then click the map. ', h('kbd', null, 'R'), ' rotates.')),
       h('div', { class: 'stat' }, h('small', null, 'Look around'), h('div', { style: 'font-size:13px' }, 'Drag to pan, right-drag or ', h('kbd', null, 'Q'), h('kbd', null, 'E'), ' to turn, scroll to zoom.')),
@@ -105,6 +106,16 @@ export function showIntro(s: GameState, onGo: () => void): void {
     h('p', { class: 'ack' }, ACK),
     h('div', { class: 'modal-actions' }, h('button', { class: 'btn primary', onclick: () => { m.close(); } }, 'Let\'s build')),
   ], { onClose: onGo });
+}
+
+/** The scenario's win condition, up front, so the whole game has a clear goal from the first click. */
+function goalsBox(sc: ReturnType<typeof getScenario>, act2Start: boolean): HTMLElement {
+  const main = sc.act2.objectives.filter((o) => !o.bonus);
+  const bonus = sc.act2.objectives.filter((o) => o.bonus);
+  return h('div', { class: 'fact', style: 'display:block' },
+    h('b', null, act2Start ? `To win, by ${sc.act2.endYear}:` : `Then the real test: from ${sc.act2.startYear} to ${sc.act2.endYear}, turn the town around. To win:`),
+    h('ul', { style: 'margin:6px 0 0 18px;padding:0' }, ...main.map((o) => h('li', null, degC(o.label)))),
+    bonus.length ? h('p', { class: 'muted', style: 'margin:6px 0 0;font-size:13px' }, `Bonus star: ${bonus.map((o) => degC(o.label)).join('; ')}.`) : null);
 }
 
 // ---------------------------------------------------------------- decade report
