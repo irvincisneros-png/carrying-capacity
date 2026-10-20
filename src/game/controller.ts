@@ -1,8 +1,8 @@
 // Client game controller: owns the GameState, dispatches actions to the pure sim, runs the Act 2 clock,
 // autosaves, keeps an undo snapshot, and broadcasts changes / events to the renderer and UI.
 import {
-  advanceDecade, applyAction, consumeEvents, createGame, loadFromStorage, saveToStorage, startAct2, tick,
-  type Action, type ActionResult, type DecadeReport, type GameState, type ScenarioId, type SimEvent,
+  advanceDecade, applyAction, consumeEvents, createGame, loadFromStorage, MICRO, saveToStorage, startAct2, tick,
+  type Action, type TickResult, type ActionResult, type DecadeReport, type GameState, type ScenarioId, type SimEvent,
 } from '../sim';
 import { SAVE_KEY, deserialize } from '../sim/save';
 
@@ -35,6 +35,13 @@ export class GameController {
   private lastSavedYear = -1;
   /** Real seconds accumulated but not yet handed to tick() (keeps tick calls >= 1/60 year apart). */
   private clockAcc = 0;
+  /**
+   * The next season, simulated ahead of time in idle time (the sim is deterministic), keyed on the state it started
+   * from. When the clock crosses into that season the result is used instead of simulating it inside the frame, so
+   * a season tick no longer costs a long frame. Any action makes a new grid / version, so a stale result is unused.
+   */
+  private pre: { grid: GameState['grid']; version: number; res: TickResult } | null = null;
+  private preQueued = false;
 
   constructor(initial: GameState) {
     this.state = initial;
@@ -203,17 +210,51 @@ export class GameController {
     if (this.clockAcc < 1 / 60) return;
     const dtYears = this.clockAcc / SECONDS_PER_YEAR;
     this.clockAcc = 0;
-    const r = tick(this.state, dtYears);
+    const r = this.tickAhead(dtYears);
+    this.queuePrecompute();
     if (r.state === this.state) return;
     this.set(r.state);
     if (r.seasons > 0) {
       this.flushEvents();
-      if (this.state.year !== this.lastSavedYear) {
-        this.lastSavedYear = this.state.year;
-        this.save();
-      }
       if (this.state.phase !== 'act2') this.save();
+      else if (this.state.year !== this.lastSavedYear) {
+        // Yearly autosave in idle time, off the frame that simulated the season.
+        this.lastSavedYear = this.state.year;
+        const ric = (window as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+        if (ric) ric(() => this.save(), { timeout: 1500 });
+        else this.save();
+      }
     }
+  }
+
+  /** tick(), but a single season boundary uses the season simulated ahead in idle time when it still applies. */
+  private tickAhead(dtYears: number): TickResult {
+    const st = this.state;
+    const total = st.a2.clockMicro + Math.round(dtYears * 4 * MICRO);
+    const p = this.pre;
+    if (p && total >= MICRO && total < 2 * MICRO && p.grid === st.grid && p.version === st.version) {
+      this.pre = null;
+      const res = p.res.state;
+      return { ...p.res, state: res.phase === 'act2' ? { ...res, a2: { ...res.a2, clockMicro: total - MICRO } } : res };
+    }
+    return tick(st, dtYears);
+  }
+
+  private queuePrecompute(): void {
+    const st = this.state;
+    if (this.preQueued || st.phase !== 'act2' || this.speed === 0) return;
+    if (this.pre && this.pre.grid === st.grid && this.pre.version === st.version) return;
+    this.preQueued = true;
+    const run = (): void => {
+      this.preQueued = false;
+      const cur = this.state;
+      if (cur.phase !== 'act2' || (this.pre && this.pre.grid === cur.grid && this.pre.version === cur.version)) return;
+      const res = tick({ ...cur, a2: { ...cur.a2, clockMicro: 0 } }, 0.25);
+      this.pre = { grid: cur.grid, version: cur.version, res };
+    };
+    const ric = (window as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+    if (ric) ric(run, { timeout: 2000 });
+    else window.setTimeout(run, 0);
   }
 
   /** Debug / tests: jump the Act 2 clock forward. */

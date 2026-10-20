@@ -93,6 +93,9 @@ export class GameRenderer {
   private auto: AutoTier;
   private state: GameState | null = null;
   private lastVersion = -1;
+  /** Heavy layer rebuilds queued by setState, run one per frame (see setState). */
+  private deferred = new Map<string, () => void>();
+  private stateThisFrame = false;
   private last = performance.now();
   private running = false;
   readonly stats: RenderStats = { fps: 0, frameMs: 0, cpuMs: 0, calls: 0, triangles: 0, geometries: 0, textures: 0, programs: 0, tier: 'Medium', auto: true };
@@ -270,11 +273,20 @@ export class GameRenderer {
     const sig = terrainSignature(s.grid);
     if (sig !== w.sig) this.rebuildTerrain(s, sig);
     w.tiles.sync(s, snap);
-    if (snap) w.veg.snapNext();
-    w.veg.rebuild(s, this.shared.uTime.value);
     w.bld.sync(s);
-    w.amb.sync(s);
     w.smoke.rebuild(w.bld.emitters);
+    if (snap) {
+      this.deferred.clear();
+      w.veg.snapNext();
+      w.veg.rebuild(s, this.shared.uTime.value);
+      w.amb.sync(s);
+    } else {
+      // Vegetation and the ambient life are the heavy rebuilds: run them on later frames, one per frame, so a season
+      // tick (sim + these) never lands in a single frame. Later states replace earlier queued ones.
+      this.deferred.set('veg', () => { const st = this.state; if (st) w.veg.rebuild(st, this.shared.uTime.value); });
+      this.deferred.set('amb', () => { const st = this.state; if (st) w.amb.sync(st); });
+      this.stateThisFrame = true;
+    }
     this.updateAtmosphereTargets(s);
     if (w.seaLevel) this.levelT = this.seaLevelWorld(s);
     if (snap) {
@@ -598,6 +610,12 @@ export class GameRenderer {
   frame(now = performance.now()): void {
     const w = this.world;
     if (!w || !this.pipeline) return;
+    if (!this.stateThisFrame && this.deferred.size) {
+      const [key, job] = this.deferred.entries().next().value as [string, () => void];
+      this.deferred.delete(key);
+      job();
+    }
+    this.stateThisFrame = false;
     const dt = Math.min(0.1, Math.max(0, (now - this.last) / 1000));
     this.last = now;
     const c0 = performance.now();
