@@ -16,6 +16,8 @@ export type SourceKey = 'coal' | 'gas' | 'homes' | 'industry' | 'mines' | 'traff
 export interface SourceRow {
   key: SourceKey;
   label: string;
+  /** A few words for the narrow Goals panel. */
+  short: string;
   /** kt CO2-e a year at today's buildings. */
   kt: number;
   /** Buildings behind it. */
@@ -77,7 +79,7 @@ export function emissionSources(s: GameState): SourceRow[] {
     const key = GROUP[b.type] ?? 'other';
     const kt = (def.co2 / 10) * mechEmissionFactor(s, b) * (def.category === 'waste' ? wasteK : 1);
     sum[key].kt += kt;
-    if (b.type === 'suburb' || b.type === 'cottage') oldHomes++;
+    if (b.type === 'suburb') oldHomes++;
     if (key !== 'homes') sum[key].n++;
   }
   sum.homes.n = oldHomes;
@@ -95,15 +97,19 @@ export function emissionSources(s: GameState): SourceRow[] {
   const circularOpen = s.circular.unlocked;
   const circularYear = sc.act2.circularYear ?? 2050;
   const rows: SourceRow[] = [];
+  const SHORT: Record<SourceKey, string> = {
+    coal: 'Power stations', gas: 'Gas power', homes: oldHomes > 0 ? `Homes (${oldHomes} old)` : 'Homes', industry: 'Factories',
+    mines: 'Mines', traffic: 'Traffic', waste: 'Waste', farms: 'Farms', other: 'Other',
+  };
   const add = (key: SourceKey, label: string, lever: string, waitsFor?: string): void => {
     const v = sum[key];
     if (v.kt < 0.05) return;
-    rows.push({ key, label, kt: Math.round(v.kt * 10) / 10, n: v.n, lever, ...(waitsFor ? { waitsFor } : {}) });
+    rows.push({ key, label, short: SHORT[key], kt: Math.round(v.kt * 10) / 10, n: v.n, lever, ...(waitsFor ? { waitsFor } : {}) });
   };
   const plants = sum.coal.n + sum.gas.n;
   add('coal', `${sum.coal.n > 0 && sum.gas.n > 0 ? 'Coal and gas' : sum.coal.n > 0 ? 'Coal' : 'Gas'} power (${plants} station${plants === 1 ? '' : 's'})`,
-    'Add rooftop solar and batteries until the night is covered too (Power panel), then retire the plants with Old sites, one at a time.');
-  add('homes', `Homes${oldHomes > 0 ? ` (${oldHomes} not retrofitted)` : ''}`,
+    'Build clean power that covers the night too: solar by day, batteries to carry spare daytime power into the evening, and wind (offshore from 2040) that keeps turning after dark. When the Power panel shows no coal or gas at night, retire the plants with Old sites, one at a time.');
+  add('homes', `Homes${oldHomes > 0 ? ` (${oldHomes} brick suburbs not retrofitted)` : ''}`,
     oldHomes > 0 ? 'Retrofit each brick suburb (build Green retrofit on it): insulation, heat pumps, solar. It takes years at a few a year: start early.' : 'Already retrofitted: little left here.');
   add('industry', 'Factories and steelworks',
     'Turn them into recycling plants or green steel with Old sites. Save up: it costs more than a building.',
@@ -166,7 +172,7 @@ export function netZeroOutlook(s: GameState): NetZeroOutlook | null {
   const transit = s.buildings.filter((b) => b.type === 'transitline').length;
   const oldHomes = has('homes')?.label.includes('not retrofitted') ?? false;
   const order: OrderStep[] = [
-    { text: 'Clean power first: rooftop solar and batteries, then retire coal and gas', done: !s.buildings.some((b) => b.type === 'coalpower' || b.type === 'gaspower') },
+    { text: 'Clean power first: solar, wind and batteries until the night is covered, then retire coal and gas', done: !s.buildings.some((b) => b.type === 'coalpower' || b.type === 'gaspower') },
   ];
   if (oldHomes || (has('traffic')?.kt ?? 0) >= 3) {
     order.push({

@@ -237,8 +237,9 @@ export class ObjectivesPanel {
     this.sig = sig;
     clear(this.list);
     for (const o of objs) {
-      this.list.appendChild(objectiveRow(o, s));
-      if (o.metric === 'netZeroYear' && nz && o.status !== 'met' && o.status !== 'missed') this.list.appendChild(outlookView(nz, s));
+      const showNz = o.metric === 'netZeroYear' && nz !== null && o.status !== 'met' && o.status !== 'missed';
+      this.list.appendChild(objectiveRow(o, s, showNz));
+      if (showNz && nz) this.list.appendChild(outlookView(nz, s));
     }
   }
 
@@ -263,7 +264,7 @@ export function outlookView(nz: NetZeroOutlook, s: GameState): HTMLElement {
   const bars = h('div', { class: 'nz-bars' }, ...nz.rows.filter((r) => r.kt >= 0.5).map((r) => {
     const isLever = nz.lever?.key === r.key;
     return h('div', { class: `nz-row${isLever ? ' lever' : ''}${r.waitsFor ? ' waits' : ''}`, title: `${r.label}: ${r.lever}${r.waitsFor ? ` (${r.waitsFor})` : ''}` },
-      h('span', { class: 'nz-lbl' }, r.label),
+      h('span', { class: 'nz-lbl' }, r.short),
       h('span', { class: 'nz-bar' }, h('i', { style: `width:${(r.kt / max) * 100}%` }), h('em', { style: `left:${(nz.line / max) * 100}%`, title: 'The net-zero line is for the whole town' })),
       h('span', { class: 'nz-kt' }, kt(r.kt)));
   }));
@@ -275,7 +276,7 @@ export function outlookView(nz: NetZeroOutlook, s: GameState): HTMLElement {
   return h('div', { class: 'nz', 'data-qa': 'nz-outlook' },
     h('div', { class: 'nz-title' }, 'Your emissions by source'),
     head, sub, bars, lever,
-    waiting && !nz.atLine ? h('div', { class: 'nz-sub' }, `${waiting.label}: ${waiting.waitsFor}. ${waiting.lever}`) : null,
+    waiting && !nz.atLine ? h('div', { class: 'nz-sub' }, `${waiting.short}: ${waiting.waitsFor}. Save up for it.`) : null,
     order);
 }
 
@@ -310,7 +311,7 @@ const PENDING_TEXT: Record<string, string> = {
   wildlife: 'Counted once animals start coming back',
 };
 
-export function objectiveRow(o: ObjectiveResult, s?: GameState): HTMLElement {
+export function objectiveRow(o: ObjectiveResult, s?: GameState, noHow = false): HTMLElement {
   const icon = o.status === 'met' || o.status === 'on-track' ? UI_ICONS.check : o.status === 'missed' ? UI_ICONS.cross : o.status === 'at-risk' ? UI_ICONS.warn : UI_ICONS.clock;
   let pct = 0;
   if (o.current !== null) {
@@ -347,7 +348,7 @@ export function objectiveRow(o: ObjectiveResult, s?: GameState): HTMLElement {
       detail = `${detail} · falling ${Math.round(-d)} a year${o.current > o.target ? `, below ${o.target} in about ${Math.round(yrs)} years` : ''}`;
     }
   }
-  const how = s && (o.status === 'at-risk' || o.status === 'missed' || atRiskHomes > 0 || sliding) && s.phase === 'act2' ? HOW_TO[`${s.scenarioId}:${o.metric}`] ?? HOW_TO[o.metric] : undefined;
+  const how = s && !noHow && (o.status === 'at-risk' || o.status === 'missed' || atRiskHomes > 0 || sliding) && s.phase === 'act2' ? HOW_TO[`${s.scenarioId}:${o.metric}`] ?? HOW_TO[o.metric] : undefined;
   return h('div', { class: `obj ${o.status} ${o.bonus ? 'bonus' : ''}` }, svg(icon),
     h('div', { style: 'flex:1;min-width:0' }, h('div', { class: 'lab' }, degC(o.label)), h('div', { class: 'val' }, `${label} · ${detail}`), h('div', { class: 'bar' }, h('i', { style: `width:${pct * 100}%` })), how ? h('div', { class: 'how' }, degC(how)) : null));
 }
