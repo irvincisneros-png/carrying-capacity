@@ -221,7 +221,7 @@ describe('choosing', () => {
     expect(t.a2.societyAdjust).toBeCloseTo(10 + societyShare(t), 3);
   });
   it('has Act 1 choices answerable in the turning point too, and saves them', () => {
-    const s = createGame('coal-coast');
+    const s = createGame('coal-coast', 1850); // the card drawn depends on the seed
     s.year = 1900;
     offerAct1(s);
     expect(s.dilemmas.pending).toEqual(['a1-outfall']);

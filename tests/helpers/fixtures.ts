@@ -1,15 +1,32 @@
 import {
   BUILDINGS, climateAt, cloneState, computeMeters, createGame, emptyAct2, footprintFor, getScenario, initRestoration,
-  referenceCumulative, TileKind,
+  generateTerrain, referenceCumulative, TileKind,
 } from '../../src/sim';
 import type { BuildingId, GameState, PlacedBuilding, Rotation, ScenarioId, TileKindValue } from '../../src/sim';
+
+/**
+ * Unit-test fixtures keep the original map sizes (green-valley 16, net-zero-city 48, the rest 32) so the painted
+ * rectangles and `y * 32 + x` indexing in the mechanic tests do not depend on how big the shipped scenarios are.
+ */
+export const FIXTURE_SIZE: Record<string, number> = { 'green-valley': 16, 'net-zero-city': 48 };
+/** Event seeds the fixtures keep (a scenario's own seed may have changed with its map). */
+const FIXTURE_SEED: Record<string, number> = { 'coal-coast': 1850 };
+
+/** Swaps the game's map for the scenario's terrain generated at the fixture size (the shipped maps are larger). */
+function useFixtureMap(s: GameState): void {
+  const sc = getScenario(s.scenarioId);
+  const n = FIXTURE_SIZE[s.scenarioId] ?? 32;
+  if (sc.mapW === n && sc.mapH === n) return;
+  s.grid = generateTerrain({ ...sc, mapW: n, mapH: n }, s.seed);
+}
 
 /** Game on the scenario's map but with all tiles replaced by `fill`, 2020 and lots of money. */
 export function sandbox(
   fill: TileKindValue = TileKind.Land,
   opts: { year?: number; budget?: number; scenario?: ScenarioId } = {},
 ): GameState {
-  const s = cloneState(createGame(opts.scenario ?? 'coal-coast'));
+  const s = cloneState(createGame(opts.scenario ?? 'coal-coast', FIXTURE_SEED[opts.scenario ?? 'coal-coast']));
+  useFixtureMap(s);
   s.grid.kind.fill(fill);
   s.grid.building.fill(0);
   s.year = opts.year ?? 2020;
@@ -30,9 +47,10 @@ export function act2Sandbox(
   fill: TileKindValue = TileKind.Land,
   opts: { year?: number; budget?: number; scenario?: ScenarioId; seed?: number } = {},
 ): GameState {
-  const base = createGame(opts.scenario ?? 'coal-coast', opts.seed);
+  const base = createGame(opts.scenario ?? 'coal-coast', opts.seed ?? FIXTURE_SEED[opts.scenario ?? 'coal-coast']);
   const sc = getScenario(base.scenarioId);
   const s = cloneState(base);
+  useFixtureMap(s);
   s.grid.kind.fill(fill);
   s.grid.elevation.fill(1);
   s.grid.building.fill(0);

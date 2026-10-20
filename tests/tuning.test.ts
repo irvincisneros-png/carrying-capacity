@@ -19,7 +19,8 @@ describe('meter tuning on coal-coast (scripted runs)', () => {
     expect(m.society).toBeGreaterThanOrEqual(45);
     expect(m.society).toBeLessThanOrEqual(65);
     expect(m.environment).toBeGreaterThanOrEqual(5);
-    expect(m.environment).toBeLessThanOrEqual(25);
+    // The 40x40 map has about 1.5x the land for the same cash-limited town, so less of the bush goes: ends in the 20s-30s.
+    expect(m.environment).toBeLessThanOrEqual(40);
   });
   it('cautious ends near Economy 45 / Environment 45', () => {
     const m = cautious.state.meters;

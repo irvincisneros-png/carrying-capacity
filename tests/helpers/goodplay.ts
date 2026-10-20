@@ -1,6 +1,7 @@
 import { applyAction, balanceGrid, BUILDINGS, TileKind } from '../../src/sim';
 import type { BuildingId, GameState } from '../../src/sim';
 import { bestSpot, count, demolishAll, fieldSum, place, placeUpTo } from './act2play';
+import { kScale } from './mapscale';
 
 /** Would the grid hold (<= 1.5% unmet in all four seasons) if this building were removed? */
 export function gridHoldsWithout(s: GameState, uid: number): boolean {
@@ -102,7 +103,7 @@ export function goodPlayPlan(opts: GoodPlayOpts = {}): (s: GameState) => GameSta
       const p = place(s, 'sewagetreatment', { x: b.x, y: b.y, rotation: 0 });
       if (p.ok) s = p.state;
     }
-    s = placeUpTo(s, 'wetland', Math.max(0, 5 - count(s, 'wetland')), (x, y) => near(x, y));
+    s = placeUpTo(s, 'wetland', Math.max(0, kScale('coal-coast', 5) - count(s, 'wetland')), (x, y) => near(x, y));
 
     if (opts.waterFirst) s = soilStep(s);
 
@@ -137,7 +138,7 @@ export function goodPlayPlan(opts: GoodPlayOpts = {}): (s: GameState) => GameSta
 
     // 5. Restoration: nurseries where they cover the most uncovered open land.
     const cover = (x: number, y: number, w: number, h: number): number => uncoveredLand(s, x, y, w, h, 5);
-    const total = opts.nurseries ?? 10;
+    const total = opts.nurseries ?? kScale('coal-coast', 10);
     s = placeUpTo(s, 'nursery', Math.max(0, Math.min(3, total - count(s, 'nursery'))), cover);
     return s;
   };

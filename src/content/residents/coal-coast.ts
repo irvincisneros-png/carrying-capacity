@@ -463,7 +463,7 @@ const kids: ResidentDef = {
     },
     {
       id: 'sj-mixed', quality: 'mixed', title: 'Fewer than hoped, more than feared',
-      when: { all: [t('wildlifeAlive', '>=', 3)] },
+      when: { all: [t('wildlifeAlive', '>=', 4)] },
       text: 'Sam and Jordan raise their kids near a quieter bush than they hoped for, and a warmer one. They teach them the names of the animals that are left, and plant a tree for each one that is not.',
     },
     {

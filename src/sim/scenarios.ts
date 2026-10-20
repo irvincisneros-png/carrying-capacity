@@ -177,6 +177,12 @@ export interface ScenarioDef {
   policies?: readonly PolicyDef[];
   /** 'city': createGame places a finished city and starts directly in Act 2 (no Act 1). */
   prebuilt?: 'city';
+  /**
+   * Tile count the pollution meters were calibrated on. The Environment meter averages pollution over the map, so a
+   * bigger map would dilute the same town's pollution; this keeps "mean pollution" meaning what it meant (defaults to
+   * the map's own size). It is the original, smaller map's area where a scenario has been enlarged.
+   */
+  pollutionRefTiles?: number;
   /** Estimated minutes of real play, for the scenario-select card. */
   playMinutes?: readonly [number, number];
 }
@@ -230,9 +236,10 @@ export const SCENARIOS: Readonly<Record<ScenarioId, ScenarioDef>> = {
     difficulty: 'easy',
     blurb: 'Grow an Illawarra-style coastal town from 1850 to the present day.',
     playMinutes: [70, 100],
-    mapW: 32,
-    mapH: 32,
-    seed: 1850,
+    mapW: 40,
+    mapH: 40,
+    pollutionRefTiles: 32 * 32,
+    seed: 1853,
     terrain: COAST,
     startYear: 1850,
     endYear: 2020,

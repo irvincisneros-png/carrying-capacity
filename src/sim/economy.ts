@@ -135,7 +135,7 @@ export function measureTiles(state: GameState): MeterInputs {
   }
   return {
     bushTiles: bush,
-    meanPollution: total / Math.max(1, g.kind.length),
+    meanPollution: total / Math.max(1, getScenario(state.scenarioId).pollutionRefTiles ?? g.kind.length),
     housingAir: hN > 0 ? hAir / hN : 0,
     reefWater: reefN > 0 ? reefW / reefN : 0,
   };
