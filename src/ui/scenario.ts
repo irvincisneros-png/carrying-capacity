@@ -59,6 +59,7 @@ export class Readouts {
     const sc = getScenario(s.scenarioId);
     if (sc.id !== this.scen) {
       this.scen = sc.id;
+      TREND.clear();
       clear(this.el);
       this.items = [];
       const keys: string[] = [];
