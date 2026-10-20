@@ -16,7 +16,7 @@ export const REEF_ISLAND: ScenarioDef = {
   terrain: { kind: 'island', seaFrac: 0.4, escarpmentFrac: 0.05, bushCover: 0.55, riverRowFrac: 0.5, reefRadius: 5, coastWobble: 0.1 },
   startYear: 1900,
   endYear: 2020,
-  startBudget: 80,
+  startBudget: 140,
   availability: {
     coalmine: { disabled: true },
     steelworks: { disabled: true },
@@ -25,8 +25,12 @@ export const REEF_ISLAND: ScenarioDef = {
     dripfarm: { disabled: true },
     fishway: { disabled: true },
     outfall: { unlock: 1900 },
+    port: {
+      name: 'Harbour and jetty',
+      blurb: 'Supply boats, a fishing fleet and the island ferry tie up here. Jobs and trade, with fuel spills and dredged sand in the lagoon.',
+    },
     coalpower: {
-      name: 'Diesel power station', nearTerrainAdd: [0],
+      name: 'Diesel power station', nearTerrainAdd: [0], cost: 70,
       blurb: 'Burns diesel shipped in by barge, cooled with seawater. Reliable, noisy, and the biggest source of the island\'s emissions.',
     },
   },
