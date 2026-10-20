@@ -165,8 +165,8 @@ describe('restoration and succession', () => {
   it('stage thresholds and names by tile kind', () => {
     expect([0, 0.11, 0.12, 0.37, 0.38, 0.65, 0.66, 1].map(stageFromHealth)).toEqual([0, 0, 1, 1, 2, 2, 3, 3]);
     expect(stageLabel(TileKind.Land, 3)).toBe('woodland');
-    expect(stageLabel(TileKind.Estuary, 3)).toBe('mangrove forest');
-    expect(stageLabel(TileKind.Estuary, 2)).toBe('saltmarsh');
+    expect(stageLabel(TileKind.Estuary, 3)).toBe('healthy estuary habitat');
+    expect(stageLabel(TileKind.Estuary, 2)).toBe('established estuary vegetation');
     expect(stageLabel(TileKind.Sea, 2)).toBe('seagrass meadow');
     expect(stageLabel(TileKind.Beach, 1)).toBe('dune grasses');
   });
@@ -363,7 +363,7 @@ describe('restoration and succession', () => {
     const out = tick(s, 40).state;
     const est = I(out, 17, 12);
     expect(out.grid.stage[est]).toBeGreaterThanOrEqual(2);
-    expect(stageLabel(out.grid.kind[est] ?? 0, out.grid.stage[est] ?? 0)).toMatch(/saltmarsh|mangrove/);
+    expect(stageLabel(out.grid.kind[est] ?? 0, out.grid.stage[est] ?? 0)).toMatch(/estuary/);
     const seagrass = I(out, 21, 19); // shallow sea next to the nursery's reach
     expect(out.grid.health[seagrass]).toBeGreaterThan(0);
     expect(out.grid.kind[seagrass]).toBe(TileKind.Sea);

@@ -73,7 +73,7 @@ export const RED_DIRT_SPECIES: readonly SpeciesDef[] = [
       help: 'Rock-wallabies need healthy shrubland near the ranges and water nearby, and relief from extreme heat. Restore the bush and keep the planet cooler.',
     },
     evidence:
-      'Black-footed rock-wallabies shelter in caves and crevices in rocky ranges and come out at dusk to feed on grasses and shrubs. Foxes and feral cats are the main threats, and long droughts and heat make life on bare rock harder. Some populations are now managed with fox baiting and fire planning, often with Traditional Owners and rangers.',
+      'Black-footed rock-wallabies shelter in caves and crevices in rocky ranges and come out at dusk to feed on grasses and shrubs. Foxes and feral cats are the main threats, and long droughts and heat make life on bare rock harder. Conservation programs use predator control, habitat management and monitoring.',
   },
   {
     id: 'budgerigar',
@@ -96,20 +96,20 @@ export const RED_DIRT_SPECIES: readonly SpeciesDef[] = [
       },
       {
         id: 'big-flock', name: 'The big flock', minPop: 140,
-        arrive: 'The big flock has arrived: thousands of budgerigars wheeling over the plain like smoke.',
+        arrive: 'A large flock wheels over the plain like smoke.',
         lost: 'The big flock has gone.',
       },
     ],
     thrive: { pop: 160 },
     text: {
-      blurb: 'Small wild parrots that follow the rain across the desert and drink every day.',
-      needs: ['A waterhole with water in it', 'Shrubs and trees nearby for shelter', 'A full aquifer to top the waterhole up'],
+      blurb: 'Small wild parrots that follow the rain and seeding grasses across the inland.',
+      needs: ['A waterhole with water in it', 'Shrubs and trees nearby for shelter', 'Reliable water, from rain, groundwater or both'],
       arrive: 'Budgerigars have found the waterhole: about {n} arrived.',
       lost: 'The budgerigars have gone. The waterhole is dry or too exposed.',
       thrive: 'About {n} budgerigars wheel over the waterhole at dusk.',
       help: 'Budgerigars need water in the waterhole and shrubs around it. Do not let the aquifer run dry, and plant the creek banks.',
     },
     evidence:
-      'Wild budgerigars are nomadic and follow rain and seeding grasses across inland Australia. They must drink daily in hot weather, so they gather at waterholes. In extreme heat, flocks have dropped from the sky: thousands of budgerigars died in heatwaves in the 2019-2020 summer, and during very hot days small birds can lose water faster than they can drink.',
+      'Wild budgerigars are nomadic and follow rain and seeding grasses across inland Australia. In hot weather they need reliable drinking water, so they gather at waterholes, and they can be vulnerable to extreme heat. Waterholes may depend on rainfall, groundwater or both.',
   },
 ];

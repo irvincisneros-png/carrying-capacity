@@ -65,7 +65,7 @@ const GREEN_VALLEY_STEPS: readonly TutorialStep[] = [
   },
   {
     id: 'wind', title: 'Add the wind', phase: ['act2'], highlight: 'build:windfarm',
-    instruction: 'Wind turbines need a windy site: a ridge or high ground. Place one on a slope. Wind blows day and night, which fills the gaps when the sun is down.',
+    instruction: 'Wind turbines need a windy site: a ridge or high ground. Place one on a slope. Turbines can generate by day or night, but output varies with the wind, so check storage and backup for calm periods.',
     done: { all: [t('acts.built.windfarm', '>=', 1)] },
   },
   {
@@ -80,7 +80,7 @@ const GREEN_VALLEY_STEPS: readonly TutorialStep[] = [
   },
   {
     id: 'clean', title: 'Clean the soil', phase: ['act2'], highlight: 'build:phytoremediation',
-    instruction: 'The old factory and mine left poisons in the soil, and plants cannot grow in it. Build a Phytoremediation garden (slow and clean) or a Soil excavation site (fast, expensive, diesel trucks) on or beside the dark patches.',
+    instruction: 'The old factory and mine left contamination in the soil, and some of it harms plant growth. A Phytoremediation garden uses selected plants to take up or stabilise certain pollutants (slow; contaminated plant material may need safe disposal). A Soil excavation site removes soil for treatment elsewhere (fast, expensive, diesel trucks). Build one on or beside the dark patches.',
     done: { any: [t('acts.built.phytoremediation', '>=', 1), t('acts.built.excavation', '>=', 1)] },
   },
   {
@@ -95,7 +95,7 @@ const GREEN_VALLEY_STEPS: readonly TutorialStep[] = [
   },
   {
     id: 'return', title: 'Wait for an animal', phase: ['act2'], highlight: 'button:animals',
-    instruction: 'Let time run and watch the animals panel. When habitat is good for long enough, an animal that had gone will return. Open its card to see what it needed.',
+    instruction: 'Let time run and watch the animals panel. In this game, an animal that had gone may return once its habitat stays good for long enough (in real places, nearby populations, barriers and other threats also matter). Open its card to see what it needed.',
     done: { all: [t('speciesBack', '>=', 1)] },
   },
   {

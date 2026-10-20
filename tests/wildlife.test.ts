@@ -199,7 +199,7 @@ describe('populations, families and events', () => {
     expect(s.wildlife.species.koala?.families['wattle-gully']).toBe(false);
     expect(s.wildlife.species.platypus?.pop).toBe(0);
     expect(s.wildlife.species['green-turtle']?.families['old-shelly']).toBe(true);
-    expect(census(s).find((c) => c.id === 'koala')?.families).toEqual(['Marri family']);
+    expect(census(s).find((c) => c.id === 'koala')?.families).toEqual(['Marri woodland koalas']);
   });
   it('welcomes an arrival after the habitat has been suitable for a few years, with a warm event', () => {
     const s = act2Sandbox(TileKind.Land);
@@ -214,7 +214,7 @@ describe('populations, families and events', () => {
     expect(s.wildlife.species.koala?.pop).toBe(4);
     const msgs = events(s, 'koala');
     expect(msgs.some((m) => /Koalas have found the woodland again: 4 arrived/.test(m))).toBe(true);
-    expect(msgs.some((m) => m.includes('Marri family is back'))).toBe(true);
+    expect(msgs.some((m) => m.includes('Koalas are back in the Marri woodland'))).toBe(true);
     expect(s.wildlife.species.koala?.arrivedYear).toBe(s.year);
   });
   it('grows towards capacity when habitat is good and declines, then is lost, when it is not', () => {
@@ -240,7 +240,7 @@ describe('populations, families and events', () => {
     expect(last).toBe(0);
     expect(s.wildlife.species.koala?.lostYear).not.toBeNull();
     expect(events(s, 'koala').some((m) => /last koala has left/.test(m))).toBe(true);
-    expect(events(s, 'koala').some((m) => /Marri family has gone/.test(m))).toBe(true);
+    expect(events(s, 'koala').some((m) => /Marri woodland koalas have gone/.test(m))).toBe(true);
     expect(speciesStatus(s, def('koala'))).toBe('gone');
   });
   it('kills koalas on roads with no crossing, far fewer with fencing, none with a crossing', () => {
@@ -277,14 +277,14 @@ describe('populations, families and events', () => {
     expect(rt?.nestStreak).toBe(3);
     expect(rt?.lastNestYear).toBe(s.year);
     const msgs = events(s, 'green-turtle');
-    expect(msgs[0]).toMatch(/Old Shelly came ashore at night and laid \d+ eggs/);
+    expect(msgs[0]).toMatch(/A green turtle came ashore at night and laid \d+ eggs/);
     expect(msgs.some((m) => /3 summers in a row/.test(m))).toBe(true);
     // Lights come on along the beach: the streak breaks, and Shelly stays away with a reason.
     for (let y = 0; y < 32; y += 3) addBuilding(s, 'cottage', 8, y);
     s.year++;
     wildlifeSummer(s);
     expect(s.wildlife.species['green-turtle']?.nestStreak).toBe(0);
-    expect(events(s, 'green-turtle').at(-1)).toMatch(/Old Shelly did not come ashore this summer.*dark at night/);
+    expect(events(s, 'green-turtle').at(-1)).toMatch(/No turtle came ashore to nest this summer.*dark at night/);
   });
   it('kills flying-foxes in heatwaves, less so with shade, and never goes below zero', () => {
     const base = (): GameState => {

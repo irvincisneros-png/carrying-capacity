@@ -34,7 +34,7 @@ export const REEF_ISLAND: ScenarioDef = {
   policies: [
     {
       id: 'cots.cull', label: 'Crown-of-thorns control', min: 0, max: 2, step: 1, default: 0, unit: 'level', costPerYear: [0, 5, 10],
-      blurb: 'Divers inject the coral-eating starfish with a harmless solution. Level 1 patrols the main dive sites. Level 2 covers the whole reef.',
+      blurb: 'Divers control selected coral-eating starfish using approved injections of vinegar or bile salts. Level 1 patrols the main dive sites. Level 2 covers the whole reef.',
     },
   ],
   act2: {

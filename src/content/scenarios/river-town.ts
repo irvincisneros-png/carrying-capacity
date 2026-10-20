@@ -30,7 +30,7 @@ export const RIVER_TOWN: ScenarioDef = {
   policies: [
     {
       id: 'alloc.town', label: 'Town water share', min: 0.05, max: 0.6, step: 0.05, default: 0.15, unit: 'of the river',
-      blurb: 'The most of the river\'s flow that the town may take. A bigger share keeps the taps running in a drought.',
+      blurb: 'The maximum share of river flow the town may take. A larger share keeps the taps running in a drought but leaves less for farms and the river.',
     },
     {
       id: 'alloc.env', label: 'Share left for the river', min: 0.05, max: 0.7, step: 0.05, default: 0.2, unit: 'of the river',

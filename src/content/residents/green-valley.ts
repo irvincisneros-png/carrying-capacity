@@ -34,13 +34,13 @@ const jo: ResidentDef = {
       id: 'jo-fire', title: 'The fire stopped at the creek',
       when: { phase: ['turning-point'] },
       urgent: true,
-      text: 'The wind turned and the grass went up in a roar. We ran hoses all night with half the valley beside us. The creek held the line, thank goodness. One side of my orchard is black now. I just stood there and said sorry to the trees.',
+      text: 'The wind turned and the grass went up in a roar. We followed our bushfire plan while the brigade defended what it could, and the creek helped hold the line. We were lucky. One side of my orchard is black now. I just stood there and said sorry to the trees.',
       tone: 'loss',
     },
     {
       id: 'jo-firebreak', title: 'Never again like that',
       when: { phase: ['act2'], years: [2025, 2040] },
-      text: 'Next summer will be dry again. I would like to be ready this time. I can slash a wide firebreak around the orchard, or plant a belt of tough native trees as a windbreak. Both take work. What do you reckon?',
+      text: 'Next summer will be dry again. Before then I want local fire advice on access, fuel, water and the vegetation around the orchard. I could slash a firebreak or plant a native belt, but the right mix needs checking. What do you reckon?',
       tone: 'concern',
       choice: {
         prompt: 'Getting ready for fire',
@@ -61,7 +61,7 @@ const jo: ResidentDef = {
     {
       id: 'jo-power', title: 'The pump runs on sunshine',
       when: { phase: ['act2'], years: [2028, 2040], all: [t('renewablePct', '>=', 40)] },
-      text: 'I put the irrigation pump on the new solar power, and the bill dropped. The funny part is the pump works hardest on the sunniest days, which is exactly when the panels make the most. Even I can follow that one. The valley is now {ren} percent clean power.',
+      text: 'I put the irrigation pump on the new solar power, and the bill dropped. The funny part is the pump works hardest on the sunniest days, which is exactly when the panels make the most. The valley is now {ren} percent clean power.',
       tone: 'joy',
     },
     {
@@ -118,7 +118,7 @@ const ali: ResidentDef = {
     {
       id: 'ali-graphs', title: 'Reading your graphs',
       when: { phase: ['act2'], years: [2025, 2040] },
-      text: 'Here is the plain version of your graphs. Coal power puts carbon dioxide in the air, and that warms the valley. Right now we run on {ren} percent clean power. Solar, wind and batteries push that number up. Let\'s go and move it.',
+      text: 'Here is the plain version of your graphs. Coal power releases carbon dioxide that adds to global warming; here, the valley stands for a much larger emissions pathway. Right now we run on {ren} percent clean power. Solar, wind and batteries push that number up. Let\'s go and move it.',
       tone: 'neutral',
     },
     {
@@ -136,7 +136,7 @@ const ali: ResidentDef = {
     {
       id: 'ali-woodland', title: 'Join the bush up',
       when: { phase: ['act2'], years: [2032, 2040], all: [t('healthPct', '>=', 40)] },
-      text: 'The bush is greener, but animals need it joined up, not in little patches. Koalas want a connected woodland of at least 14 mature trees. Koala count today: {koalas}. A few more plantings could close the gaps.',
+      text: 'The bush is greener, but animals need it joined up, not in little patches. In this game, koalas need at least 14 connected woodland tiles; real habitat depends on tree quality and food trees. Koala count today: {koalas}. A few more plantings could close the gaps.',
       tone: 'neutral',
     },
   ],

@@ -159,7 +159,7 @@ describe('story beats', () => {
     expect(ev?.story?.speakerId).toBe('mick-kowalski');
     expect(ev?.story?.speaker).toBe('Mick Kowalski');
     expect(ev?.story?.portrait).toBe('mick-kowalski');
-    expect(ev?.text).toMatch(/1952/);
+    expect(ev?.text).toMatch(/one suitcase/);
     expect(s.events).toContain(ev);
     expect(s.eventLog).toContain(ev);
     expect(s.residents.fired['mick-furnace']).toBe(1950);

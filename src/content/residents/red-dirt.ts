@@ -19,11 +19,11 @@ const wally: ResidentDef = {
   id: 'uncle-wally',
   name: 'Uncle Wally',
   role: 'Elder',
-  family: 'A large, loud, loving family who have known this Country for a very long time',
-  blurb: 'Placeholder name: to be agreed with the community. A Traditional Owner Elder who ran the local ranger crew. Patient, funny, and wants to be asked about the pit, the waterhole, the plants and the animals.',
-  homeHint: { near: 'wetland', description: 'A tin-roofed house in sight of the waterhole, with a ute and a dozen camp chairs out the front' },
+  family: 'Wally\'s family, who have known this Country for a very long time',
+  blurb: 'A Traditional Owner Elder who ran the local ranger crew and wants the Traditional Owners involved in decisions about the pit, the waterhole, the plants and the animals.',
+  homeHint: { near: 'wetland', description: 'A tin-roofed house in sight of the waterhole' },
   portrait: 'uncle-wally',
-  traits: ['patient', 'funny', 'watchful', 'generous'],
+  traits: ['experienced', 'direct', 'practical'],
   start: 55,
   cares: [
     { metric: 'partnership', weight: 3, bad: 10, good: 70 },
@@ -46,7 +46,7 @@ const wally: ResidentDef = {
     {
       id: 'wally-pit', title: 'The big hole',
       when: { phase: ['act1'], years: [1960, 2020], all: [t('count.coalmine', '>=', 1)] },
-      text: 'Nobody asked us about the big hole, and that was the way of things back then. I do not hold it against the blokes who work there. But when the ore is gone, I want a seat at the table, not a letter in the post.',
+      text: 'Nobody asked us about the big hole. When the ore is gone, I want a seat at the table, not a letter in the post. The people who work there have a job to do, and deciding what happens to this ground is part of ours too.',
       tone: 'concern',
       needsConsultation: true,
     },
@@ -74,7 +74,7 @@ const wally: ResidentDef = {
     {
       id: 'wally-seed', title: 'Local seed',
       when: { phase: ['act2'], all: [t('acts.rehab.2', '>=', 1)] },
-      text: 'We collected seed from plants that already grow on this Country, and we did it in the right season. Local seed, local plants. Imported grass would have been quicker, and it would have been wrong. My nephew counted twelve kinds in one bucket.',
+      text: 'We collected seed from plants that already grow on this Country, so the new growth suits the ground. Imported grass would have been quicker, but it can spread where it is not wanted. Twelve kinds of seed were counted in a single bucket.',
       tone: 'joy',
       needsConsultation: true,
     },
@@ -89,7 +89,7 @@ const wally: ResidentDef = {
       id: 'wally-signoff', title: 'The whole pit, green',
       when: { phase: ['act2'], all: [t('rehabPct', '>=', 100)] },
       urgent: true,
-      text: 'We walked the old pit today, the whole crew, and I stood where the edge used to be. Green. Spinifex coming back, a hawk riding the warm air. I told the young fellas: remember this. Remember being asked.',
+      text: 'We walked the old pit today with the rehabilitation team, and I stood where the edge used to be. Green. Spinifex coming back, a hawk riding the warm air. I told the young fellas: remember this. Remember being asked.',
       tone: 'joy',
       needsConsultation: true,
     },
@@ -98,18 +98,18 @@ const wally: ResidentDef = {
     {
       id: 'wally-good', quality: 'good', title: 'Uncle Wally walks the ranger crew out',
       when: { all: [t('partnership', '>=', 45), t('mood.uncle-wally', '>=', 52)] },
-      text: 'Uncle Wally walks the young ranger crew out over the old pit, now green, and shows them how to read the ground. "We were asked," he says. "Asked and listened to. That is how you fix a hole."',
+      text: 'Uncle Wally and the young ranger crew walk the old pit, now green, checking the ground and the plants together. The rehabilitation plan was written with the Traditional Owners from the start, and their advice shaped the final land use.',
       needsConsultation: true,
     },
     {
       id: 'wally-mixed', quality: 'mixed', title: 'Uncle Wally keeps turning up',
       when: { all: [t('partnership', '>=', 28)] },
-      text: 'Uncle Wally still comes to every meeting, with a thermos and a joke. Some of the Country is healing and some is still waiting. "Slow is all right," he says. "Just keep walking with us."',
+      text: 'Uncle Wally still comes to the meetings. Some of the Country is healing and some is still waiting. He asks that the Traditional Owners stay involved in every decision about the site, not only the big ones.',
       needsConsultation: true,
     },
     {
       id: 'wally-bad', quality: 'bad', title: 'Uncle Wally watches from the verandah',
-      text: 'Uncle Wally watches the pit from his verandah. Too many decisions were made without a yarn first. He is not angry, only tired, and he keeps the door open for the day somebody comes to ask.',
+      text: 'Many decisions about the pit were made without the Traditional Owners at the table. How Uncle Wally and his family respond is theirs to say, and this game does not presume it. Asking, and acting on the answer, is still possible.',
       needsConsultation: true,
     },
   ],
@@ -170,7 +170,7 @@ const shaz: ResidentDef = {
     {
       id: 'shaz-closed-retrained', title: 'Moving the spoil back',
       when: { phase: ['act2'], all: [...MINE_GONE_BY_PLAN, t('flag.mine.retrain', '>=', 1)] },
-      text: 'Same truck, new job. We are pushing the old spoil back into the pit and shaping it, with Uncle Wally\'s crew telling us where the water should run. The mine paid for my house. Now I get to help fix the hole.',
+      text: 'Same truck, new job. We are pushing the old spoil back into the pit and shaping it, following the rehabilitation team\'s plan for where the water should run. The mine paid for my house. Now I get to help fix the hole.',
       tone: 'warm',
       effects: { mood: { 'shaz-dimitriou': 4 } },
     },
@@ -332,7 +332,7 @@ const rohan: ResidentDef = {
     {
       id: 'rohan-stages', title: 'Rehabilitation in stages',
       when: { phase: ['act2'], years: [2025, 2060] },
-      text: 'Giving the pit back is not one job, it is four. Reshape the walls, spread topsoil, seed with local plants, then monitor for five years before sign-off. Skipping a stage is how rehabilitation fails. A monitoring lab would help.',
+      text: 'Giving the pit back is not one job, it is four. Reshape the walls, spread topsoil, seed with plants suited to the site, then monitor against agreed criteria before sign-off. Real monitoring can run for many years; the game simplifies it. A lab would help.',
       tone: 'neutral',
       choice: {
         prompt: 'Rohan asks for a monitoring lab',
@@ -355,20 +355,20 @@ const rohan: ResidentDef = {
     {
       id: 'rohan-emissions', title: 'The twelve kilotonne line',
       when: { phase: ['act2'], years: [2030, 2100], all: [t('emissionsKt', '>', 12)] },
-      text: 'We are releasing {kt} kilotonnes of carbon a year. Net zero here means getting under twelve and staying there. The mine and the diesel are the big ones. The sun is the biggest thing we have to replace them.',
+      text: 'The town emits {kt} kilotonnes of carbon dioxide a year. This game uses twelve as a simplified target; real net zero means balancing what remains with removals. The mine and the diesel are the big ones. The sun is our best replacement.',
       tone: 'concern',
     },
     {
       id: 'rohan-halfway', title: 'Halfway back',
       when: { phase: ['act2'], all: [t('rehabPct', '>=', 50)] },
-      text: 'Half the old mine ground is signed off. I did not expect to say that out loud. The plants that took hold are the local ones, the ones Uncle Wally\'s crew collected. Native seed does better here than anything I could buy.',
+      text: 'Half the old mine ground is signed off. I did not expect to say that out loud. The seed mix was selected for this site, and our monitoring shows which species are establishing. Some are doing better than I hoped.',
       tone: 'joy',
     },
     {
-      id: 'rohan-signoff', title: 'Five years of data',
+      id: 'rohan-signoff', title: 'Sign-off day',
       when: { phase: ['act2'], all: [t('rehabPct', '>=', 100)] },
       urgent: true,
-      text: 'Sign-off day. Five years of data on my laptop, and Uncle Wally reading it with his glasses on his forehead. He asked a question I had not thought of. That is the best result I have had. I wrote it in my notebook.',
+      text: 'Sign-off day. Years of monitoring data on my laptop, checked against the agreed criteria by the whole rehabilitation team. Someone asked a question I had not thought of. That is the best result I have had. I wrote it in my notebook.',
       tone: 'joy',
     },
   ],
@@ -376,7 +376,7 @@ const rohan: ResidentDef = {
     {
       id: 'rohan-good', quality: 'good', title: 'Rohan\'s data goes in a textbook',
       when: { all: [t('rehabPct', '>=', 80), t('aquifer', '>=', 45), t('mood.rohan-mehta', '>=', 50)] },
-      text: 'Rohan\'s long-term data on the pit goes into a university textbook, with Uncle Wally\'s crew named as co-authors. His daughter, now a teenager, helps him count seedlings. "Rehabilitation is slow," he says. "Slow is allowed."',
+      text: 'Rohan\'s long-term data on the pit goes into a university textbook, with the whole rehabilitation team credited. His daughter, now a teenager, helps him count seedlings. "Rehabilitation is slow," he says. "Slow is allowed."',
     },
     {
       id: 'rohan-mixed', quality: 'mixed', title: 'Rohan keeps measuring',
@@ -450,8 +450,9 @@ const pete: ResidentDef = {
     {
       id: 'pete-wally', title: 'A walk along the fence',
       when: { phase: ['act2'], years: [2035, 2100], all: [t('partnership', '>=', 40)] },
-      text: 'Wally and I walked the boundary fence together. We disagree about plenty, including cattle, fire and who is the better driver. But his crew helps me with feral cats and foxes, and I like the company.',
+      text: 'Wally and I walked the boundary fence together. We disagree about plenty, including cattle and who is the better driver. We both want feral cats and foxes managed, and I like the company.',
       tone: 'warm',
+      needsConsultation: true,
     },
   ],
   endings: [
@@ -497,7 +498,7 @@ const kids: ResidentDef = {
     {
       id: 'tia-ben-dish', title: 'The new dish',
       when: { phase: ['act1'], years: [2000, 2020] },
-      text: 'The new satellite dish came on Tuesday! Now our teacher is a face on the screen, not just a voice on the radio. Ben waved at her for five minutes. We have never been to a real school. We have been to the waterhole every day.',
+      text: 'The new satellite dish came on Tuesday! Now our teacher is a face on the screen, not just a voice on the radio. Ben waved at her for five minutes. We usually learn from home through School of the Air, and we go to the waterhole whenever we can.',
       tone: 'joy',
     },
     {
@@ -515,7 +516,7 @@ const kids: ResidentDef = {
     {
       id: 'tia-ben-shade', title: 'The hot playground',
       when: { phase: ['act2'], years: [2026, 2075] },
-      text: 'It was forty-four at the school today and the swings burnt our legs. Mum says we need shade trees and a rain tank in the yard. We wrote it in our class newsletter. Will you help us plant them?',
+      text: 'It was forty-four at our school gathering this term and the swings were too hot to use. Mum says we need shade trees and a rain tank in the yard. We wrote it in our class newsletter. Will you help us plant them?',
       tone: 'neutral',
       choice: {
         prompt: 'Tia and Ben ask for shade trees at the school',
@@ -532,7 +533,7 @@ const kids: ResidentDef = {
     {
       id: 'tia-ben-empty', title: 'Zero budgies',
       when: { phase: ['act2'], years: [2040, 2100], all: [t('pop.budgerigar', '<=', 0)] },
-      text: 'We went to the waterhole at sunrise and counted {budgies} budgies. Zero. Ben did not say anything for a long time. Then he asked if they would come back when it rained. Mum said she hoped so.',
+      text: 'We counted {budgies} budgies at the waterhole at sunrise, and wrote down the date, the weather and how long we watched. Ben did not say anything for a long time. Then he asked if they would come back when it rained. Mum said she hoped so.',
       tone: 'loss',
     },
     {

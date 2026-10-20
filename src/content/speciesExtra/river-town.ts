@@ -17,7 +17,7 @@ export const RIVER_TOWN_SPECIES: readonly SpeciesDef[] = [
     families: [
       {
         id: 'old-granddad', name: 'Old Granddad', minPop: 2,
-        arrive: 'Old Granddad is back: a Murray cod longer than a surfboard, living under the same fallen red gum his father used.',
+        arrive: 'A large Murray cod has been recorded beside the fallen red gum, longer than a surfboard. The locals call him Old Granddad.',
         lost: 'Nobody has seen Old Granddad this year. The snag pool under the red gum is empty.',
       },
       {
@@ -37,11 +37,11 @@ export const RIVER_TOWN_SPECIES: readonly SpeciesDef[] = [
       needs: ['A healthy river (river health 55 or more)', 'Water that keeps flowing in a dry year', 'A fishway at the weir'],
       arrive: 'Murray cod have been seen in the river again: {n} arrived.',
       lost: 'The last Murray cod has gone from the river.',
-      thrive: 'There are about {n} Murray cod in the river, in several family groups. Anglers are throwing the big ones back.',
+      thrive: 'About {n} Murray cod have been recorded along the river. Anglers are throwing the big ones back.',
       help: 'Murray cod need river health of 55 or more, steady flows in a dry year, and a fishway so they can pass the weir. Cut the water taken in dry times and plant the banks.',
     },
     evidence:
-      'Murray cod are Australia\'s largest freshwater fish. They can live for forty years or more and grow longer than a metre. They shelter in fallen timber ("snags"), the males guard their eggs in hollow logs in spring, and they need water that is clean, well oxygenated and flowing. Weirs and dams block their movement and release cold water that stops breeding. In the 2018 and 2019 fish kills, many large old cod died when low flows, heat and algae drained the oxygen from the water. The species is listed as vulnerable under national law.',
+      'Murray cod are Australia\'s largest freshwater fish. They can live for forty years or more and grow longer than a metre. They shelter in fallen timber ("snags"), the males guard their eggs in hollow logs in spring, and they need water that is clean, well oxygenated and flowing. Barriers can block movement, and releases from deep storage dams can also cool downstream water and disrupt breeding. In the 2018 and 2019 fish kills, many large old cod died when low flows, heat and algae drained the oxygen from the water. The species is listed as Vulnerable under national law.',
   },
   {
     id: 'superb-parrot',
@@ -113,6 +113,6 @@ export const RIVER_TOWN_SPECIES: readonly SpeciesDef[] = [
       help: 'Southern bell frogs need billabongs that fill in spring, so leave enough water in the river then. They also need clean water.',
     },
     evidence:
-      'The southern bell frog breeds in still, shallow, sunny water on river floodplains. Spring flows fill the billabongs and trigger breeding, and when rivers are regulated for irrigation, the floods that used to fill them become rare. Chytrid fungus and farm chemicals have added to the losses. The species is listed as vulnerable. Environmental watering that mimics a natural spring flood has brought frogs back to wetlands in the Murray-Darling Basin.',
+      'The southern bell frog breeds in still, shallow, sunny water on river floodplains. Spring flows fill the billabongs and trigger breeding, and when rivers are regulated for irrigation, the floods that used to fill them become rare. Chytrid fungus and farm chemicals have added to the losses. The southern bell frog is nationally Vulnerable and listed as Endangered in NSW. Environmental watering that mimics a natural spring flood has brought frogs back to wetlands in the Murray-Darling Basin.',
   },
 ];

@@ -1,12 +1,12 @@
 import type { ScenarioDef } from '../../sim/scenarios';
 import { RED_DIRT_TURNING } from '../turning/red-dirt';
 
-/** Red Dirt (hard): an outback mining town with the best sun in the country, very little water and a pit to give back. */
+/** NOTE: Traditional Owner references in this file and in turning/red-dirt.ts remain needsConsultation (placeholder pending community authorship). Red Dirt (hard): an outback mining town with the best sun in the country, very little water and a pit to rehabilitate. */
 export const RED_DIRT: ScenarioDef = {
   id: 'red-dirt',
   name: 'Red Dirt',
   difficulty: 'hard',
-  blurb: 'An outback mining town: go solar, make the water last, and give the mine ground back to Country with its Traditional Owners.',
+  blurb: 'An outback mining town: go solar, make the water last, and restore the mine site under an agreed plan developed with its Traditional Owners.',
   biome: 'arid',
   mechanics: ['outback', 'heat'],
   playMinutes: [75, 110],
@@ -49,7 +49,7 @@ export const RED_DIRT: ScenarioDef = {
     turningPoint: RED_DIRT_TURNING,
     objectives: [
       { id: 'netzero', label: 'Net zero by 2060 and holding', metric: 'netZeroYear', op: '<=', target: 2060 },
-      { id: 'rehab', label: 'Mine site fully rehabilitated and signed off with the Traditional Owners', metric: 'rehabPct', op: '>=', target: 100 },
+      { id: 'rehab', label: 'Mine site fully rehabilitated under an agreed plan with the Traditional Owners', metric: 'rehabPct', op: '>=', target: 100 },
       { id: 'water', label: 'Water secure: aquifer at 40 or more', metric: 'aquifer', op: '>=', target: 40 },
       { id: 'taps', label: 'No town water failures after 2040', metric: 'waterFailures', op: '<=', target: 0 },
       { id: 'renewable', label: 'A 100% renewable grid', metric: 'renewableShare', op: '>=', target: 99.5, bonus: true },

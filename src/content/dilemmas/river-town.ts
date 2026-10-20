@@ -76,7 +76,7 @@ export const RIVER_TOWN_DILEMMAS: readonly DilemmaDef[] = [
   {
     id: 'a1-salt', title: 'White crust on the paddocks', phase: 'act1', years: [1950, 2010], speaker: KERRY,
     setup: 'There is a white crust on the low paddocks. Some trees are yellowing and the crops are patchy. Irrigation water is soaking down and lifting salt from deep in the ground. Fixing it means draining, planting deep-rooted trees, or just carrying on and hoping.',
-    evidence: 'Much of the Murray-Darling soil sits on old marine salts. Irrigation and clearing raise the water table and bring salt up through the root zone. Salt stops many plants from taking up water. Drains, deep-rooted trees and less water applied can lower the water table, but disposing of salty drain water is a new problem.',
+    evidence: 'Salt has built up in Basin soils and groundwater over millions of years, from rainfall, weathered rocks and ancient sediments. Clearing and too much irrigation can raise the water table and bring salt into the root zone. Salt stops many plants from taking up water. Drains, deep-rooted trees and less water applied can lower the water table, but disposing of salty drain water is a new problem.',
     options: [
       {
         id: 'carry-on', label: 'Carry on. It is only the low paddocks.',
@@ -153,11 +153,11 @@ export const RIVER_TOWN_DILEMMAS: readonly DilemmaDef[] = [
   {
     id: 'a2-buyback', title: 'Buy water back or fund efficiency?', phase: 'act2', years: [2026, 2090], repeat: 30, speaker: KERRY,
     setup: 'To leave more water in the river, the town has two main tools. It can buy water entitlements from farmers who want to sell, or help farmers pay for efficient irrigation. Kerry says buybacks hollow out the district. Lan says efficiency alone can leave the river with less than the papers promise.',
-    evidence: 'Buybacks put water straight into the river, because the entitlement is simply not used. Efficiency upgrades can keep farms producing, but some of the "saved" water used to seep back into the river or aquifer, so real savings can be smaller than planned. Mixing both, with willing sellers, is common practice.',
+    evidence: 'Buybacks transfer water entitlements from willing sellers to environmental managers, who decide when and where to deliver the water. Available water varies with allocations. Sellers may keep farming, change crops or leave farming. Efficiency upgrades can keep farms producing, but some of the "saved" water used to seep back into the river or aquifer, so real savings can be smaller than planned. Mixing both, with willing sellers, is common practice.',
     options: [
       {
         id: 'buyback', label: 'Buy back entitlements from willing sellers',
-        outcome: 'Several farms sell up. The river gets more water, which Lan can see on the gauge. The district loses families and a school bus route.',
+        outcome: 'Several farmers sell their water and some leave. The river gets more water, which Lan can see on the gauge. The district loses families and a school bus route.',
         effects: { budget: -24, flags: { 'pol.alloc.env': 0.35 }, mood: { [KERRY]: -6, [LAN]: 6 }, society: -1 },
         preview: { helps: [P('More water stays in the river'), R(LAN, 'River gets its water')], hurts: [R(KERRY, 'Neighbours leave the district'), E('Fewer farm jobs')] },
       },
@@ -204,8 +204,8 @@ export const RIVER_TOWN_DILEMMAS: readonly DilemmaDef[] = [
   {
     id: 'a2-bloom', title: 'Green water at the weir', phase: 'act2', years: [2028, 2100], repeat: 20, speaker: LAN,
     when: { all: [t('recent.algal-bloom', '>=', 1)] },
-    setup: 'Blue-green algae has turned the weir pool to pea soup. The kids want to swim. Marg\'s tours are off. Some blooms make toxins that can harm people, dogs and fish. Lan lays out what the town can do now and what will actually stop the next one.',
-    evidence: 'Blue-green algae (cyanobacteria) bloom in warm, slow, nutrient-rich water. Some produce toxins that harm people and animals. Warning signs and closing the water protect people now. Treating water at the intake helps supply, but lasting prevention means more flow, shade from riverbank trees, and less fertiliser and effluent washing in.',
+    setup: 'Blue-green algae has turned the weir pool to pea soup. The kids want to swim. Marg\'s tours are off. Some blooms make toxins that can harm people, dogs and fish. Lan asks what the town should add to its immediate warnings and water-safety response.',
+    evidence: 'Blue-green algae (cyanobacteria) bloom in warm, slow, nutrient-rich water. Some produce toxins that harm people and animals. Warning signs and closing the water protect people now. Treating water at the intake helps supply. Reducing nutrients, shading banks and improving suitable flows can lower future bloom risk.',
     options: [
       {
         id: 'warn', label: 'Close the river to swimming and put up warnings',
@@ -264,7 +264,7 @@ export const RIVER_TOWN_DILEMMAS: readonly DilemmaDef[] = [
   {
     id: 'a2-almonds', title: 'Almonds in a drier climate', phase: 'act2', years: [2040, 2100], repeat: 30, speaker: KERRY, noCleanAnswer: true,
     setup: 'Almonds and citrus take water every year, wet or dry, because the trees cannot be left fallow. Kerry has an offer to plant more, and a bank that likes the plan. A drier river could leave those trees thirsty in a bad year. Dryland crops are cheaper and cope with droughts better.',
-    evidence: 'Permanent tree crops cannot skip a season without losing trees, so they need water in every drought, and that locks in demand. Annual crops and dryland grazing can be scaled back in dry years. But tree crops can earn more per hectare and per megalitre. Which approach holds up depends on how dry the climate gets, and that is uncertain.',
+    evidence: 'Orchards still need enough water to keep trees alive in drought, even when growers reduce or sacrifice that season\'s crop, and that locks in demand. Annual crops and dryland grazing can be scaled back in dry years. But tree crops can earn more per hectare and per megalitre. Which approach holds up depends on how dry the climate gets, and that is uncertain.',
     options: [
       {
         id: 'more-almonds', label: 'Keep planting almonds, with drip lines',
@@ -313,8 +313,8 @@ export const RIVER_TOWN_DILEMMAS: readonly DilemmaDef[] = [
   },
   {
     id: 'a2-carp', title: 'Carp in the billabong', phase: 'act2', years: [2050, 2100], repeat: 30, speaker: LAN,
-    setup: 'European carp have taken over the billabongs. They churn up the mud, muddy the water and eat the plants that frogs and cod need. Lan lists three options. Trapping is slow, a virus would be fast, and doing nothing is free.',
-    evidence: 'Common carp make up most of the fish by weight in many Murray-Darling waters. They stir up sediment, damage plants and breed fast. Trapping at fishways and in billabongs, and netting where they gather, can cut numbers over time. A proposed carp virus is being researched, and it could cause large fish die-offs, which would foul the water.',
+    setup: 'European carp have taken over the billabongs. They churn up the mud, muddy the water and eat the plants that frogs and cod need. Lan lists three options. Trapping is slow, a virus is still being studied, and doing nothing is free.',
+    evidence: 'Common carp make up most of the fish by weight in many Murray-Darling waters. They stir up sediment, damage plants and breed fast. Trapping at fishways and in billabongs, and netting where they gather, can cut numbers over time. A carp virus has been investigated as a possible control. Any release would need further assessment, government decisions and plans for dead fish and water quality.',
     options: [
       {
         id: 'trap', label: 'Trap and net carp where they gather', evidenceBacked: true,
@@ -324,7 +324,7 @@ export const RIVER_TOWN_DILEMMAS: readonly DilemmaDef[] = [
       },
       {
         id: 'virus', label: 'Back a carp virus trial',
-        outcome: 'The trial is approved with conditions. Lan keeps the paperwork on her desk and her fingers crossed. A big die-off is likely to foul the water for a few weeks.',
+        outcome: 'A trial is considered, with conditions. Lan keeps the paperwork on her desk and her fingers crossed. A big die-off could foul the water for a few weeks.',
         effects: { budget: -24, tiles: [{ op: 'water', scope: 'river', add: 0.06 }], mood: { [LAN]: -2, [SUE]: -2 } },
         preview: { helps: [C('southern-bell-frog', 'Fewer carp, if it works')], hurts: [T('Dead fish to clear up'), P('A big die-off could foul the water')] },
       },
@@ -338,8 +338,8 @@ export const RIVER_TOWN_DILEMMAS: readonly DilemmaDef[] = [
   },
   {
     id: 'a2-solar', title: 'Solar on the salty paddocks', phase: 'act2', years: [2055, 2100], repeat: 30, speaker: KERRY,
-    setup: 'Some of Kerry\'s low paddocks are too salty for anything but weeds. A company will lease the land for solar panels. Lan suggests saltbush and deep-rooted trees to wash the salt down over time. Either way, the paddocks stop being a loss.',
-    evidence: 'Land too salty for crops can still host solar panels, which need no irrigation and can bring a steady lease income. Planting salt-tolerant shrubs and deep-rooted trees lowers the water table and can slowly reclaim land. Both are used in Australia, and the right choice depends on how bad the salt is and what the owner wants.',
+    setup: 'Some of Kerry\'s low paddocks are too salty for anything but weeds. A company will lease the land for solar panels. Lan suggests saltbush and deep-rooted trees to cover the ground and help manage the groundwater. Either way, the paddocks stop being a loss.',
+    evidence: 'Land too salty for crops can still host solar panels, which need no irrigation and can bring a steady lease income. Salt-tolerant plants may provide cover and grazing. Deeper-rooted vegetation can help manage groundwater in suitable places, but salt may remain and recovery is uncertain. Both are used in Australia, and the right choice depends on how bad the salt is and what the owner wants.',
     options: [
       {
         id: 'solar', label: 'Lease the salty paddocks for solar panels', evidenceBacked: true,
@@ -349,9 +349,9 @@ export const RIVER_TOWN_DILEMMAS: readonly DilemmaDef[] = [
       },
       {
         id: 'saltbush', label: 'Plant saltbush and trees to reclaim the soil',
-        outcome: 'Hardy saltbush and deep-rooted trees take hold. The crust fades slowly. In a few years the ground can carry grazing again, though not crops.',
+        outcome: 'Hardy saltbush and deep-rooted trees take hold. The crust may fade slowly. In time the ground might carry some grazing, though not crops, and some salt will stay.',
         effects: { budget: -12, tiles: [{ op: 'soil', scope: 'land', mult: 0.85 }], mood: { [LAN]: 5, [KERRY]: 1 } },
-        preview: { helps: [P('Salt comes down'), R(LAN, 'The land heals')], hurts: [E('Paying for years before it earns')] },
+        preview: { helps: [P('Salt may ease'), R(LAN, 'A chance the land recovers')], hurts: [E('Paying for years before it earns')] },
       },
       {
         id: 'leave-bare', label: 'Leave the paddocks as they are',

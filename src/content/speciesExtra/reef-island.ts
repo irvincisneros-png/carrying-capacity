@@ -17,32 +17,33 @@ export const REEF_ISLAND_SPECIES: readonly SpeciesDef[] = [
     families: [
       {
         id: 'big-tilly', name: 'Big Tilly', minPop: 1,
-        arrive: 'Big Tilly is back in the lagoon, grazing the seagrass. The kids named her years ago, and she is the size of a kitchen table.',
+        arrive: 'A big green turtle the kids call Big Tilly is back in the lagoon, grazing the seagrass. She is the size of a kitchen table.',
         lost: 'Nobody has seen Big Tilly this year. The seagrass is untouched.',
       },
       {
-        id: 'tilly-youngsters', name: "Tilly's youngsters", minPop: 5,
-        arrive: "Young turtles from Tilly's nests are feeding in the lagoon, still small enough to hold in two hands.",
-        lost: "Tilly's youngsters have left the lagoon.",
+        id: 'tilly-youngsters', name: 'Young turtles', minPop: 5,
+        arrive: 'Young green turtles are feeding in the lagoon.',
+        lost: 'The young turtles have left the lagoon.',
       },
     ],
     thrive: { pop: 4, nestStreak: 6 },
     nest: {
-      first: 'Big Tilly came ashore in the dark and laid {eggs} eggs in the warm sand above the tide line. Rangers marked the nest and the whole island held its breath.',
-      again: 'Big Tilly nested again this summer: {eggs} eggs on the dark end of the beach. That is {n} summers in a row.',
-      streak: 'Big Tilly has nested {n} summers in a row, every single season: {eggs} eggs, with about {hatch} hatchlings expected to scramble to the sea.',
-      missed: 'Big Tilly did not come ashore this summer. {why}',
+      first: 'A green turtle came ashore in the dark and laid {eggs} eggs in the warm sand above the tide line. Rangers marked the nest and the whole island held its breath.',
+      again: 'Rangers recorded nesting again this summer: {eggs} eggs on the dark end of the beach. That is {n} summers in a row, though females usually return only every few years.',
+      streak: 'Rangers recorded nesting on this beach for {n} consecutive summers. Different females contributed in different years: {eggs} eggs this time, with about {hatch} hatchlings expected to scramble to the sea.',
+      missed: 'No turtle came ashore to nest this summer. {why}',
     },
     text: {
       blurb: 'Grazes the seagrass, and nests on dark, clean beaches every summer.',
       needs: ['Healthy seagrass in the lagoon', 'Clean water', 'A beach that is dark at night, with no seawall or lights behind it'],
       arrive: 'A green turtle has arrived in the lagoon and is grazing the seagrass: {n} arrived.',
       lost: 'The last green turtle has left the lagoon. Without seagrass to eat, it cannot stay.',
-      thrive: 'Big Tilly has nested six summers in a row, and young turtles are feeding in the lagoon.',
+      thrive: 'Rangers recorded nesting on this beach for {n} consecutive summers. Different females contributed in different years, and young green turtles are feeding in the lagoon.',
       help: 'Green turtles need healthy seagrass, clean water, and a beach that is dark at night. Keep lights and seawalls away from the sand.',
     },
     evidence:
-      'Female green turtles come back to nest on the beach where they hatched, and they nest every two to eight years, several times in a season. Hatchlings find the sea by heading for the brightest horizon, so lights behind a beach lead them the wrong way, and a hard seawall stops females reaching the dry sand. Sand temperature sets the sex of the hatchlings: warmer sand makes more females. On the northern Great Barrier Reef, studies have found that the great majority of young green turtles are now female, which is a warning about heat. Turtles also have deep cultural meaning for many Torres Strait Islander and Aboriginal communities.',
+      'Female green turtles return to nest in the region where they hatched, and each female nests every two to eight years, several times in a season. Hatchlings find the sea by heading for the brightest horizon, so lights behind a beach lead them the wrong way, and a hard seawall stops females reaching the dry sand. Sand temperature sets the sex of the hatchlings: warmer sand makes more females. On the northern Great Barrier Reef, studies have found that the great majority of young green turtles are now female, which is a warning about heat. Community-specific cultural knowledge is not included here: it needs permission, attribution and consultation.',
+    needsConsultation: true,
   },
   {
     id: 'dugong',
@@ -78,7 +79,8 @@ export const REEF_ISLAND_SPECIES: readonly SpeciesDef[] = [
       help: 'Dugongs need a big, healthy seagrass meadow and clear water. Cut the runoff and sewage reaching the lagoon.',
     },
     evidence:
-      'Dugongs eat seagrass, almost nothing else, so they follow the meadows. Their numbers grow slowly because a female may have only one calf every three to seven years, and a dugong can live for about seventy years. After floods and cyclones smothered seagrass in parts of Queensland, many dugongs starved. The Torres Strait holds one of the largest dugong populations in the world, and Torres Strait Islander communities manage hunting together with scientists and rangers.',
+      'Dugongs eat seagrass, almost nothing else, so they follow the meadows. Their numbers grow slowly because a female may have only one calf every three to seven years, and a dugong can live for about seventy years. After floods and cyclones smothered seagrass in parts of Queensland, many dugongs starved. The Torres Strait holds one of the largest dugong populations in the world. The Torres Strait Regional Authority (TSRA) runs a dugong and turtle management project with communities, rangers and scientists. Community-specific cultural knowledge is not included here: it needs permission, attribution and consultation.',
+    needsConsultation: true,
   },
   {
     id: 'reef-fish',
@@ -118,8 +120,8 @@ export const REEF_ISLAND_SPECIES: readonly SpeciesDef[] = [
   },
   {
     id: 'mangrove-kingfisher',
-    name: 'Collared kingfisher',
-    scientific: 'Todiramphus chloris',
+    name: 'Torresian kingfisher',
+    scientific: 'Todiramphus sordidus',
     icon: 'kingfisher',
     scenarios: ['reef-island'],
     habitat: { kind: 'mangrove', minTiles: 6, maxWater: 0.7, perTile: 0.8 },
@@ -136,7 +138,7 @@ export const REEF_ISLAND_SPECIES: readonly SpeciesDef[] = [
       },
       {
         id: 'mangrove-colony', name: 'The mangrove colony', minPop: 6,
-        arrive: 'A third and fourth pair have joined: the mangrove colony is calling across the whole inlet at dawn.',
+        arrive: 'More kingfishers have joined the inlet population: the mangrove colony is calling across the whole inlet at dawn.',
         lost: 'The mangrove colony has thinned out and gone quiet.',
       },
     ],

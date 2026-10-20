@@ -47,10 +47,10 @@ describe('report card', () => {
     const rc = buildReportCard(failed);
     expect(rc.verdict).toBe('failed');
     expect(rc.stars).toBe(0);
-    expect(rc.epilogue).toMatch(/could not hold on/);
+    expect(rc.epilogue).toMatch(/failure threshold/);
     expect(rc.epilogue).toContain(failed.a2.failure?.text ?? '??');
     expect(rc.reflections.length).toBe(2);
-    expect(rc.reflections.some((r) => /could not hold on|warning signs/.test(r))).toBe(true);
+    expect(rc.reflections.some((r) => /failure threshold|warning signs/.test(r))).toBe(true);
   });
   it('awards one star for the goal, two with the wildlife bonus, three when every arc ended well', () => {
     const goal = perfect();
@@ -135,7 +135,7 @@ describe('report card', () => {
     expect(titles).toContain('Medium');
     expect(titles.includes('Asking before building') || titles.includes('Acting on a satellite warning')).toBe(true);
   });
-  it('closes with reflection prompts, a letter to Sam and Jordan, and is fully deterministic and read-only', () => {
+  it('closes with reflection prompts, a letter to the next generation, and is fully deterministic and read-only', () => {
     const s = perfect();
     const before = serialize(s);
     const a = buildReportCard(s);
@@ -144,7 +144,7 @@ describe('report card', () => {
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));
     expect(a.reflections).toHaveLength(2);
     expect(new Set(a.reflections).size).toBe(2);
-    expect(a.letterPrompt).toMatch(/letter to Sam and Jordan/);
+    expect(a.letterPrompt).toMatch(/letter to the next generation/);
     const struggle = buildReportCard(ended);
     expect(struggle.reflections).toHaveLength(2);
   });

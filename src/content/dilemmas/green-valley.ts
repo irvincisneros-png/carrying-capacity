@@ -71,7 +71,7 @@ export const GREEN_VALLEY_DILEMMAS: readonly DilemmaDef[] = [
         },
       },
     ],
-    evidence: 'Solar panels need about the same space whether they sit on farmland or not, so already-cleared land is the least harmful place for them. Landfills are often a good fit because the ground is flat and unused, though the cap must be engineered so it does not crack as rubbish settles. Rooftop solar helps but is usually too small to meet all demand.',
+    evidence: 'Compare roofs and already-disturbed land before clearing habitat. A capped landfill may suit solar if engineers check settlement, drainage, gas systems and the cap. Rooftop solar helps but is usually too small to meet all demand.',
   },
   {
     id: 'gv-dam-or-wetland',

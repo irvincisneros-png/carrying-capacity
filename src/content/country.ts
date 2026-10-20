@@ -24,6 +24,23 @@ export interface SiteContent {
   ignored: CountryLine;
 }
 
+/**
+ * Narrator placeholder text for one significant site. No Elder is quoted and no cultural significance, permission or
+ * forgiveness is invented: the real guidance has to come from the Traditional Owners.
+ */
+export function siteContent(id: number, place: string, guidance: 'care' | 'protect'): SiteContent {
+  return {
+    id,
+    name: L(place),
+    guidance,
+    consulted: guidance === 'protect'
+      ? L(`In this game the community asks that ${place} be left as it is. Real guidance would come from the Traditional Owners, who decide how this place is represented.`)
+      : L(`The Traditional Owners will determine how ${place} is represented and what guidance is shared. In this game you can build here with care, and keep talking as plans change.`),
+    disturbed: L('Building began here before the community was asked. Trust has been damaged, and an agreed process is needed to talk it through.'),
+    ignored: L('The community\'s request was not followed. Further decisions need an agreed process to address the damage and prevent it happening again.'),
+  };
+}
+
 export const COUNTRY = {
   /** Where trust starts: a town that has not yet listened is a stranger, not an enemy. */
   baseline: 20,
@@ -35,46 +52,25 @@ export const COUNTRY = {
   /** Fraction of a co-managed patch a mosaic burn covers. */
   mosaicShare: 0.45,
   sites: {
-    1: {
-      id: 1,
-      name: L('the bank upstream of the estuary'),
-      guidance: 'care',
-      consulted: L('Aunty June walked the bank with you and spoke about families who have gathered by this water for a very long time. She asked that a path to the water stays open, and that you keep talking as plans change.'),
-      disturbed: L('Aunty June: "I wish someone had asked us first. This place has meaning for our families. It is not too late to start talking, and I would like to."'),
-      ignored: L('Aunty June: "We did talk about this place, and I am sad. But I will still sit down with you. That is how we mend things."'),
-    },
-    2: {
-      id: 2,
-      name: L('the foot of the escarpment'),
-      guidance: 'protect',
-      consulted: L('Aunty June asked, gently, that this ground at the foot of the escarpment be left as it is. "Some places are best left quiet," she said. "Thank you for asking. That counts for a lot."'),
-      disturbed: L('Aunty June: "That ground matters to us, and nobody came to talk first. Please come and yarn with me before the next one."'),
-      ignored: L('Aunty June: "I asked for this place to be left alone, and it was not. I am disappointed, but the door is still open."'),
-    },
-    3: {
-      id: 3,
-      name: L('the flat behind the beach'),
-      guidance: 'care',
-      consulted: L('Aunty June talked with you about the flat behind the beach and how people have walked it through the seasons. You can build here with care, she said, if the dunes in front stay healthy.'),
-      disturbed: L('Aunty June: "Building here without a word hurt a little. Next time, please ask. We have more to share than you might think."'),
-      ignored: L('Aunty June: "I asked you to take care of this place. I will keep asking, because I believe we can do better together."'),
-    },
+    1: siteContent(1, 'the bank upstream of the estuary', 'care'),
+    2: siteContent(2, 'the foot of the escarpment', 'protect'),
+    3: siteContent(3, 'the flat behind the beach', 'care'),
   } as Record<number, SiteContent>,
   lines: {
-    comanage: L('Aunty June: "You have handed the care of this bush back to the community. That means a lot. We will look after it together."'),
+    comanage: L('The town and Traditional Owners have agreed on responsibilities, decision-making and funding for this area.'),
     comanageSmall: L('This patch of bush is too small to look after on its own. Try a larger area of bushland.'),
-    burnTooSoon: L('This patch was burnt recently. Cool burns are spaced out so the bush has time to recover.'),
-    burnNeedsCoMgmt: L('Cool burns are led by the community on bush they co-manage. Return the care of this bush first.'),
-    burnWrongSeason: L('Cool burns are done in the cooler months, autumn or winter, when fire creeps slowly along the ground.'),
-    burnLocked: L('Cultural burning is knowledge that is shared as trust grows. It is not yet time to ask.'),
+    burnTooSoon: L('This patch was burnt recently. Burns are spaced out so the bush has time to recover.'),
+    burnNeedsCoMgmt: L('Cultural fire happens only on land under an agreed management plan. Agree on co-management of this bush first.'),
+    burnWrongSeason: L('Traditional Owners and cultural fire practitioners decide when burning is appropriate. Timing depends on local Country and conditions.'),
+    burnLocked: L('This activity needs a community-led agreement. Cultural knowledge is shared only with permission.'),
     burnDone: (tiles: number): CountryLine =>
-      L(`A cool, patchy burn crept through ${tiles} tiles of bush on a still morning, leaving islands of unburnt ground. Within weeks green shoots appeared under the trees.`),
-    burnQuote: L('Aunty June: "See how low the flame is? It cleans the ground and the old fuel, and leaves the big trees alone. That is what cool fire is for."'),
-    unlockDualNames: L('Aunty June and the Land Council offer to put original place names beside the English ones on town signs. [Place names to be supplied by the community.] Many towns now do this.'),
-    unlockBurning: L('Aunty June: "Our old people looked after Country with fire: small, cool, slow, patch by patch, in the right season. If you would like, we can talk about doing that again." You can now schedule cool burns on co-managed bush.'),
-    unlockFishing: L('Aunty June and the fishers agree on seasonal protocols. Some places rest while the fish are breeding, so there are more fish for everyone. Fish recover faster in the estuary.'),
-    trustGrows: L('Aunty June: "It takes time, and it has taken some. But I feel the trust growing, and I am glad."'),
-    seasonalTeaching: L('Aunty June: "We read the year from the plants and animals, not just a calendar. When the wattle flowers, when the mullet run, when the birds change. Watch with us and you will see it too."'),
+      L(`Cultural fire practitioners led work on ${tiles} tiles of bush under the agreed local plan. Monitoring will track its effects on vegetation and fuel.`),
+    burnQuote: L('Cultural fire is led by Aboriginal cultural fire practitioners. They decide whether, where and when burning is appropriate for this Country. Outcomes depend on local conditions.'),
+    unlockDualNames: L('The Land Council and community may offer to put original place names beside the English ones on town signs. [Place names to be supplied by the community.] Many towns now do this.'),
+    unlockBurning: L('The community has agreed to talk about cultural fire. Whether, where and how it is used is for cultural fire practitioners to decide. You can now schedule burns on co-managed bush.'),
+    unlockFishing: L('The agreed plan protects selected breeding and feeding areas. Rangers and fishers will monitor whether populations recover. In this game, fish recover faster in the estuary.'),
+    trustGrows: L('Trust is growing slowly. It takes time and ongoing work, and it has to keep being earned.'),
+    seasonalTeaching: L('Community-approved seasonal knowledge may be included here, with permission and attribution.'),
   },
   /** Dual names offered once unlocked. `original` stays a placeholder until the community provides names. */
   places: [

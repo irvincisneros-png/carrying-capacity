@@ -32,8 +32,8 @@ export interface ResearchDef {
 export const RESEARCH: readonly ResearchDef[] = [
   {
     id: 'ewaste', name: 'E-waste recovery', kind: 'innovation', cost: 25,
-    blurb: 'Old phones, computers and appliances hold gold, copper and other metals. A recovery plant sorts and melts them down so new products need less mining.',
-    evidence: 'A tonne of circuit boards holds far more gold than a tonne of most ores, and recycling aluminium saves about 95% of the energy of making it new, copper about 85%. But less than a quarter of the world\'s e-waste is formally recycled: collecting it and processing it safely is the hard part.',
+    blurb: 'Old phones, computers and appliances hold gold, copper and other metals. Specialist plants dismantle and process old electronics to recover useful metals. Batteries and hazardous parts need separate handling.',
+    evidence: 'A tonne of circuit boards holds far more gold than a tonne of most ores, and recycling aluminium saves about 95% of the energy of making it new, copper about 85%. But in 2022 only 22.3% of global e-waste was documented as formally collected and recycled: collecting it and processing it safely is the hard part.',
     effects: { recycleRefund: 0.25 },
   },
   {
@@ -44,14 +44,14 @@ export const RESEARCH: readonly ResearchDef[] = [
   },
   {
     id: 'sorting', name: 'Smart sorting', kind: 'innovation', cost: 25,
-    blurb: 'Near-infrared sensors and puffs of air sort glass, paper and plastics fast and accurately, so recycled material comes out clean.',
+    blurb: 'Sorting plants combine sensors, screens, magnets and air jets to separate materials. Food residue and mixed materials can still make recycling difficult.',
     evidence: 'Cleaner sorted material is worth more and can replace new material. Contamination, such as food scraps or mixed-material packaging, is still a common reason loads are rejected, so good sorting works best alongside less waste in the first place.',
     effects: { recycleRefund: 0.15 },
   },
   {
     id: 'biogas', name: 'Food-waste compost and biogas', kind: 'innovation', cost: 30,
     blurb: 'Food scraps go to compost or a digester instead of landfill. The compost feeds soil and the digester captures methane to burn for power.',
-    evidence: 'Food rotting in landfill releases methane, a greenhouse gas about 80 times stronger than CO2 over 20 years. Composting returns nutrients to the soil and anaerobic digesters turn the methane into useful energy. Preventing food waste in the first place beats both.',
+    evidence: 'Food rotting in landfill releases methane. Over 20 years, a kilogram of methane causes about 80 times the warming of a kilogram of CO2. Digesters collect methane from decomposing scraps so it can be burned for energy, and composting returns nutrients to the soil. Preventing food waste usually saves more resources than either.',
     effects: { wasteEmissions: 0.7, society: 1 },
   },
   {
@@ -68,15 +68,15 @@ export const RESEARCH: readonly ResearchDef[] = [
   },
   {
     id: 'green-steel', name: 'Green steel (hydrogen direct reduction)', kind: 'innovation', cost: 60,
-    blurb: 'Hydrogen made with renewable power replaces coal in turning iron ore into iron. The by-product is water, not CO2.',
-    evidence: 'Steelmaking produces roughly 7 to 9% of the world\'s CO2 because coal is used to strip oxygen from iron ore. In hydrogen direct reduction, hydrogen does that job instead, leaving water. Pilot plants in Sweden are already making it. It needs a great deal of clean electricity and costs more for now.',
+    blurb: 'Hydrogen made with renewable power can replace coal in turning iron ore into iron. In that reaction the by-product is water, not CO2.',
+    evidence: 'Steelmaking produces roughly 7 to 9% of the world\'s CO2 because coal is used to strip oxygen from iron ore. In hydrogen direct reduction, hydrogen does that job instead, leaving water. Pilot plants in Sweden are already making it. Low-emissions steel also needs a great deal of clean electricity for the other processing stages, and costs more for now.',
     unlocks: ['steelworks:green-steel'],
     effects: { society: 1 },
   },
   {
     id: 'plastic-to-fuel', name: 'Plastic-to-fuel: independent review', kind: 'critique', cost: 10,
     blurb: 'A company says it can turn plastic back into fuel. Before anyone signs, you commission an independent look at what it can and cannot do.',
-    evidence: 'Plastic-to-fuel (pyrolysis) can take some mixed plastics, but it uses a lot of energy, makes a mixed oil that usually needs refining, and when the fuel is burned its carbon becomes CO2. Most life-cycle studies find that using less plastic, reusing it and recycling it mechanically do better for the climate. It may suit a few hard-to-recycle plastics, not the whole stream.',
+    evidence: 'Plastic-to-fuel heats some plastics without oxygen (pyrolysis) to make oil and gas. It uses a lot of energy, the oil usually needs refining, and when the fuel is burned its carbon becomes CO2. Using less plastic, reusing it and recycling suitable plastics into new products usually keeps the material in use longer and does better for the climate, though results depend on the plastic, the process and the energy source.',
     effects: { society: 1, flags: { 'knows.plasticToFuel': 1 } },
   },
 ];

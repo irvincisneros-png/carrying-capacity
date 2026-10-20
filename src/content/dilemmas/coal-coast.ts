@@ -24,7 +24,7 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
   {
     id: 'a1-outfall', title: 'The cheap pipe', phase: 'act1', years: [1880, 1940], speaker: LENA,
     setup: 'The new streets are growing, and so is the sewage. The council can pipe it straight out to the estuary, build a settling tank first, or have every house dig a septic pit. Each costs a different amount, and the estuary is where all of it ends up.',
-    evidence: 'Sewage is rich in nitrogen and phosphorus. In an estuary these feed algae, and when the algae die, bacteria use up the oxygen and fish suffocate. Settling and treating sewage removes much of the solids and nutrients, which is why most towns eventually built treatment plants.',
+    evidence: 'Sewage is rich in nitrogen and phosphorus. In an estuary these feed algae, and when the algae die, bacteria use up the oxygen and fish suffocate. Settling removes suspended solids, but much dissolved nitrogen and phosphorus remains. Additional treatment is needed to remove nutrients and pathogens, which is why most towns eventually built treatment plants.',
     options: [
       {
         id: 'pipe', label: 'Pipe it straight to the estuary',
@@ -36,7 +36,7 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
         id: 'tank', label: 'Build a settling tank first', evidenceBacked: true,
         outcome: 'The tank costs real money, but the water by the boat ramp stays clearer and the oysters hold on.',
         effects: { budget: -20, tiles: [{ op: 'water', scope: 'estuary', mult: 0.9 }], mood: { [LENA]: 3 } },
-        preview: { helps: [R(LENA, 'Cleaner water for her catch'), P('Less nutrient pollution')], hurts: [E('Costs money the town does not yet have')] },
+        preview: { helps: [R(LENA, 'Cleaner water for her catch'), P('Fewer solids reach the water')], hurts: [E('Costs money the town does not yet have')] },
       },
       {
         id: 'pits', label: 'Septic pits for every house',
@@ -49,7 +49,7 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
   {
     id: 'a1-ridge', title: 'A request about the ridge', phase: 'act1', years: [1900, 1970], speaker: JUNE, needsConsultation: true,
     setup: 'The town needs more homes, and the ridge above the creek is the obvious place. Aunty June has asked to talk before the bush is cleared. She says there are places on the ridge with meaning for her family. Builders say every month of waiting costs money.',
-    evidence: 'Bush on a slope holds the soil, shelters animals and slows the water running into the creek. Clearing it also releases the carbon stored in plants and soil. Talking with local Aboriginal communities before building is now standard in planning, because they hold knowledge of Country and of places that matter, and it avoids costly mistakes.',
+    evidence: 'Bush on a slope holds the soil, shelters animals and slows the water running into the creek. Clearing it also releases the carbon stored in plants and soil. Planning should involve the relevant Traditional Owners early, because they hold knowledge of Country and of places that matter, and it avoids costly mistakes.',
     options: [
       {
         id: 'clear', label: 'Clear the ridge now', needsConsultation: true,
@@ -75,7 +75,7 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
     id: 'a1-smoke', title: 'Smoke over the town', phase: 'act1', years: [1940, 2010], speaker: MICK,
     when: { all: [t('heavyJobs', '>=', 100)] },
     setup: 'On still days a brown haze hangs over the streets. Mick and his mates know where it comes from, and they also know their wages come from the same chimneys. The works could build taller stacks, fit scrubbers and filters, or carry on as they are.',
-    evidence: 'Tall chimneys spread pollution over a wider area rather than removing it, and some falls as acid rain downwind. Scrubbers and filters capture particles and gases before they leave the stack. Both cost money, and only capturing the pollution actually reduces it.',
+    evidence: 'Tall chimneys spread pollution over a wider area rather than removing it, and some falls as acid rain downwind. Scrubbers and filters capture particles and gases before they leave the stack. Filters and scrubbers remove some pollutants; cleaner processes can prevent others. Both cost money.',
     options: [
       {
         id: 'tall', label: 'Build taller stacks',
@@ -90,7 +90,7 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
         preview: { helps: [R(MICK, 'Cleaner air for his family'), P('Less pollution released')], hurts: [E('A big bill for the works')] },
       },
       {
-        id: 'carry-on', label: 'Carry on. Jobs matter more.',
+        id: 'carry-on', label: 'Delay the upgrade to keep costs down',
         outcome: 'Nothing changes. Wages are paid on Friday, and the haze is still there on Monday.',
         effects: { budget: 5, mood: { [MICK]: -3 }, society: -1 },
         preview: { helps: [E('No extra cost')], hurts: [T('Lungs of children and workers'), P('Ongoing air pollution')] },
@@ -136,7 +136,7 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
       },
       {
         id: 'recycle', label: 'Start kerbside recycling', evidenceBacked: true,
-        outcome: 'Households learn which bin is which. Truck trips fall and the tip lasts years longer.',
+        outcome: 'Households learn which bin to use. More material is recovered and less goes to the tip, which lasts years longer, though collection needs extra trucks and planning.',
         effects: { budget: -25, emissionsKt: -8, society: 1 },
         preview: { helps: [P('Less waste and less new material needed'), T('A tidier town')], hurts: [E('Needs money for bins and trucks')] },
       },
@@ -153,7 +153,7 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
   {
     id: 'd2-closure', title: 'The steelworks question', phase: 'act2', years: [2025, 2045], speaker: MICK, priority: 10,
     when: { all: [t('count.steelworks', '>=', 1)] },
-    setup: 'The steelworks is the town\'s biggest employer and its biggest emitter. Mick and hundreds of workers want to know what is next. Closing with retraining costs money now. Closing in a hurry saves money and leaves families with nothing. Keeping it open delays the problem.',
+    setup: 'The steelworks is the town\'s biggest employer and its biggest emitter. Mick and hundreds of workers want to know what is next. Closing with retraining costs money now. Closing in a hurry saves money but leaves workers little time to find new income. Keeping it open delays the problem.',
     evidence: 'When an industry closes suddenly, communities often suffer long-term unemployment and poorer health. Planned transitions with retraining and new local industries, like those in Germany\'s Ruhr region, tend to do better, though they are not painless. Steelmaking can also be changed rather than closed, using hydrogen instead of coal.',
     options: [
       {
@@ -166,7 +166,7 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
         id: 'abrupt', label: 'Close it now to cut emissions fast',
         outcome: 'The gates close within the month. Emissions fall straight away, and so does the mood in the pub.',
         effects: { budget: 10, society: -3, flags: { 'closure.abrupt': 1 }, mood: { [MICK]: -12 } },
-        preview: { helps: [P('Emissions drop at once'), E('Saves transition money')], hurts: [R(MICK, 'Job lost without a plan'), T('Families on the street')] },
+        preview: { helps: [P('Emissions drop at once'), E('Saves transition money')], hurts: [R(MICK, 'Job lost without a plan'), T('Little time to find new work')] },
       },
       {
         id: 'delay', label: 'Keep it running for now and plan later',
@@ -179,12 +179,12 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
   {
     id: 'd2-coalphase', title: 'Lights on, coal off?', phase: 'act2', years: [2025, 2050], speaker: PRIYA, priority: 8,
     when: { all: [t('count.coalpower', '>=', 1)] },
-    setup: 'Coal still makes most of the town\'s electricity, and most of its carbon. Closing it before the grid is ready means blackouts. Gas could bridge the gap, but it is still a fossil fuel. Priya says wind, solar and batteries can do the job if they come first.',
-    evidence: 'Gas emits roughly half the CO2 of coal per unit of electricity, but methane leaks along the supply chain can eat into that advantage, and a new gas plant can lock in emissions for decades. Wind, solar and batteries are now cheap enough in many places to replace coal, though a grid also needs storage for calm, dark evenings.',
+    setup: 'Coal still makes most of the town\'s electricity, and most of its carbon. Closing it before the grid is ready means blackouts. Gas could bridge the gap, but it is still a fossil fuel. Priya says wind, solar and batteries can carry most of the load if they come first.',
+    evidence: 'Gas emits roughly half the CO2 of coal per unit of electricity, but methane leaks along the supply chain can eat into that advantage, and a new gas plant can lock in emissions for decades. Wind, solar and batteries are now cheap enough to supply much of the power. But retiring coal needs enough replacement generation, storage, grid connections and backup to meet demand through difficult weather periods, such as calm, dark evenings.',
     options: [
       {
         id: 'renewables-first', label: 'Build wind, solar and batteries first, then retire coal', evidenceBacked: true,
-        outcome: 'The new capacity goes in over a few busy years. When the first coal unit finally switches off, nobody notices the lights.',
+        outcome: 'The new capacity goes in over a few busy years. When the first coal unit finally switches off, with storage and backup ready, nobody notices the lights.',
         effects: { budget: -30, flags: { 'grid.renewablesFirst': 1 }, mood: { [PRIYA]: 6 } },
         preview: { helps: [P('Emissions fall for good'), R(PRIYA, 'A plan the data supports')], hurts: [E('A big upfront cost')] },
       },
@@ -317,7 +317,7 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
     options: [
       {
         id: 'fence-cross', label: 'Fence the verge and fund crossings', evidenceBacked: true,
-        outcome: 'Fences funnel koalas towards a rope bridge. The first one crosses within a month, and kids gather to watch.',
+        outcome: 'Fences funnel koalas towards a wildlife underpass. Cameras catch the first one crossing within a month, and kids gather to watch the footage.',
         effects: { budget: -30, flags: { 'koala.roadSafe': 1 }, mood: { [KIDS]: 8 } },
         preview: { helps: [C('koala', 'Safe passage between woodland patches'), R(KIDS, 'Their koalas are safer')], hurts: [E('Costs real money')] },
       },
@@ -338,8 +338,8 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
   {
     id: 'd2-countryfire', title: 'An offer about fire', phase: 'act2', years: [2028, 2075], speaker: JUNE, needsConsultation: true, priority: 6,
     when: { all: [t('partnership', '>=', 28), t('flag.culturalBurning', '<=', 0)] },
-    setup: 'Aunty June has offered to talk about cultural burning, the cool, patchy fires her people used to look after Country. The fire brigade is cautious, and the insurers are nervous. It would take trust, planning and time from everyone.',
-    evidence: 'For tens of thousands of years Aboriginal and Torres Strait Islander peoples used fire to manage Country. Reviews after the 2019-20 fires called for more cultural burning alongside conventional hazard reduction. It depends on local knowledge, partnership and the right conditions, so it cannot simply be copied from one place to another.',
+    setup: 'Aunty June has offered to talk about cultural burning, the cool, patchy fires Aboriginal peoples have long used to look after Country. The fire brigade is cautious, and the insurers are nervous. It would take trust, planning and time from everyone.',
+    evidence: 'Aboriginal peoples have long used, and continue to use, fire to care for Country. Practices differ between places. Reviews after the 2019-20 fires called for more cultural burning alongside conventional hazard reduction. It depends on local knowledge, partnership and the right conditions, so it cannot simply be copied from one place to another.',
     options: [
       {
         id: 'co-design', label: 'Invite Aunty June to co-design a burning program', evidenceBacked: true, needsConsultation: true,
@@ -458,9 +458,9 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
       },
       {
         id: 'warnings', label: 'Strengthen warnings and evacuation plans', evidenceBacked: true,
-        outcome: 'Sirens, text alerts and a rehearsed evacuation route are in place by spring. People sleep a little easier.',
+        outcome: 'Sirens, text alerts and a rehearsed evacuation route are in place by spring. People sleep a little easier, knowing the plan has been practised.',
         effects: { budget: -12, society: 2 },
-        preview: { helps: [T('Everyone gets out safely')], hurts: [P('Does not reduce the fire risk itself')] },
+        preview: { helps: [T('Earlier warnings help people leave safely')], hurts: [P('Does not reduce the fire risk itself')] },
       },
     ],
   },
@@ -471,9 +471,9 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
     options: [
       {
         id: 'yes', label: 'Say yes and build it',
-        outcome: 'The plant opens with a ribbon-cutting. It runs hotter and costs more than promised, and the town finds it needs steady plastic to keep it going.',
+        outcome: 'The plant opens with a ribbon-cutting. The town soon finds the plant needs a steady supply of plastic to keep running.',
         effects: { budget: 10, incomePerYear: 2, emissionsKt: 25, society: -1, flags: { 'plasticfuel.built': 1 }, mood: { [PRIYA]: -8 } },
-        preview: { helps: [E('Some jobs and income')], hurts: [P('More CO2 than recycling'), R(PRIYA, 'Ignored the evidence')] },
+        preview: { helps: [E('Some jobs and income')], hurts: [P('More CO2 than recycling'), R(PRIYA, 'Wanted the evidence first')] },
       },
       {
         id: 'sorting', label: 'Say no and invest in sorting and reuse instead', evidenceBacked: true,
@@ -483,7 +483,7 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
       },
       {
         id: 'review', label: 'Ask for an independent review first', evidenceBacked: true,
-        outcome: 'The review takes a few months and says what Priya feared: it could work for a few hard-to-recycle plastics, but not as the town\'s main answer.',
+        outcome: 'The review compares emissions, costs, waste types and alternatives. It recommends proceeding only if the plant meets the town\'s published criteria.',
         effects: { budget: -8, flags: { 'knows.plasticToFuel': 1 }, mood: { [PRIYA]: 6 } },
         preview: { helps: [R(PRIYA, 'Wants the evidence'), P('Avoids a costly mistake')], hurts: [E('A delay and a small cost')] },
       },
@@ -491,14 +491,14 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
   },
   {
     id: 'd2-biogas', title: 'Food scraps', phase: 'act2', years: [2038, 2098], priority: 5,
-    setup: 'Food scraps make up a big share of the household bin, and rotting food in landfill makes methane. A digester could turn scraps into biogas and compost. It would need a new bin, a new truck route and some patience from households.',
-    evidence: 'Landfilled food waste breaks down without oxygen and releases methane. Composting avoids that and returns nutrients to soil. Anaerobic digestion captures the methane for energy. Wasting less food in the first place avoids all of it.',
+    setup: 'Food scraps make up a big share of the household bin, and rotting food in landfill makes methane. A digester could turn scraps into biogas and a nutrient-rich residue for gardens. It would need a new bin, a new truck route and some patience from households.',
+    evidence: 'Landfilled food waste breaks down without oxygen and releases methane. Composting avoids that and returns nutrients to soil. Anaerobic digestion captures the methane for energy and leaves a nutrient-rich residue called digestate, which needs appropriate treatment before use on gardens. Wasting less food in the first place avoids all of it.',
     options: [
       {
         id: 'digester', label: 'Roll out a food-scraps bin and a digester', evidenceBacked: true,
-        outcome: 'The green bins appear on kerbs. By autumn the digester is running the council depot, and the compost is going on the school gardens.',
+        outcome: 'The green bins appear on kerbs. By autumn the digester is running the council depot, and the treated residue is going on the school gardens.',
         effects: { budget: -30, emissionsKt: -15, society: 1, flags: { 'biogas.rollout': 1 } },
-        preview: { helps: [P('Less methane'), T('Compost for gardens')], hurts: [E('Upfront cost'), T('One more bin to sort')] },
+        preview: { helps: [P('Less methane'), T('Nutrients for gardens')], hurts: [E('Upfront cost'), T('One more bin to sort')] },
       },
       {
         id: 'compost', label: 'Backyard compost workshops only',
@@ -543,12 +543,12 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
   {
     id: 'd2-lastcoal', title: 'The last coal station', phase: 'act2', years: [2045, 2080], speaker: PRIYA, priority: 9,
     when: { all: [t('count.coalpower', '>=', 1)] },
-    setup: 'The last coal station is old, dirty and expensive to repair. Closing it would cut a large share of the town\'s emissions, but the grid still needs power on still, hot nights. Priya says batteries and wind could cover it.',
-    evidence: 'Old coal plants break down more often and cost more to maintain, and each year they run adds to the CO2 that stays in the air for centuries. Batteries and wind can cover peaks, but a grid needs enough of them before the last plant closes.',
+    setup: 'The last coal station is old, dirty and expensive to repair. Closing it would cut a large share of the town\'s emissions, but the grid still needs power on still, hot nights. Priya says batteries and wind could cover much of it.',
+    evidence: 'Old coal plants break down more often and cost more to maintain, and each year they run adds to the CO2 that stays in the air for centuries. Batteries and wind can cover peaks, but retiring coal needs enough replacement generation, storage, grid connections and backup to meet demand through difficult weather periods before the last plant closes.',
     options: [
       {
         id: 'retire', label: 'Retire it now and add batteries', evidenceBacked: true,
-        outcome: 'The stack stops steaming. Batteries fill the gap on the first hot night, and nobody loses power.',
+        outcome: 'The stack stops steaming. With batteries, grid links and backup ready, the first hot night passes without a blackout.',
         effects: { budget: -35, society: 1, mood: { [PRIYA]: 8, [MICK]: -2 } },
         preview: { helps: [P('Large emissions cut'), R(PRIYA, 'Does the right thing')], hurts: [E('A big cost'), T('Workers at the station need new jobs')] },
       },
@@ -588,8 +588,8 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
   {
     id: 'd2-turtlenest', title: 'Hot sand', phase: 'act2', years: [2040, 2095], speaker: KIDS, priority: 6,
     when: { all: [t('pop.green-turtle', '>=', 1), t('tempC', '>=', 1.3)] },
-    setup: 'The sand is getting hotter. Volunteers measured a nest at 32 degrees, which means nearly all the hatchlings would be female. They could shade the nests with sand-coloured cloth, move the eggs to cooler sand, or leave nature to take its course.',
-    evidence: 'In sea turtles the temperature of the nest decides whether embryos become male or female: warmer sand makes more females. Around 29 C gives a mix, and above about 33 C embryos may not survive. Shade and dune plants cool nests. Moving eggs is risky and best left to experts.',
+    setup: 'The sand is getting hotter. Volunteers measured a nest at 32 degrees, which is warm enough to produce mostly females. They could shade the nests with sand-coloured cloth, move the eggs to cooler sand, or leave nature to take its course.',
+    evidence: 'In sea turtles the temperature of the nest decides whether embryos become male or female: warmer sand makes more females. Warmer nests generally produce more females, and extreme or prolonged heat can reduce survival. Shade and dune plants cool nests. Rangers use local monitoring to decide whether to intervene. Moving eggs is risky and best left to experts.',
     options: [
       {
         id: 'shade', label: 'Shade the nests and plant dune vegetation', evidenceBacked: true,
@@ -614,14 +614,14 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
   {
     id: 'd2-tourism', title: 'Visitors to the estuary', phase: 'act2', years: [2060, 2100], needsConsultation: true, priority: 4,
     when: { all: [t('estuary', '>=', 55), t('wildlifeAlive', '>=', 4)] },
-    setup: 'The restored estuary draws more visitors every year. A tour company wants to run boat trips and build a boardwalk. Locals welcome the money, but shorebirds need quiet, and Aunty June worries about crowds on ground that matters to her community.',
-    evidence: 'Nature tourism can fund conservation and give locals a stake in protecting places, but too many visitors disturb wildlife, especially nesting and feeding birds. Visitor limits, quiet seasons and consulting Traditional Owners about places of significance help keep both people and nature happy.',
+    setup: 'The restored estuary draws more visitors every year. A tour company wants to run boat trips and build a boardwalk. Locals welcome the money, but shorebirds need undisturbed places to feed and rest, and Aunty June worries about crowds on ground that matters to her community.',
+    evidence: 'Nature tourism can fund conservation and give locals a stake in protecting places, but too many visitors disturb wildlife, especially nesting and feeding birds. Visitor limits, careful timing and consulting Traditional Owners about places of significance help keep both people and nature happy.',
     options: [
       {
         id: 'limited', label: 'A limited boardwalk and guided tours in the quiet season', evidenceBacked: true, needsConsultation: true,
         outcome: 'Tours are small and well run, and Aunty June\'s family gets to say where the boardwalk goes. The money helps pay for rangers.',
         effects: { budget: 10, incomePerYear: 3, partnership: 3, mood: { [JUNE]: 4 } },
-        preview: { helps: [E('Steady income'), R(JUNE, 'Asked about the route'), C('shorebirds', 'Quiet breeding season')], hurts: [T('Some want more tours')] },
+        preview: { helps: [E('Steady income'), R(JUNE, 'Asked about the route'), C('shorebirds', 'Undisturbed feeding and resting areas')], hurts: [T('Some want more tours')] },
       },
       {
         id: 'protect', label: 'Keep the estuary strictly protected',
@@ -664,8 +664,8 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
   },
   {
     id: 'd2-buses', title: 'New buses', phase: 'act2', years: [2028, 2085],
-    setup: 'The old diesel buses are due for replacement. Electric buses cost more upfront but are cheaper to run and quieter, and they cut the fumes at the school gate. The money would have to come from somewhere else in the budget.',
-    evidence: 'Electric buses have no tailpipe emissions, which cuts air pollution that harms children\'s lungs, and over their lifetime they usually cost less to run than diesel. When the grid is cleaner they also cut climate emissions. The upfront cost is the main hurdle.',
+    setup: 'The old diesel buses are due for replacement. Electric buses cost more upfront but are often cheaper to run and quieter, and they cut the fumes at the school gate. The money would have to come from somewhere else in the budget.',
+    evidence: 'Electric buses have no tailpipe emissions, which cuts air pollution that harms children\'s lungs, and over their lifetime they often cost less to run than diesel, depending on electricity and maintenance costs. When the grid is cleaner they also cut climate emissions. The upfront cost is the main hurdle.',
     options: [
       {
         id: 'electric', label: 'Buy electric buses', evidenceBacked: true,
@@ -690,7 +690,7 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
   {
     id: 'd2-festival', title: 'Fireworks night', phase: 'act2', years: [2040, 2100], noCleanAnswer: true,
     setup: 'The summer festival has always ended with fireworks. Some say they frighten wildlife and pets. Others say it is the one night the whole town comes together. A drone-light show is possible, but it costs more.',
-    evidence: 'Fireworks release smoke and metal particles, and loud bangs can frighten birds, flying-foxes and pets so that they flee into danger. Drone shows avoid the smoke and noise but cost more and use electricity. Shared community events build the social ties that help a town through hard times.',
+    evidence: 'Fireworks release smoke and metal particles, and loud bangs can frighten birds, flying-foxes and pets so that they flee into danger. Drone shows avoid explosive bangs and combustion smoke, but their motors and lights can still disturb wildlife, so location and timing matter. They cost more and use electricity. Shared community events build the social ties that help a town through hard times.',
     options: [
       {
         id: 'fireworks', label: 'Keep the fireworks',
@@ -700,9 +700,9 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
       },
       {
         id: 'drones', label: 'A drone light show',
-        outcome: 'Hundreds of tiny lights paint the sky, silently. People say it feels like the future.',
+        outcome: 'Hundreds of tiny lights paint the sky, with no bangs. People say it feels like the future.',
         effects: { budget: -20, society: 3 },
-        preview: { helps: [T('Everyone together'), C('flying-fox', 'No bangs')], hurts: [E('More expensive')] },
+        preview: { helps: [T('Everyone together'), C('flying-fox', 'No loud bangs')], hurts: [E('More expensive')] },
       },
       {
         id: 'picnic', label: 'A picnic and music night, no fireworks',
@@ -719,7 +719,7 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
     options: [
       {
         id: 'train', label: 'Train volunteers and run weekend planting days', evidenceBacked: true,
-        outcome: 'Saturday mornings fill with kids, grandparents and borrowed spades. The bush gets planted, and so does a lot of friendship.',
+        outcome: 'Saturday mornings fill with kids, grandparents and borrowed spades. Volunteers return each Saturday to plant, weed and check which seedlings survived.',
         effects: { budget: -8, society: 2, tiles: [{ op: 'health', scope: 'land', add: 0.03 }] },
         preview: { helps: [T('A community that cares'), P('More bush')], hurts: [P('Slower than a paid crew')] },
       },
@@ -766,7 +766,7 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
   {
     id: 'd2-ewaste', title: 'The drawer of old phones', phase: 'act2', years: [2036, 2100],
     setup: 'Old phones, TVs and batteries are piling up in garages and at the tip, and some are leaking metals into the soil. A collection point and a recovery partnership would cost money but could earn some back. People keep asking where it all goes.',
-    evidence: 'E-waste contains valuable metals, including gold, copper and rare earths, and some harmful ones, such as lead and mercury. Recovering metals takes far less energy than mining new ore: recycling aluminium saves about 95% of the energy, and copper about 85%. Less than a quarter of the world\'s e-waste is formally recycled.',
+    evidence: 'E-waste contains valuable metals, including gold, copper and rare earths, and some harmful ones, such as lead and mercury. Recovering metals takes far less energy than mining new ore: recycling aluminium saves about 95% of the energy, and copper about 85%. In 2022, only 22.3% of the world\'s e-waste was documented as formally collected and recycled.',
     options: [
       {
         id: 'partner', label: 'Set up a collection point and a recovery partnership', evidenceBacked: true,
@@ -791,7 +791,7 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
   {
     id: 'd2-dogs', title: 'Dogs on the turtle beach', phase: 'act2', years: [2030, 2100],
     setup: 'The off-leash dog beach is popular, and it is also where shorebirds rest and turtles nest. A fox or an off-lead dog can wreck a nest in a night. Dog owners say there is nowhere else to run their dogs, and they are good neighbours.',
-    evidence: 'Dogs and foxes are significant predators of turtle nests and of ground-nesting and resting shorebirds, and the sight of a dog makes shorebirds fly, which uses up energy they need for migration. Seasonal off-leash areas, away from nesting and roosting sites, usually work better than all-year bans.',
+    evidence: 'Dogs and foxes are significant predators of turtle nests and of ground-nesting and resting shorebirds, and the sight of a dog makes shorebirds fly, which uses up energy they need for migration. Dog restrictions should match local wildlife needs: sensitive nesting and roosting areas may need year-round exclusion, with dog exercise areas elsewhere.',
     options: [
       {
         id: 'season', label: 'Off-leash only in the cooler months and away from the nests', evidenceBacked: true,
@@ -817,7 +817,7 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
     id: 'd2-signs', title: 'Two names on the signs', phase: 'act2', years: [2035, 2100], speaker: JUNE, needsConsultation: true,
     when: { all: [t('flag.dualNames', '>=', 1)] },
     setup: 'The Land Council and Aunty June offer to put original place names beside the English ones on town signs. Some residents are proud, some are puzzled, and a few say it will confuse tourists. The council has to decide how quickly to do it.',
-    evidence: 'Dual naming, using the original names of places beside the names given by settlers, is now common across Australia and in other countries. It recognises that these places had names and meanings long before the towns were built, and it is a way of sharing the history of a place with everyone who lives there.',
+    evidence: 'Dual naming, using the original names of places beside the names given by settlers, is now common across Australia and in other countries. It recognises that these places had names and meanings long before the towns were built, and it is a way of sharing the history of a place with everyone who lives there. Names, permissions, timing and interpretation should be agreed with the relevant Traditional Owners.',
     options: [
       {
         id: 'all-signs', label: 'Add the original names to all the signs this year', needsConsultation: true,
@@ -826,7 +826,7 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
         preview: { helps: [R(JUNE, 'Her community\'s names are seen'), T('A richer shared story')], hurts: [E('Cost of new signs')] },
       },
       {
-        id: 'few-signs', label: 'Start with a few key places and learn as you go', evidenceBacked: true, needsConsultation: true,
+        id: 'few-signs', label: 'Start with a few places agreed with the community, then build', evidenceBacked: true, needsConsultation: true,
         outcome: 'Three signs go up first, with a morning tea and a talk at the school. More follow as people get comfortable.',
         effects: { budget: -5, partnership: 4, mood: { [JUNE]: 6 } },
         preview: { helps: [R(JUNE, 'A respectful start'), T('Time to learn')], hurts: [T('Slower than some would like')] },
@@ -843,11 +843,11 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
     id: 'd2-gasretire', title: 'The gas turbines', phase: 'act2', years: [2055, 2100], speaker: PRIYA, priority: 6,
     when: { all: [t('count.gaspower', '>=', 1), t('renewablePct', '>=', 70)] },
     setup: 'The grid now runs mostly on wind, sun and batteries. The gas turbines only run on a few calm winter evenings, but they still burn fossil fuel and need staff and maintenance. Priya says the town could retire them if it adds more storage.',
-    evidence: 'Gas plants are useful for the last few percent of reliability because they can start quickly, but each hour they run adds CO2. More storage, wider grid connections and flexible demand can cover most of those hours, so many grids plan to retire gas as batteries become cheaper.',
+    evidence: 'Gas plants are useful for the last few percent of reliability because they can start quickly, but each hour they run adds CO2. Storage, wider grid connections and flexible demand can reduce gas use. Retiring the remaining turbines needs a reliability assessment covering extended low-wind and low-solar periods.',
     options: [
       {
         id: 'retire', label: 'Retire the gas turbines and add storage', evidenceBacked: true,
-        outcome: 'Batteries take over the evening peak. The turbines are switched off and their site is cleared for something new.',
+        outcome: 'After a reliability check, batteries take over the evening peak. The turbines are switched off and their site is cleared for something new.',
         effects: { budget: -30, society: 1, mood: { [PRIYA]: 6 } },
         preview: { helps: [P('Cuts the last big source of power emissions'), R(PRIYA, 'Follows the plan')], hurts: [E('A big cost'), T('Some operators need new jobs')] },
       },
@@ -897,9 +897,9 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
       },
       {
         id: 'rates', label: 'Cut rates and let people decide',
-        outcome: 'People are pleased. Some spend it on home batteries. Some spend it on holidays.',
+        outcome: 'People are pleased. Some spend their savings on home batteries, some on holidays. Less money is left for shared projects.',
         effects: { budget: 20, society: 1 },
-        preview: { helps: [T('Money in everyone\'s pocket')], hurts: [P('No lasting investment')] },
+        preview: { helps: [T('Money in everyone\'s pocket')], hurts: [P('Less funding for shared projects')] },
       },
     ],
   },

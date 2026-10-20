@@ -43,7 +43,7 @@ describe('a thoughtful run reaches three stars', () => {
     expect(thoughtful.flags['metric.wildlifeThriving']).toBe(1);
     expect(c.filter((x) => x.pop > 0).length).toBeGreaterThanOrEqual(6);
     expect(c.find((x) => x.id === 'koala')?.families.length).toBeGreaterThanOrEqual(2);
-    expect(c.find((x) => x.id === 'koala')?.families).toContain('Marri family');
+    expect(c.find((x) => x.id === 'koala')?.families).toContain('Marri woodland koalas');
     expect(c.find((x) => x.id === 'green-turtle')?.families).toContain('Old Shelly');
   });
   it('earns the third star: every resident\'s arc ends well', () => {

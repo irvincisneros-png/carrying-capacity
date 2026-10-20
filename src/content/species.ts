@@ -78,6 +78,8 @@ export interface SpeciesDef {
   };
   /** "What does the evidence say?" blurb. */
   evidence: string;
+  /** True where the evidence or text touches community-specific cultural content that must be reviewed with the community. */
+  needsConsultation?: boolean;
 }
 
 const COAST: readonly ScenarioId[] = ['coal-coast'];
@@ -100,19 +102,19 @@ const BASE_SPECIES: readonly SpeciesDef[] = [
     decline: 0.25,
     families: [
       {
-        id: 'marri', name: 'Marri family', minPop: 2,
-        arrive: 'The Marri family is back. Two koalas were seen high in the eucalypts at dawn, munching quietly.',
-        lost: 'The Marri family has gone from the woodland. The gum leaves are still, and the nights are quieter.',
+        id: 'marri', name: 'Marri woodland koalas', minPop: 2,
+        arrive: 'Koalas are back in the Marri woodland. Two were seen high in the eucalypts at dawn, munching quietly.',
+        lost: 'The Marri woodland koalas have gone from the woodland. The gum leaves are still, and the nights are quieter.',
       },
       {
-        id: 'wattle-gully', name: 'Wattle Gully family', minPop: 7,
-        arrive: 'A second koala family, the Wattle Gully family, has settled in the connected woodland.',
-        lost: 'The Wattle Gully family has not been seen for a season. The corridor to them may have closed.',
+        id: 'wattle-gully', name: 'Wattle Gully koalas', minPop: 7,
+        arrive: 'More koalas have been recorded around Wattle Gully, in the connected woodland.',
+        lost: 'The Wattle Gully koalas have not been seen for a season. The corridor to them may have closed.',
       },
       {
-        id: 'banksia-ridge', name: 'Banksia Ridge family', minPop: 14,
-        arrive: 'A third koala family, the Banksia Ridge family, has joined the others. The bush is full of grunting at night in breeding season.',
-        lost: 'The Banksia Ridge family has disappeared from the ridge.',
+        id: 'banksia-ridge', name: 'Banksia Ridge koalas', minPop: 14,
+        arrive: 'Koalas have also been recorded on Banksia Ridge. The bush is full of grunting at night in breeding season.',
+        lost: 'The Banksia Ridge koalas have disappeared from the ridge.',
       },
     ],
     thrive: { pop: 14 },
@@ -121,11 +123,11 @@ const BASE_SPECIES: readonly SpeciesDef[] = [
       needs: ['Woodland patches of 14 or more tiles', 'Corridors joining patches', 'Safe road crossings', 'Clean air'],
       arrive: 'Koalas have found the woodland again: {n} arrived. They will stay as long as the trees stay connected.',
       lost: 'The last koala has left the woodland. Plant and join up more trees, and they may return.',
-      thrive: 'There are now {n} koalas in the woodland, in several families. The bush is alive with them.',
+      thrive: 'There are now {n} koalas in the woodland, across the woodland. The bush is alive with them.',
       help: 'Koalas need a connected woodland patch of at least 14 tiles. Grow more mature woodland, keep it joined, and put wildlife crossings where roads split it.',
     },
     evidence:
-      'Koalas live almost entirely on eucalypt leaves and rarely come to the ground except to cross open country. They were listed as endangered in NSW, Queensland and the ACT in 2022. The biggest threats are habitat loss and fragmentation, vehicle strikes, dog attacks, disease, and drought and heat. Where fenced underpasses and overpasses have been built, road deaths have fallen sharply.',
+      'Koalas live almost entirely on eucalypt leaves and spend much of their time in trees, but usually travel on the ground between them. They were listed as endangered in NSW, Queensland and the ACT in 2022. The biggest threats are habitat loss and fragmentation, vehicle strikes, dog attacks, disease, and drought and heat. Where fenced underpasses and overpasses have been built, road deaths have fallen sharply.',
   },
   {
     id: 'black-cockatoo',
@@ -182,18 +184,24 @@ const BASE_SPECIES: readonly SpeciesDef[] = [
         lost: 'Nobody has seen Old Shelly this year. The seagrass meadow is empty.',
       },
       {
-        id: 'shellys-clutch', name: "Shelly's youngsters", minPop: 4,
-        arrive: "Young turtles from Shelly's clutches are now feeding in the bay.",
-        lost: "Shelly's youngsters have left the bay.",
+        id: 'shellys-clutch', name: 'Young turtles', minPop: 4,
+        arrive: 'Juvenile green turtles have been recorded feeding in the bay. Their origins are unknown.',
+        lost: 'The juvenile turtles have left the bay.',
       },
     ],
     thrive: { pop: 3, nestStreak: 3 },
+    nest: {
+      first: 'A green turtle came ashore at night and laid {eggs} eggs in the warm sand. Volunteers marked the nest and watched over it.',
+      again: 'Nesting was recorded again this summer: {eggs} eggs on the dark end of the beach. Females return only every few years, so it may be a different turtle.',
+      streak: 'Nesting has now been recorded for {n} summers in a row: {eggs} eggs. Different females returned in different years. About {hatch} hatchlings are expected to scramble to the sea.',
+      missed: 'No turtle came ashore to nest this summer. {why}',
+    },
     text: {
       blurb: 'Grazes seagrass, and nests on dark, clean beaches in summer.',
       needs: ['A healthy seagrass meadow', 'Clean water around the beach', 'A dark beach at night, away from lights'],
       arrive: 'A green turtle has arrived in the bay and is grazing the seagrass.',
       lost: 'The last green turtle has left the bay. Without seagrass to eat, it cannot stay.',
-      thrive: 'Old Shelly has nested for {n} summers in a row, and young turtles are feeding in the bay.',
+      thrive: 'Nesting has been recorded on the beach for {n} summers in a row, with different females returning in different years. Young turtles are feeding in the bay.',
       help: 'Green turtles need healthy seagrass, clean water, and a beach that is dark at night. Keep lights and buildings back from the sand.',
     },
     evidence:
@@ -213,14 +221,14 @@ const BASE_SPECIES: readonly SpeciesDef[] = [
     decline: 0.25,
     families: [
       {
-        id: 'reedbed-pair', name: 'Reedbed pair', minPop: 2,
-        arrive: 'A platypus! The Reedbed pair has been spotted at dusk, making rings in the quiet water.',
-        lost: 'The Reedbed pair is gone from the river. The water is still, but not in a good way.',
+        id: 'reedbed-pair', name: 'Reedbed platypuses', minPop: 2,
+        arrive: 'A platypus! Two have been recorded along this reach, making rings in the quiet water at dusk.',
+        lost: 'The Reedbed platypuses are gone from the river. The water is still, but not in a good way.',
       },
       {
-        id: 'rocky-run', name: 'Rocky Run pair', minPop: 5,
-        arrive: 'A second platypus pair, the Rocky Run pair, has taken up burrows in the upstream bank.',
-        lost: 'The Rocky Run pair has left the upstream bank.',
+        id: 'rocky-run', name: 'Rocky Run platypuses', minPop: 5,
+        arrive: 'More platypuses have been recorded at Rocky Run, with burrows in the upstream bank.',
+        lost: 'The Rocky Run platypuses have left the upstream bank.',
       },
     ],
     thrive: { pop: 5 },
@@ -266,7 +274,7 @@ const BASE_SPECIES: readonly SpeciesDef[] = [
       arrive: 'Green and golden bell frogs have found the wetland: about {n} arrived.',
       lost: 'The frogs have gone from the wetland.',
       thrive: 'There are about {n} bell frogs calling from the wetlands.',
-      help: 'Frogs need a stormwater wetland with clean water. Build or protect wetlands beside the river or estuary.',
+      help: 'Bell frogs need suitable breeding ponds, shelter around them and protection from major threats. A well-designed wetland may help, but return is not guaranteed.',
     },
     evidence:
       'The green and golden bell frog was once common along the east coast but has disappeared from most of it. Drained wetlands and a fungal disease called chytrid are the main causes. It breeds in still, shallow, sunny ponds, so restored and constructed wetlands can give it a home again.',
@@ -338,7 +346,7 @@ const BASE_SPECIES: readonly SpeciesDef[] = [
       needs: ['Healthy, clean estuary water', 'Undisturbed mudflats and saltmarsh'],
       arrive: 'Shorebirds have landed on the mudflats: about {n} arrived.',
       lost: 'The shorebirds have gone from the estuary.',
-      thrive: 'About {n} shorebirds are feeding on the mudflats, fresh from a flight across the Pacific.',
+      thrive: 'About {n} shorebirds are feeding on the mudflats, after their long journey.',
       help: 'Shorebirds need a clean estuary with undisturbed mudflats. Treat water pollution and keep buildings back from the edge.',
     },
     evidence:

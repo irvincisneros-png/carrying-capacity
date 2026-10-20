@@ -48,9 +48,9 @@ export const NET_ZERO_CITY: ScenarioDef = {
     circularYear: 2032,
     turningPoint: NET_ZERO_CITY_TURNING,
     objectives: [
-      { id: 'netzero', label: 'Net zero by 2050 and holding (48 kt a year or less; trees and soils absorb the rest)', metric: 'netZeroYear', op: '<=', target: 2050 },
+      { id: 'netzero', label: 'Reach the game\'s simplified net-zero target by 2050 (48 kt a year or less) and hold it', metric: 'netZeroYear', op: '<=', target: 2050 },
       { id: 'society', label: 'Society 60 or more, every year', metric: 'societyMin', op: '>=', target: 60 },
-      { id: 'heat', label: 'Heat deaths kept to 20 or fewer over the whole game', metric: 'heatDeaths', op: '<=', target: 20 },
+      { id: 'heat', label: 'Reduce heat deaths as far as possible (benchmark: 20 or fewer over the whole game)', metric: 'heatDeaths', op: '<=', target: 20 },
       { id: 'budget', label: 'Under budget: spend 2500 or less on construction by 2050', metric: 'capitalSpent', op: '<=', target: 2500, byYear: 2050, bonus: true },
     ],
   },

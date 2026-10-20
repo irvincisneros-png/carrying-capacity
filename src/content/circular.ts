@@ -32,8 +32,8 @@ export const REPURPOSE: Readonly<Partial<Record<BuildingId, readonly RepurposeOp
     },
     {
       id: 'rehab', into: 'rehab', label: 'Return to bushland', cost: 20,
-      blurb: 'Clear the site and let the bush come back.',
-      story: 'The last steel frames were lifted away. In a season the ground was covered in native grass seed, and a year later the first wattles came up.',
+      blurb: 'Test the soil, manage any contamination, then restore suitable native vegetation.',
+      story: 'The last steel frames were lifted away. After the soil was tested and treated, crews sowed native grass seed and monitored the site, and a year later the first wattles came up.',
     },
   ],
   port: [
@@ -63,8 +63,8 @@ export const REPURPOSE: Readonly<Partial<Record<BuildingId, readonly RepurposeOp
     },
     {
       id: 'rehab', into: 'rehab', label: 'Return to bushland', cost: 20,
-      blurb: 'Clear the site and let the bush come back.',
-      story: 'With the chimney down and the ash cleared, the site was left to the bush. Seedlings arrived on the wind and in the beaks of birds.',
+      blurb: 'Test the soil, manage any contamination, then restore suitable native vegetation.',
+      story: 'With the chimney down, the ash safely managed and the soil treated, crews planted native seedlings and monitored the site. Birds and wind soon brought more.',
     },
   ],
   factory: [
@@ -75,8 +75,8 @@ export const REPURPOSE: Readonly<Partial<Record<BuildingId, readonly RepurposeOp
     },
     {
       id: 'rehab', into: 'rehab', label: 'Return to bushland', cost: 15,
-      blurb: 'Clear the site and let the bush come back.',
-      story: 'The factory came down brick by brick, and the bricks went to new homes. Where it stood, native grasses now sway.',
+      blurb: 'Test the soil, manage any contamination, then restore suitable native vegetation.',
+      story: 'The factory came down brick by brick, and the bricks went to new homes. After the soil was tested and treated, native grasses were planted and their recovery monitored.',
     },
   ],
   coalmine: [
@@ -109,11 +109,11 @@ export const RECYCLE_STORY: Readonly<Partial<Record<BuildingId, string>>> = {
   port: 'The coal loader was dismantled and its steel sold to be melted into new beams.',
   factory: 'The factory was deconstructed, and its bricks, beams and machinery were sorted for reuse.',
   coalmine: 'The surface buildings were taken apart and the steel recycled. The workings were sealed.',
-  landfill: 'The rubbish was mined and sorted. Metals and glass were recovered, and what remained was sealed in a modern lined cell.',
+  landfill: 'Specialist crews excavated selected waste and recovered usable materials. Contaminated and unrecoverable waste still needed safe disposal.',
   rail: 'The rail was lifted. Steel rail is among the most easily recycled material there is.',
-  carpark: 'The highway was broken up and the asphalt and concrete crushed for new road base.',
+  carpark: 'The car park was broken up, and suitable asphalt and concrete were recovered for new road base.',
   outfall: 'The old outfall pipe was removed and its materials recycled.',
 };
 
 export const LANDFILL_STORY =
-  'The old site was knocked down and the rubble trucked to landfill. It was quick and cheap, but the steel, copper and concrete were wasted, and the tip gives off methane for years.';
+  'The old site was knocked down and the rubble trucked to landfill. It was quick and cheap, but materials that might have been reused or recycled were lost, and demolition and transport produced emissions.';

@@ -33,7 +33,7 @@ const mick: ResidentDef = {
     {
       id: 'mick-furnace', title: 'Three generations of steel',
       when: { phase: ['act1'], years: [1950, 2020], all: [t('heavyJobs', '>=', 60)] },
-      text: 'Dad stepped off the ship in 1952 with one suitcase and walked straight to the works gate. Now I run the same furnace. It is hot, loud, honest work, and it built this street. I would like my kids to be proud of it too.',
+      text: 'Dad stepped off the ship with one suitcase and walked straight to the works gate. Now I run the same furnace. It is hot, loud, honest work, and it built this street. I would like my kids to be proud of it too.',
       tone: 'warm',
     },
     {
@@ -85,15 +85,15 @@ const mick: ResidentDef = {
       effects: { mood: { 'mick-kowalski': -10 }, society: -1 },
     },
     {
-      id: 'mick-later-good', title: 'Dad would approve',
+      id: 'mick-later-good', title: 'Pop would approve',
       when: { phase: ['act2'], years: [2045, 2100], all: [t('count.steelworks', '<=', 0)], any: MICK_TRANSITION },
-      text: 'My granddaughter did her school project on the old works. She called it the place where Pop learned to make steel without coal. {cleanJobs} people work in clean jobs here now. I reckon Dad would have approved.',
+      text: 'I am Mick\'s granddaughter, and my school project was on the old works. I called it the place where Pop learned to make steel without coal. {cleanJobs} people work in clean jobs here now. I reckon he would have approved.',
       tone: 'joy',
     },
     {
       id: 'mick-later-stuck', title: 'Waiting for a plan',
       when: { phase: ['act2'], years: [2050, 2100], all: [t('count.steelworks', '>=', 1)] },
-      text: 'The furnace still runs, but the coal gets dearer every year and the heat in summer is brutal. The young blokes are leaving town. I keep waiting for somebody to tell us what comes next.',
+      text: 'I run the furnace my father ran, but the coal gets dearer every year and the heat in summer is brutal. The young ones are leaving town. We keep waiting for somebody to tell us what comes next.',
       tone: 'concern',
     },
     {
@@ -102,7 +102,7 @@ const mick: ResidentDef = {
         phase: ['act2'], years: [2050, 2100],
         all: [t('count.steelworks', '<=', 0), t('flag.transition.funded', '<=', 0), t('acts.repurposed.steelworks', '<=', 0), t('acts.demolished.steelworks', '>=', 1)],
       },
-      text: 'I drove trucks at a mine up north for ten years. Good money, but I missed the sea. I came home when I heard there were new jobs here. Funny how a town can lose its people and then want them back.',
+      text: 'After the works shut, I drove trucks at a mine up north for ten years. Good money, but I missed the sea. I came home when I heard there were new jobs here. Funny how a town can lose its people and then want them back.',
       tone: 'neutral',
     },
   ],
@@ -110,16 +110,16 @@ const mick: ResidentDef = {
     {
       id: 'mick-good', quality: 'good', title: 'Mick teaches the next lot',
       when: { all: [t('mood.mick-kowalski', '>=', 48)], any: MICK_TRANSITION },
-      text: 'Mick teaches apprentices at the new works. His granddaughter wears his old hard hat to open day, two sizes too big. "Dad came here for steel," he tells her. "We stayed for the town."',
+      text: 'The Kowalskis teach apprentices at the new works. Mick\'s granddaughter wears his old hard hat to open day, two sizes too big. "Great-Pop came here for steel," she says. "We stayed for the town."',
     },
     {
       id: 'mick-mixed', quality: 'mixed', title: 'Mick finds his feet',
       when: { all: [t('mood.mick-kowalski', '>=', 42)] },
-      text: 'Mick found work, though never again at a furnace. He says the town did its best, and he says it a little quietly. On Sundays he still walks past where the gates used to be.',
+      text: 'The Kowalskis found work, though never again at a furnace. They say the town did its best, and they say it a little quietly. On Sundays someone in the family still walks past where the gates used to be.',
     },
     {
       id: 'mick-bad', quality: 'bad', title: 'Mick moves away',
-      text: 'Mick left town to chase work. His daughter finished school somewhere new. He still keeps a photo of the works on the fridge, and he never quite stops missing it.',
+      text: 'The Kowalskis left town to chase work, and the kids finished school somewhere new. There is still a photo of the works on the fridge, and the family never quite stops missing it.',
     },
   ],
 };
@@ -182,13 +182,13 @@ const lena: ResidentDef = {
     {
       id: 'lena-linh-good', title: 'Linh\'s data',
       when: { phase: ['act2'], years: [2065, 2100], all: [t('estuary', '>=', 60)] },
-      text: 'Linh finished her degree in marine science. She showed me her data yesterday: the estuary is {est} out of 100 clean. I told her Mum\'s boat is always hers, but I suspect she will use a drone instead.',
+      text: 'I am Linh, and I finished my marine science degree years ago. Yesterday I checked the data: the estuary\'s health score is {est} out of 100, and I also track oxygen, nutrients and wildlife. Mum\'s boat is always mine, but I suspect I will use a drone.',
       tone: 'joy',
     },
     {
       id: 'lena-linh-bad', title: 'Selling the boat',
       when: { phase: ['act2'], years: [2060, 2100], all: [t('estuary', '<=', 40)] },
-      text: 'Linh studies in Brisbane now and I have listed the boat. The estuary is tired, and so am I. She rings on Sundays and tells me about other people\'s reefs. I tell her I am fine.',
+      text: 'I live in Brisbane now, and we have listed the family boat. The estuary is tired, and so is Mum. I ring on Sundays and tell her about other people\'s reefs. She tells me she is fine.',
       tone: 'loss',
     },
   ],
@@ -196,16 +196,16 @@ const lena: ResidentDef = {
     {
       id: 'lena-good', quality: 'good', title: 'Linh tags the first bream',
       when: { all: [t('estuary', '>=', 60), t('mood.lena-tran', '>=', 52)] },
-      text: 'Linh Tran, marine scientist, tags the first bream of the season while her mother steers the old boat. The estuary is her laboratory and her inheritance, and the fish still come when the tide turns.',
+      text: 'Linh Tran, marine scientist, tags the first bream of the season from the Trans\' old boat. The estuary is her laboratory and her inheritance, and the fish still come when the tide turns.',
     },
     {
       id: 'lena-mixed', quality: 'mixed', title: 'A smaller boat',
       when: { all: [t('estuary', '>=', 35)] },
-      text: 'Lena still fishes, with a smaller boat and a smaller catch. Linh runs the estuary monitoring on weekends. They are not giving up, and the estuary has not either.',
+      text: 'The Trans still fish, with a smaller boat and a smaller catch. Linh runs the estuary monitoring on weekends. They are not giving up, and the estuary has not either.',
     },
     {
       id: 'lena-bad', quality: 'bad', title: 'The boat ramp is quiet',
-      text: 'Lena sold the boat. Linh studies far away. Some mornings Lena walks down to the ramp and just looks at the estuary, remembering when it sang.',
+      text: 'The Trans sold the boat, and Linh lives far away. Some mornings someone from the family walks down to the ramp and just looks at the estuary, remembering when it sang.',
     },
   ],
 };
@@ -218,10 +218,10 @@ const june: ResidentDef = {
   role: 'Elder',
   elder: true,
   family: 'A local Aboriginal family whose story spans the whole timeline of the town (placeholder: to be written with the community)',
-  blurb: 'An Elder of the local Aboriginal community. Patient, funny and generous. Shares knowledge as trust is built. (Placeholder text: needs consultation with the local Aboriginal community before release.)',
+  blurb: 'An Elder of the local Aboriginal community.',
   homeHint: { near: 'escarpment', description: 'A house at the foot of the escarpment, with a view of the bush' },
   portrait: 'aunty-june',
-  traits: ['patient', 'warm', 'good humoured', 'generous with time'],
+  traits: ['thoughtful', 'direct', 'community-minded'],
   start: 55,
   needsConsultation: true,
   cares: [
@@ -237,28 +237,28 @@ const june: ResidentDef = {
       id: 'june-country', title: 'On Country',
       when: { phase: ['act1'], years: [1900, 2020] },
       ...JUNE,
-      text: 'My family has lived on this Country for longer than anyone can count. We know it by its seasons: when the wattle flowers, when the mullet run. The town is new to us, but we are not going anywhere. I hope you will learn to listen.',
+      text: 'The local Aboriginal community has its own priorities and its own history with this place. The community decides what knowledge is shared and on what terms, and the town needs to ask and listen.',
       tone: 'warm',
     },
     {
       id: 'june-thanks', title: 'Thank you for asking',
       when: { all: [t('acts.consulted', '>=', 1)] },
       ...JUNE,
-      text: 'Thank you for sitting down with me. Not many people do. Listening is a good start, and there is a lot we can share when it is done in good faith. Come and have a cuppa anytime.',
+      text: 'Thank you for sitting down with the community. Listening is a start, but the community decides what is shared, on what terms, and what it wants from the town.',
       tone: 'warm',
     },
     {
-      id: 'june-waiting', title: 'The door is open',
+      id: 'june-waiting', title: 'Written with community',
       when: { phase: ['act1', 'turning-point'], years: [1930, 2020], all: [t('acts.consulted', '<=', 0)] },
       ...JUNE,
-      text: 'I have watched this town grow from my verandah. Nobody has knocked yet, and that is all right. If you ever want to sit down and yarn about the ground you are building on, the kettle is on.',
+      text: 'The community has not yet been consulted. Its priorities, and how it wants to be involved in the town\'s planning, should come from the community, not be assumed.',
       tone: 'warm',
     },
     {
       id: 'june-teaching', title: 'Reading the seasons',
       when: { phase: ['act2'], all: [t('partnership', '>=', 30)] },
       ...JUNE,
-      text: 'Come out with me in autumn. We read the year from the plants and animals, not only a calendar: wattle flowers, fish run, birds change. Watch this way and you begin to see the land getting ready for what is coming.',
+      text: 'What is shared about reading the seasons, and how, is for the community to decide. Many people notice flowering, fish and birds as signs of the year changing, and it helps to learn from those who know.',
       tone: 'warm',
       effects: { flags: { 'june.seasons': 1 } },
     },
@@ -266,7 +266,7 @@ const june: ResidentDef = {
       id: 'june-fire', title: 'Cool fire',
       when: { phase: ['act2'], all: [t('flag.culturalBurning', '>', 0)] },
       ...JUNE,
-      text: 'Fire is a tool, not a threat, when you know it. Cool, low and slow, burned in patches in the right season, with the big trees left safe. Shall we do it together, with your fire crews alongside?',
+      text: 'Cultural burning needs skilled practitioners, suitable conditions and an agreed plan. If the community is willing, we could plan it together, with your fire crews alongside. Shall we start by talking it through?',
       tone: 'warm',
       choice: {
         prompt: 'Cool burning',
@@ -281,14 +281,14 @@ const june: ResidentDef = {
       id: 'june-neglect', title: 'Talking past each other',
       when: { phase: ['act2'], years: [2040, 2100], all: [t('partnership', '<=', 22)] },
       ...JUNE,
-      text: 'Years have gone by and we still mostly talk past each other. I am not angry, only tired. There is so much we could do together if someone just asked.',
+      text: 'The relationship has not developed. The community will decide what needs to change before it takes part in further discussions, and what it wants to see.',
       tone: 'concern',
     },
     {
       id: 'june-later', title: 'The next generation',
       when: { phase: ['act2'], years: [2065, 2100], all: [t('partnership', '>=', 55)] },
       ...JUNE,
-      text: 'My granddaughter helped lead the burn this year. She is twelve and knows more about the creek than most grown-ups. This place remembers who looks after it, and it looks after them.',
+      text: 'Younger community members joined approved learning activities on the creek this year, guided by people with the right knowledge and training. Caring for Country is shared work across the generations.',
       tone: 'joy',
     },
   ],
@@ -296,16 +296,16 @@ const june: ResidentDef = {
     {
       id: 'june-good', quality: 'good', title: 'Country, looked after together', ...JUNE,
       when: { all: [t('partnership', '>=', 58)] },
-      text: 'Country is looked after together now. Aunty June\'s grandchildren lead cool burns in autumn and the signs in town show two names. "We are still here," she says, smiling. "And now so are you."',
+      text: 'Country is looked after together now. Community-led cultural burns happen in autumn with fire agencies as partners, and the signs in town show two names. "We are still here," June\'s family say.',
     },
     {
       id: 'june-mixed', quality: 'mixed', title: 'A good start', ...JUNE,
       when: { all: [t('partnership', '>=', 35)] },
-      text: 'Aunty June says the relationship has started well but has a long way to go. She is patient. "Good things take a long time," she says. "I am happy to keep walking."',
+      text: 'June\'s community says the relationship has started well but has a long way to go. What happens next is for the community to decide, and the town needs to keep showing up.',
     },
     {
-      id: 'june-bad', quality: 'bad', title: 'It is not too late', ...JUNE,
-      text: 'The old knowledge stayed with Aunty June\'s family because nobody asked. She holds no grudge. "It is never too late to ask," she says. "The kettle is always on."',
+      id: 'june-bad', quality: 'bad', title: 'The community decides', ...JUNE,
+      text: 'The community has not agreed to further participation. Its representatives will decide what needs to change before any discussions resume.',
     },
   ],
 };
@@ -340,7 +340,7 @@ const priya: ResidentDef = {
     {
       id: 'priya-emissions-good', title: 'Good news, and a caution',
       when: { phase: ['act2'], years: [2030, 2100], all: [t('emissionsPct', '<=', 60), t('renewablePct', '>=', 25)] },
-      text: 'Good news and a caution. Your emissions are down to {kt} kilotonnes a year from a peak of {peakKt}, and {ren}% of your power is renewable. But CO2 is {co2} ppm and still rising, because what we have already released stays up there for a very long time.',
+      text: 'Good news and a caution. Your emissions are down to {kt} kilotonnes a year from a peak of {peakKt}, and {ren}% of your power is renewable. But CO2 is {co2} ppm and still rising, because we are still adding more than is removed. Reaching net zero would roughly stabilise it.',
       tone: 'warm',
     },
     {
@@ -352,13 +352,13 @@ const priya: ResidentDef = {
     {
       id: 'priya-lag', title: 'Why is it still getting warmer?',
       when: { phase: ['act2'], years: [2050, 2100] },
-      text: 'Here is the hard part. Emissions are {kt} kilotonnes now, but the temperature is {temp} C and still moving towards {eqTemp} C. Oceans warm slowly and CO2 lasts for centuries, so some warming is already committed. Every year we cut earlier makes the final number smaller.',
+      text: 'Here is the hard part. Emissions are {kt} kilotonnes now, but the temperature is {temp} C and still moving towards {eqTemp} C. Oceans warm slowly and CO2 lasts for centuries. Warming roughly levels off once CO2 emissions reach net zero, so every year we cut earlier lowers the peak.',
       tone: 'neutral',
     },
     {
       id: 'priya-letter-good', title: 'Seventy-five years of data',
       when: { phase: ['act2'], years: [2080, 2100], all: [t('tempC', '<=', 1.8)] },
-      text: 'I have charted your town for seventy-five years. Final reading: {temp} C, {species} species back or holding on, estuary {est}. I told my students data does not care what we hope. This time it agreed with us a little. Thank you for letting me show you the graphs.',
+      text: 'Our department has charted your town for seventy-five years. Final reading: {temp} C, {species} species back or holding on, estuary {est}. I tell my students data does not care what we hope. This time it agreed with us a little. Thank you for letting us show you the graphs.',
       tone: 'joy',
     },
     {
@@ -372,16 +372,16 @@ const priya: ResidentDef = {
     {
       id: 'priya-good', quality: 'good', title: 'Graphs on the school wall',
       when: { all: [t('tempC', '<=', 1.8), t('mood.priya-shah', '>=', 48)] },
-      text: 'Priya\'s graphs hang in the school hall: a town that read its data and acted on it. She is retired now, and her students still send her the new numbers every spring.',
+      text: 'Priya\'s graphs hang in the school hall: a town that read its data and acted on it. Her students\' students still add the new numbers every spring.',
     },
     {
       id: 'priya-mixed', quality: 'mixed', title: 'Better than most',
       when: { all: [t('tempC', '<=', 2.2)] },
-      text: 'Priya\'s data show the town helped, but not fast enough. "Better than most," she wrote in her last paper. "Not as good as it could have been." She kept teaching anyway.',
+      text: 'Priya\'s data show the town helped, but not fast enough. "Better than most," she wrote in her last paper. "Not as good as it could have been." Her students kept the monitoring going.',
     },
     {
       id: 'priya-bad', quality: 'bad', title: 'The warning stays on file',
-      text: 'Priya filed her last report knowing it would be read too late. She still teaches. "The graphs only tell you where you are," she says. "What you do next is up to you."',
+      text: 'Priya filed her last report knowing it would be read too late. Her students still teach from it. "The graphs only tell you where you are," she used to say. "What you do next is up to you."',
     },
   ],
 };
@@ -391,7 +391,7 @@ const kids: ResidentDef = {
   name: 'Sam and Jordan',
   role: 'Schoolkids (twins)',
   family: 'The Harts, who live near the beach. They grow up across the whole of Act 2.',
-  blurb: 'Twins who ask the big questions and write letters. They are the reason it matters.',
+  blurb: 'Twins who follow the beach and bush as they grow up.',
   homeHint: { near: 'beach', description: 'A house behind the dunes, close to the turtle beach' },
   portrait: 'sam-jordan',
   traits: ['curious', 'blunt', 'kind', 'impatient'],
@@ -431,7 +431,7 @@ const kids: ResidentDef = {
     {
       id: 'sj-teens', title: 'We are not too young',
       when: { phase: ['act2'], years: [2036, 2100] },
-      text: 'We are sixteen. Our class did a climate strike: Sam made the signs, Jordan the graphs, and Priya checked our maths. Someone said we are too young to understand. We understand it is {temp} C now and the adults are still arguing. We vote soon.',
+      text: 'We are sixteen. Our class compared the emissions plans, and Priya checked our maths. Someone said we are too young to understand. It is {temp} C now, and we want council to explain what each plan would achieve, and when. We vote soon.',
       tone: 'warm',
       minGapYears: 8,
     },
@@ -540,7 +540,7 @@ const dot: ResidentDef = {
     {
       id: 'dot-solar', title: 'Panels on the top paddock',
       when: { phase: ['act2'], years: [2035, 2100], all: [t('renewablePct', '>=', 30)] },
-      text: 'A company wants to lease my top paddock for solar panels. Sheep can graze underneath, and it is steady money when milk prices wobble. But that paddock has been grass since my great-grandfather. Is it betrayal if it keeps the farm alive?',
+      text: 'A company wants to lease my top paddock for solar panels. Sheep could graze underneath, and it is steady money when milk prices wobble. Before I decide, I want to check what it means for grazing, access and the soil.',
       tone: 'warm',
       choice: {
         prompt: 'Solar on the farm',
@@ -554,13 +554,13 @@ const dot: ResidentDef = {
     {
       id: 'dot-later-good', title: 'Farms and rivers can share',
       when: { phase: ['act2'], years: [2065, 2100], all: [t('flag.farm.riparian', '>=', 1), t('estuary', '>=', 50)] },
-      text: 'My grandson runs the dairy now. The creek is lined with native trees, the water is clear enough to see the stones, and the herd cools off in the shade. I used to think looking after a river and running a farm were two different jobs.',
+      text: 'Dot\'s grandson runs the dairy now. "Nan always said the creek and the farm were one job," he says. The creek is lined with native trees, the water is clear enough to see the stones, and the herd cools off in the shade.',
       tone: 'joy',
     },
     {
       id: 'dot-later-bad', title: 'Selling the herd',
       when: { phase: ['act2'], years: [2060, 2100], any: [t('flag.farm.riparian', '<=', 0), t('economy', '<=', 40)], all: [t('mood.dot-harris', '<=', 48)] },
-      text: 'Sold the herd last spring. The grandkids do not want it, and I cannot blame them: the summers are too hot and the paddocks too dry. I am not bitter. I just wish somebody had started the conversation thirty years earlier.',
+      text: 'We sold the herd last spring. Nan\'s grandkids did not want it: the summers are too hot and the paddocks too dry. We wish the conversation about drought, creeks and farm income had started thirty years earlier.',
       tone: 'loss',
     },
   ],
@@ -568,16 +568,16 @@ const dot: ResidentDef = {
     {
       id: 'dot-good', quality: 'good', title: 'A farm that kept going',
       when: { all: [t('flag.farm.riparian', '>=', 1), t('mood.dot-harris', '>=', 52)] },
-      text: 'The Harris dairy is still milking, now with a solar paddock and a creek full of frogs. Dot\'s grandson runs it. She sits on the verandah and tells him the weather is going to turn. She is usually right.',
+      text: 'The Harris dairy is still milking, now with a solar paddock and a creek full of frogs. Dot\'s grandson runs it, and he still keeps her habit of checking the sky each morning.',
     },
     {
       id: 'dot-mixed', quality: 'mixed', title: 'Smaller, but still there',
       when: { all: [t('mood.dot-harris', '>=', 42)] },
-      text: 'The Harris farm is smaller now, and runs on fewer cows and more worry. But the gate is still painted green, and Dot still checks the sky every morning.',
+      text: 'The Harris farm is smaller now, and runs on fewer cows and more worry. But the gate is still painted green, and the family still checks the sky every morning.',
     },
     {
       id: 'dot-bad', quality: 'bad', title: 'The last milking',
-      text: 'The Harris dairy closed after four generations. The paddocks are leased to someone else, and Dot walks the creek line most mornings, remembering where the cows used to stand.',
+      text: 'The Harris dairy closed after four generations. The paddocks are leased to someone else, and the family still walks the creek line, remembering where the cows used to stand.',
     },
   ],
 };

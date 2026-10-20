@@ -16,10 +16,10 @@ const mere: ResidentDef = {
   role: 'Elder',
   elder: true,
   family: 'A Torres Strait Islander family who have lived on and fished this island for generations (placeholder: to be written with the community)',
-  blurb: 'Elder of the island community. Funny, sharp-eyed and patient, with a big family and a boat shed full of nets. Placeholder name: to be agreed with the community. (Placeholder text: needs consultation before release.)',
+  blurb: 'Elder of the island community.',
   homeHint: { near: 'beach', description: 'A house above the beach with a verandah facing the reef pass' },
   portrait: 'aunty-mere',
-  traits: ['patient', 'warm', 'sharp-eyed', 'good humoured'],
+  traits: ['thoughtful', 'direct', 'community-minded'],
   start: 55,
   needsConsultation: true,
   cares: [
@@ -32,31 +32,31 @@ const mere: ResidentDef = {
   reacts: { 'marine-heatwave': -4, 'storm-surge': -2 },
   beats: [
     {
-      id: 'mere-country', title: 'Sea Country is family',
+      id: 'mere-country', title: 'Written with community',
       when: { phase: ['act1'], years: [1900, 2020] },
       ...MERE,
-      text: 'The reef, the seagrass, the turtles and the dugong are family to us, not just food. We read the winds and the tides to know the season. The town is new here, but we are not going anywhere. I hope you will listen.',
+      text: 'The island community has its own relationships with Sea Country, and its own priorities for the town. How those are represented, and what is shared, is for the community to decide.',
       tone: 'warm',
     },
     {
       id: 'mere-thanks', title: 'Thank you for asking',
       when: { all: [t('acts.consulted', '>=', 1)] },
       ...MERE,
-      text: 'Thank you for sitting down with me on the verandah. Not many do. Listening is a good start, and there is plenty we can share when it is done in good faith. Bring the kids next time. They can help with the tea.',
+      text: 'Thank you for sitting down with the community. Listening is a start, but the community decides what is shared, on what terms, and what it wants from the town.',
       tone: 'warm',
     },
     {
-      id: 'mere-waiting', title: 'The kettle is on',
+      id: 'mere-waiting', title: 'Not yet consulted',
       when: { phase: ['act1', 'turning-point'], years: [1930, 2020], all: [t('acts.consulted', '<=', 0)] },
       ...MERE,
-      text: 'I have watched this island grow from my verandah. Nobody has knocked yet, and that is all right. If you ever want to yarn about the ground you are building on, or the water around it, the kettle is on.',
+      text: 'The island community has not yet been consulted. Its priorities for the land and the water around it should come from the community, not be assumed.',
       tone: 'warm',
     },
     {
       id: 'mere-rangers', title: 'Our rangers',
       when: { phase: ['act2'], all: [t('partnership', '>=', 30)] },
       ...MERE,
-      text: 'Our community rangers watch the reef, the seagrass and the turtle nests every season. They know when something is off long before a report says so. Would you back them with a boat and a few more hands?',
+      text: 'Our community rangers watch the reef, the seagrass and the turtle nests every season, and they often notice changes early. Would you back them with a boat and a few more hands, if the community wants that?',
       tone: 'warm',
       choice: {
         prompt: 'Community rangers',
@@ -71,14 +71,14 @@ const mere: ResidentDef = {
       id: 'mere-neglect', title: 'Talking past each other',
       when: { phase: ['act2'], years: [2040, 2100], all: [t('partnership', '<=', 22)] },
       ...MERE,
-      text: 'Years go by and we still mostly talk past each other. I am not angry, only tired. The reef does not wait for us to sort it out. There is so much we could do together if someone just asked.',
+      text: 'The community has not agreed to further participation. Its representatives will decide what needs to change before discussions resume. The reef does not wait while that is sorted out.',
       tone: 'concern',
     },
     {
       id: 'mere-later', title: 'The next generation',
       when: { phase: ['act2'], years: [2060, 2100], all: [t('partnership', '>=', 55)] },
       ...MERE,
-      text: 'My granddaughter ran the ranger boat this season. She is nineteen and reads the water better than I did at her age. The sea remembers who looks after it, and it looks after them in return.',
+      text: 'A younger community member ran the ranger boat this season, with training and support from the rangers. Caring for Sea Country is shared work across the generations.',
       tone: 'joy',
     },
   ],
@@ -87,18 +87,18 @@ const mere: ResidentDef = {
       id: 'mere-good', quality: 'good', title: 'Sea Country, looked after together',
       when: { all: [t('partnership', '>=', 58)] },
       ...MERE,
-      text: 'Sea Country is looked after together now. Aunty Mere\'s grandchildren run the ranger boat, and the school kids join the turtle patrol. "We are still here," she says, grinning. "And now so are you."',
+      text: 'Sea Country is looked after together now. Community rangers run the ranger boat, and the school kids join the turtle patrol. "We are still here," the community says.',
     },
     {
       id: 'mere-mixed', quality: 'mixed', title: 'A good start',
       when: { all: [t('partnership', '>=', 35)] },
       ...MERE,
-      text: 'Aunty Mere says the friendship has started well but has a long way to go. She is patient. "Tides take their time," she says. "I am happy to keep walking the beach with you."',
+      text: 'The island community says the relationship has started well but has a long way to go. What happens next is for the community to decide, and the town needs to keep showing up.',
     },
     {
-      id: 'mere-bad', quality: 'bad', title: 'It is not too late',
+      id: 'mere-bad', quality: 'bad', title: 'The community decides',
       ...MERE,
-      text: 'The old knowledge stayed in Aunty Mere\'s family because nobody asked. She holds no grudge. "It is never too late to ask," she says, filling the kettle. "The door is always open."',
+      text: 'The community has not agreed to further participation. Its representatives will decide what needs to change before any discussions resume.',
     },
   ],
 };
@@ -131,7 +131,7 @@ const kieran: ResidentDef = {
     {
       id: 'kieran-starfish', title: 'Spikes on the bommie',
       when: { phase: ['act1'], years: [1980, 2020], all: [t('estuary', '<=', 65)] },
-      text: 'Found a crown-of-thorns starfish chewing through the bommie today, then another, then ten. Coral gets eaten from the inside out. The water has been greener lately, and I have a feeling that is not a coincidence.',
+      text: 'Found a crown-of-thorns starfish chewing through the bommie today, then another, then ten. They leave pale feeding scars where living coral tissue has been eaten. The water has been greener lately, and I have a feeling that is not a coincidence.',
       tone: 'concern',
       choice: {
         prompt: 'Starfish on the reef',
@@ -394,7 +394,7 @@ const hana: ResidentDef = {
     {
       id: 'hana-satellite', title: 'A warning from space',
       when: { phase: ['act2'], years: [2028, 2100], all: [t('recent.marine-heatwave', '>=', 1)] },
-      text: 'Satellites watch the sea surface temperature from orbit. If we had that overlay running, we would have seen the heat building a season ahead. That gives the rangers and the boats time to shade, to cull, and to get ready.',
+      text: 'Satellites watch the sea surface temperature from orbit. Satellite data and forecasts can give warning of heat stress. That helps teams prioritise monitoring and local protective work, though forecasts remain uncertain.',
       tone: 'neutral',
     },
     {
@@ -412,7 +412,7 @@ const hana: ResidentDef = {
     {
       id: 'hana-dugong', title: 'Dugongs in the meadow',
       when: { phase: ['act2'], years: [2040, 2100], all: [t('pop.dugong', '>=', 3)] },
-      text: 'There are about {dugongs} dugongs grazing the seagrass this season, leaving long trails across the lagoon floor. They breed so slowly that every calf matters. Clear water and healthy seagrass are all they ask.',
+      text: 'There are about {dugongs} dugongs grazing the seagrass this season, leaving long trails across the lagoon floor. They breed so slowly that every calf matters. Healthy seagrass is essential, and dugongs also need protection from dangerous nets, boat strikes and disturbance.',
       tone: 'joy',
     },
   ],
@@ -468,7 +468,7 @@ const twins: ResidentDef = {
     {
       id: 'twins-lights', title: 'The wrong way',
       when: { phase: ['act2'], years: [2025, 2100], all: [t('flag.turtle.lights', '<=', 0)] },
-      text: 'Some hatchlings went up the beach towards the car park lights instead of the sea. We carried them down in a bucket. Kiah cried a bit. Why can\'t the lights just be a different colour or turned off?',
+      text: 'Some hatchlings went up the beach towards the car park lights instead of the sea. We called the trained turtle patrol, and the rangers helped them down and reported the lights. Kiah cried a bit. Why can\'t the lights just be a different colour or turned off?',
       tone: 'concern',
       choice: {
         prompt: 'Lights and hatchlings',
@@ -482,7 +482,7 @@ const twins: ResidentDef = {
     {
       id: 'twins-streak', title: 'Another summer',
       when: { phase: ['act2'], years: [2028, 2100], all: [t('streak.reef-turtle', '>=', 2)] },
-      text: 'Tilly nested again! The nest is on our patrol map, marked with a red flag. Bailey drew a calendar to count the summers in a row, and the rangers pinned it up at the station. Six in a row would be amazing.',
+      text: 'Rangers recorded nests on our beach again this summer! The nest is on our patrol map, marked with a red flag. Bailey drew a calendar to count the summers in a row. Different females return in different years, so six in a row would be amazing.',
       tone: 'joy',
     },
     {
@@ -511,7 +511,7 @@ const twins: ResidentDef = {
     },
     {
       id: 'twins-bad', quality: 'bad', title: 'The empty nest map',
-      text: 'The nest map in Kiah and Bailey\'s old kitchen has stayed bare for years. They live in the city and look at the sea from a high window. "We tried," Kiah says. "Did you?"',
+      text: 'The nest map in Kiah and Bailey\'s old kitchen has stayed bare for years. They live in the city and look at the sea from a high window. Kiah and Bailey keep the old surveys so future rangers can compare what changed.',
     },
   ],
 };

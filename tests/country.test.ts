@@ -58,7 +58,7 @@ describe('consulting before building', () => {
     const ev = r.state.eventLog.find((e) => e.story?.channel === 'country');
     expect(ev?.story?.needsConsultation).toBe(true);
     expect(ev?.story?.speakerId).toBe('aunty-june');
-    expect(ev?.text).toMatch(/walked the bank/);
+    expect(ev?.text).toMatch(/determine how/);
     expect(s.country.consulted).toEqual([]); // input unchanged
   });
   it('can only be done once per place, and only at a place that matters', () => {
@@ -83,7 +83,7 @@ describe('consulting before building', () => {
     expect(built1.result.ok).toBe(true);
     expect(built1.state.country.partnership).toBe(COUNTRY.baseline - COUNTRY.penalty.act1);
     expect(built1.state.country.disturbed).toEqual([1]);
-    expect(stories(built1.state).at(-1)).toMatch(/I wish someone had asked us first/);
+    expect(stories(built1.state).at(-1)).toMatch(/before the community was asked/);
 
     const a2 = act2Sandbox(TileKind.Land);
     const t2 = firstTile(a2, 1);
@@ -117,7 +117,7 @@ describe('consulting before building', () => {
     const p = s.country.partnership;
     const r = applyAction(s, { type: 'place', building: 'nursery', x: t.x, y: t.y });
     expect(r.state.country.partnership).toBe(p - COUNTRY.penalty.ignoredAdvice);
-    expect(stories(r.state).at(-1)).toMatch(/I asked for this place to be left alone/);
+    expect(stories(r.state).at(-1)).toMatch(/request was not followed/);
   });
   it('never takes partnership below 0 or above 100', () => {
     const s = act2Sandbox(TileKind.Land);
@@ -151,7 +151,7 @@ describe('co-management', () => {
     expect(s.country.comanaged).toHaveLength(12);
     expect(s.country.partnership).toBe(COUNTRY.baseline + COUNTRY.gains.comanageFirst);
     expect(s.budget).toBe(1_000_000 - COUNTRY.costs.comanage);
-    expect(stories(s).at(-1)).toMatch(/handed the care of this bush back/);
+    expect(stories(s).at(-1)).toMatch(/agreed on responsibilities/);
     s = applyAction(s, { type: 'comanage', x: 12, y: 12 }).state;
     expect(s.country.partnership).toBe(COUNTRY.baseline + COUNTRY.gains.comanageFirst + COUNTRY.gains.comanageLater);
     expect(applyAction(s, { type: 'comanage', x: 4, y: 4 }).result.code).toBe('already-done');
@@ -301,7 +301,7 @@ describe('cultural burning', () => {
     expect(r.state.country.burns[0]?.tiles).toBe(burnt.length);
     expect(r.state.budget).toBe(s.budget - COUNTRY.costs.burn);
     expect(r.state.country.partnership).toBeGreaterThan(s.country.partnership);
-    expect(stories(r.state).at(-1)).toMatch(/cool, patchy burn crept through/);
+    expect(stories(r.state).at(-1)).toMatch(/Cultural fire practitioners led work/);
     expect(r.state.flags.culturalBurning).toBeGreaterThan(0.3);
     expect(Array.from(r.state.grid.chunkVersion)).not.toEqual(Array.from(s.grid.chunkVersion));
     // Regeneration: within two years the burnt tiles are back.

@@ -93,7 +93,7 @@ export const NET_ZERO_CITY_DILEMMAS: readonly DilemmaDef[] = [
   {
     id: 'transit-choice', title: 'Rail, buses or bike lanes?', phase: 'act2', years: [2027, 2050], speaker: RAVI,
     setup: 'Highways carry most of the city\'s car emissions. A light rail line is the slow, expensive, popular answer. Bus lanes are cheap and fast to build. Bike lanes are cheaper again, but not everyone can ride. Ravi says people will use what comes often, comes on time, and does not get stuck in traffic.',
-    evidence: 'Public transport gets more riders when it is frequent, fast and separated from traffic. Light rail and bus lanes can both do that. Rail costs far more per kilometre. Bus lanes can be built within a year. Bike lanes work best for short trips and for people who can ride. Most cities need a mix.',
+    evidence: 'Public transport gets more riders when it is frequent, fast and separated from traffic. Light rail and bus lanes can both do that. Rail costs far more per kilometre. Bus priority can sometimes be introduced quickly, while major works take longer. Compare passengers, journey times, accessibility, construction impacts and running costs. Bike lanes work best for short trips and for people who can ride. Most cities need a mix.',
     options: [
       {
         id: 'rail-and-lanes', label: 'Light rail on the busiest corridor, with bus lanes feeding it', evidenceBacked: true,
@@ -181,7 +181,7 @@ export const NET_ZERO_CITY_DILEMMAS: readonly DilemmaDef[] = [
   {
     id: 'budget-squeeze', title: 'The money runs short', phase: 'act2', years: [2030, 2095], speaker: AISHA, noCleanAnswer: true, repeat: 25,
     setup: 'The big projects come in dearer than planned. The council can borrow and pay it back later, raise rates this year, or cut services such as libraries and pools. Each option moves the cost to a different person or a different year. Aisha says delay also costs money.',
-    evidence: 'Borrowing spreads the cost of long-lived assets over the years they are used, but interest is a real cost. Higher rates fall on every household, including those on fixed incomes. Cutting services saves quickly but removes things such as cool, free public spaces that people rely on in a heatwave. Delay can cost more later.',
+    evidence: 'Borrowing spreads the cost of long-lived assets over the years they are used, but interest is a real cost. Higher rates directly affect property owners, and costs may flow on to renters, though rebates and hardship arrangements can ease some of the impact. Cutting services saves quickly but removes things such as cool, free public spaces that people rely on in a heatwave. Delay can cost more later.',
     options: [
       {
         id: 'borrow', label: 'Borrow and repay over twenty years',
@@ -231,7 +231,7 @@ export const NET_ZERO_CITY_DILEMMAS: readonly DilemmaDef[] = [
   {
     id: 'ev-or-transit', title: 'Electric cars or public transport?', phase: 'act2', years: [2045, 2100], repeat: 30, speaker: ZOE,
     setup: 'Zoe sees electric cars on every street and wonders if that is enough. A subsidy would help families switch. Money spent on public transport helps everyone, including the people who do not own a car. The city cannot afford both at full strength.',
-    evidence: 'Electric cars produce no exhaust and cut emissions more as the grid gets cleaner. They do not reduce traffic, road space or the cost of owning a car. Public transport moves many more people per lane and reaches people without cars. Cities that cut transport emissions fastest tend to combine both, with transit and charging first.',
+    evidence: 'Electric cars produce no exhaust and cut emissions more as the grid gets cleaner. Electric cars can lower running costs and exhaust pollution, but they still need road space, materials and an upfront purchase, and they do not reduce traffic. Public transport moves many more people per lane and reaches people without cars. Cutting transport emissions usually means combining both.',
     options: [
       {
         id: 'transit-first', label: 'Fund transit first, with a smaller subsidy for fleets and taxis', evidenceBacked: true,
@@ -251,7 +251,7 @@ export const NET_ZERO_CITY_DILEMMAS: readonly DilemmaDef[] = [
     id: 'factory-sites', title: 'What to do with the old factories', phase: 'act2', years: [2038, 2080], speaker: GARY,
     when: { all: [t('count.factory', '>=', 1)] },
     setup: 'Some old factories sit empty, with cracked car parks and tired fences. Gary worked next to them for years. They could become homes, a recycling plant with jobs, or a green park that cools the area. The ground under them may be contaminated, so it has to be tested before anyone moves in.',
-    evidence: 'Old industrial land can hold contaminants in the soil, so it must be tested and cleaned before housing or parks. Reusing these sites saves bushland elsewhere. Large paved sites run hot, and replacing the asphalt with trees and soil lowers local temperatures. Recycling and repair plants create jobs, but fewer than the heavy industry they replace.',
+    evidence: 'Old industrial land can hold contaminants in the soil, so it must be tested and cleaned before housing or parks. Reusing these sites saves bushland elsewhere. Large paved sites run hot, and replacing the asphalt with trees and soil lowers local temperatures. Employment depends on the site and the proposal, so compare construction work, ongoing jobs, training needs and operating costs.',
     options: [
       {
         id: 'recycle-jobs', label: 'Clean the sites and make them recycling and repair plants', evidenceBacked: true,
@@ -267,9 +267,9 @@ export const NET_ZERO_CITY_DILEMMAS: readonly DilemmaDef[] = [
       },
       {
         id: 'park-sites', label: 'Turn the sites into parkland with trees',
-        outcome: 'Concrete is broken up and trees go in. In summer the old car parks are the coolest spots in the area. The plan has no jobs in it, and Gary says so.',
+        outcome: 'Concrete is broken up and trees go in. In summer the old car parks are the coolest spots in the area. The plan has few ongoing jobs in it, and Gary says so.',
         effects: { budget: -18, tiles: [{ op: 'health', scope: 'land', add: 0.03 }, { op: 'soil', scope: 'contaminated', mult: 0.6 }], mood: { [GARY]: -4, [DOLORES]: 5 } },
-        preview: { helps: [P('Shade and cooler streets'), C('flying-fox', 'More trees to roost in')], hurts: [R(GARY, 'No jobs in this plan'), E('Park upkeep costs')] },
+        preview: { helps: [P('Shade and cooler streets'), C('flying-fox', 'More trees to roost in')], hurts: [R(GARY, 'Few jobs in this plan'), E('Park upkeep costs')] },
       },
     ],
   },
@@ -301,8 +301,8 @@ export const NET_ZERO_CITY_DILEMMAS: readonly DilemmaDef[] = [
   {
     id: 'lights-on', title: 'Keeping the lights on', phase: 'act2', years: [2030, 2095], speaker: GARY, repeat: 25,
     when: { all: [t('renewablePct', '>=', 15)] },
-    setup: 'On the hottest evenings everyone turns on the air-conditioning just as the sun goes down. Batteries can cover that peak, but only for a few hours. Gas peaker plants can run as long as there is gas, and add emissions. Gary knows both, and says a blackout in a heatwave is no joke.',
-    evidence: 'Grid batteries respond within a fraction of a second and can cover short evening peaks by storing solar power from the day. They are limited to hours rather than days. Gas peaker plants start quickly and run as long as they have fuel, but they emit carbon dioxide. A reliable grid usually needs several kinds of backup together.',
+    setup: 'On the hottest evenings everyone turns on the air-conditioning just as the sun goes down. Batteries can cover that peak for a few hours. Gas peaker plants can run as long as there is gas, and add emissions. Gary knows both, and says a blackout in a heatwave is no joke.',
+    evidence: 'Grid batteries respond within a fraction of a second and can cover short evening peaks by storing solar power from the day. How long a battery runs and how much it supplies depend on its design and charge. In this game the grid battery covers short peaks, and longer shortages need other resources. Gas peaker plants start quickly and run as long as they have fuel, but they emit carbon dioxide. A reliable grid usually needs several kinds of backup together.',
     options: [
       {
         id: 'batteries', label: 'Build grid batteries to cover the evening peak', evidenceBacked: true,

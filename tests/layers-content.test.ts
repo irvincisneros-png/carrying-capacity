@@ -194,7 +194,7 @@ describe('species, research and repurposing (content integrity)', () => {
       expect(renderText(s.text.arrive, { n: '3' })).not.toMatch(/[{}]/);
       expect(SPECIES_BY_ID[s.id]).toBe(s);
     }
-    expect(SPECIES_BY_ID.koala?.families[0]?.name).toBe('Marri family');
+    expect(SPECIES_BY_ID.koala?.families[0]?.name).toBe('Marri woodland koalas');
     expect(SPECIES_BY_ID['green-turtle']?.families[0]?.name).toBe('Old Shelly');
     expect(SPECIES_BY_ID['flying-fox']?.heatSensitive).toBe(true);
   });
@@ -229,10 +229,10 @@ describe('species, research and repurposing (content integrity)', () => {
     }
     for (const t of ['steelworks', 'port', 'landfill', 'coalpower', 'factory', 'coalmine']) expect(REPURPOSE[t as keyof typeof REPURPOSE]?.length, t).toBeGreaterThan(0);
   });
-  it('has reflection prompts for each kind of ending and a letter prompt for Sam and Jordan', () => {
+  it('has reflection prompts for each kind of ending and a letter prompt for the next generation', () => {
     expect(REFLECTIONS.length).toBeGreaterThanOrEqual(8);
     for (const w of ['any', 'success', 'struggle', 'failed'] as const) expect(REFLECTIONS.some((r) => r.when === w)).toBe(true);
-    expect(LETTER_PROMPT).toMatch(/Sam and Jordan/);
+    expect(LETTER_PROMPT).toMatch(/next generation/);
     expect(EPILOGUE.three(2100)).toContain('2100');
   });
 });

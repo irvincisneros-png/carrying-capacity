@@ -48,8 +48,8 @@ export const RED_DIRT_DILEMMAS: readonly DilemmaDef[] = [
   },
   {
     id: 'a1-bore', title: 'Bore or tanks?', phase: 'act1', years: [1930, 1975], speaker: PETE,
-    setup: 'The waterhole cannot water a growing town and a station as well. Pete says the answer is a bore into the aquifer. The council points out that rainwater tanks cost nothing to run, but rain out here comes in rare big falls and then not at all.',
-    evidence: 'Groundwater is reliable in a drought, but an aquifer that refills slowly can be drained if more is pumped than flows back in. Rain tanks capture water free of pumping, but only when it rains and only as much as they can store. Using both gives a buffer, and bores are usually metered and monitored.',
+    setup: 'The waterhole cannot water a growing town and a station as well. Pete says the answer is a bore into the aquifer. The council points out that rainwater tanks need little pumping, but rain out here comes in rare big falls and then not at all.',
+    evidence: 'Groundwater can buffer short dry periods, but supply depends on the aquifer and the pumping rate, and a slowly refilling aquifer can be drained if more is pumped than flows back in. Rain tanks need maintenance and sometimes pumps, and they only fill when it rains, up to what they can store. Using both gives a buffer, and bores are usually metered and monitored.',
     options: [
       {
         id: 'bore', label: 'Sink a bore and pump as needed',
@@ -173,7 +173,7 @@ export const RED_DIRT_DILEMMAS: readonly DilemmaDef[] = [
   {
     id: 'a2-pit', title: 'What to do with the pit', phase: 'act2', years: [2028, 2060], speaker: ROHAN, needsConsultation: true, noCleanAnswer: true,
     setup: 'Rohan lays out three options for the open-cut pit. Fill it back in. Reshape the walls, spread topsoil and revegetate. Or let it fill with water and become a lake. Uncle Wally and the Traditional Owners want to be asked about each one.',
-    evidence: 'Filling a pit completely takes a huge amount of material and diesel. Reshaping the walls and revegetating is the usual approach, but it leaves a hollow. Pit lakes can be saline or acidic and can lose a lot of water to evaporation, though some become habitat. All of them need long monitoring.',
+    evidence: 'Filling a pit completely takes a huge amount of material and diesel. Closure options depend on geology, water chemistry, stability and the agreed final land use. Reshaping and revegetating leaves a hollow. A pit lake may create habitat or carry serious long-term risks such as salinity, acidity and evaporation. Monitoring and safe access remain essential.',
     options: [
       {
         id: 'backfill', label: 'Backfill the pit as far as the spoil goes', needsConsultation: true,
@@ -189,9 +189,9 @@ export const RED_DIRT_DILEMMAS: readonly DilemmaDef[] = [
       },
       {
         id: 'lake', label: 'Let the pit fill and become a lake', needsConsultation: true,
-        outcome: 'It costs less. The lake turns a surprising colour, birds come, and the water is too salty to drink. Evaporation takes metres off the top every summer. Some are pleased and some are not.',
+        outcome: 'It costs less. The lake turns a surprising colour, birds visit, and tests show the water is too salty to drink. Evaporation takes metres off the top every summer. Some are pleased and some are not.',
         effects: { budget: -6, flags: { 'rehab.plan': 3 }, partnership: -1, mood: { [WALLY]: -2, [PETE]: -2 } },
-        preview: { helps: [E('The cheapest option'), C('budgerigar', 'Another water for birds')], hurts: [P('Salty water and heavy evaporation'), R(WALLY, 'Not the ground he wanted back')] },
+        preview: { helps: [E('The cheapest option'), C('budgerigar', 'Possible water for birds, if tests allow')], hurts: [P('Water quality and evaporation to monitor'), R(WALLY, 'Not the ground he wanted back')] },
       },
     ],
   },
@@ -249,7 +249,7 @@ export const RED_DIRT_DILEMMAS: readonly DilemmaDef[] = [
     id: 'a2-water', title: 'The water is running low', phase: 'act2', years: [2030, 2100], speaker: PETE, repeat: 25,
     when: { any: [t('aquifer', '<=', 62), t('unmetPct', '>=', 5)] },
     setup: 'The bore levels are dropping, and the waterhole shrinks every dry season. Pete says the town has to use less. The council can ban sprinklers and washing down, run a water-saving program, or truck in water at great expense. Everyone is already irritable.',
-    evidence: 'Reducing demand is the cheapest way to protect a slow-refilling aquifer. Fixing leaks, using rain tanks and efficient taps can cut town use by a fifth. Restrictions work fast but wear on patience if they last. Trucking in water is costly, uses diesel and does not fix the shortage underneath.',
+    evidence: 'Reducing demand is the cheapest way to protect a slow-refilling aquifer. Fixing leaks, using rain tanks and efficient taps can reduce demand, though the saving depends on how much the town already uses. Restrictions work fast but wear on patience if they last. Imported water may temporarily reduce local pumping, but it is costly, uses diesel and does not increase aquifer recharge.',
     options: [
       {
         id: 'restrict', label: 'Level 1 water restrictions: no sprinklers or washing down',
@@ -259,13 +259,13 @@ export const RED_DIRT_DILEMMAS: readonly DilemmaDef[] = [
       },
       {
         id: 'saving', label: 'Fund a water-saving program: fix leaks, tanks and taps', evidenceBacked: true,
-        outcome: 'Plumbers fix leaks, every house gets efficient taps and a rain tank rebate. Use falls by about a fifth without anyone going without. It takes a year to show up in the bore readings.',
+        outcome: 'Plumbers fix leaks, every house gets efficient taps and a rain tank rebate. Use falls noticeably without anyone going without. It takes a year to show up in the bore readings.',
         effects: { budget: -12, flags: { 'o.saving': 1 }, mood: { [PETE]: 5, [ROHAN]: 4 }, society: 0.5 },
         preview: { helps: [P('Lasting cuts in water use'), T('No daily rules')], hurts: [E('Up-front cost'), T('Slower than restrictions')] },
       },
       {
         id: 'tanker', label: 'Truck in tanker water for the dry months',
-        outcome: 'A tanker rolls in from the coast three days a week. Taps run, but the bill is steep and the trucks run on diesel. The bores are not helped one bit.',
+        outcome: 'A tanker rolls in from the coast three days a week. Taps run, but the bill is steep and the trucks run on diesel. The bores get only a short rest.',
         effects: { budget: -22, emissionsKt: 4, mood: { [ROHAN]: -3 } },
         preview: { helps: [T('Water now, no rules')], hurts: [E('Very expensive'), P('Diesel emissions'), R(ROHAN, 'Nothing fixes the shortage underneath')] },
       },
@@ -274,23 +274,23 @@ export const RED_DIRT_DILEMMAS: readonly DilemmaDef[] = [
   {
     id: 'a2-ferals', title: 'Cats, foxes and bilbies', phase: 'act2', years: [2040, 2100], repeat: 30, speaker: KIDS, needsConsultation: true, noCleanAnswer: true,
     setup: 'Tia and Ben found a cat track beside the bilby burrow. Feral cats and foxes are the biggest threat to bilbies and rock-wallabies. A fenced reserve is safe but costly. Baiting covers far more ground but is blunter. A bigger ranger crew can do both slowly.',
-    evidence: 'Feral cats and foxes are the main reasons many small desert mammals have disappeared. Predator-proof fences protect animals inside, but they are expensive to build and keep up. Baiting works over big areas but can affect other animals and needs care. Rangers can track, trap and monitor with Country knowledge, though the area is huge.',
+    evidence: 'Feral cats and foxes are the main reasons many small desert mammals have disappeared. Each method needs species-specific design, trained operators and monitoring. Predator-proof fences protect animals inside but are expensive to build and keep up. Baiting covers big areas but carries non-target risks. Rangers can track, trap and monitor with Country knowledge, though the area is huge.',
     options: [
       {
         id: 'fence', label: 'Build a predator-proof fenced reserve',
-        outcome: 'A tall fence with a floppy top goes up around the best shrubland. Bilbies inside do very well. The fence cost a fortune, and outside it nothing has changed. A wallaby gets caught on the wire.',
+        outcome: 'A tall fence with a floppy top goes up around the best shrubland. Bilbies inside do very well. The fence cost a fortune, and outside it nothing has changed.',
         effects: { budget: -30, flags: { 'ferals.fence': 1 }, tiles: [{ op: 'health', scope: 'land', add: 0.03 }], mood: { [KIDS]: 8, [WALLY]: -2 } },
         preview: { helps: [C('bilby', 'Safe inside the fence'), R(KIDS, 'A place the bilbies are safe')], hurts: [E('Costly to build and maintain'), C('rock-wallaby', 'Nothing changes outside the fence')] },
       },
       {
         id: 'bait', label: 'Aerial baiting over the shrubland and the range',
-        outcome: 'Planes drop baits across thousands of hectares. Fox and cat numbers fall. A few goannas and other animals are caught too, and Uncle Wally is worried. The baiting must be repeated yearly.',
+        outcome: 'Planes drop baits across thousands of hectares. Fox and cat numbers fall. Some non-target animals may be at risk, and Uncle Wally is worried. The baiting must be repeated yearly.',
         effects: { budget: -14, flags: { 'ferals.bait': 1 }, mood: { [KIDS]: 2, [WALLY]: -4 } },
         preview: { helps: [C('bilby', 'Fewer predators over a big area'), C('rock-wallaby', 'Fewer foxes on the range')], hurts: [P('Other animals may be harmed'), R(WALLY, 'Not asked how it should be done')] },
       },
       {
         id: 'crew', label: 'Double the ranger crew to track and trap', needsConsultation: true,
-        outcome: 'Rangers walk the country for tracks, set cage traps and check cameras. Fewer cats get caught than from baiting, but the right ones. Uncle Wally teaches the new recruits to read the dirt.',
+        outcome: 'Rangers walk the country for tracks, set cage traps and check cameras. The work is slow and covers less ground than baiting. Uncle Wally teaches the new recruits to read the dirt.',
         effects: { budget: -20, incomePerYear: -1, partnership: 5, flags: { 'ferals.rangers': 1 }, mood: { [WALLY]: 7, [KIDS]: 5 } },
         preview: { helps: [R(WALLY, 'Rangers leading on Country'), C('bilby', 'Targeted predator control')], hurts: [E('A running wage bill'), P('Slow work over a huge area')] },
       },
@@ -299,7 +299,7 @@ export const RED_DIRT_DILEMMAS: readonly DilemmaDef[] = [
   {
     id: 'a2-hydrogen', title: 'A hydrogen proposal', phase: 'act2', years: [2045, 2100], repeat: 30, speaker: SHAZ, noCleanAnswer: true,
     setup: 'A company wants to build a green hydrogen plant next to the new solar farm. It would bring hundreds of jobs and good money. It would also need a great deal of water, which is the one thing the town cannot spare. Shaz can see both sides, and so can Pete.',
-    evidence: 'Making green hydrogen by electrolysis needs about nine litres of water for each kilogram of hydrogen, plus more for cooling. In a dry region that competes with towns, stock and wildlife. Plants can use treated or desalinated water, or recycle water, but those add cost and energy. The jobs and clean fuel are real, but so is the demand on a scarce supply.',
+    evidence: 'Making green hydrogen by electrolysis needs at least about nine litres of water for each kilogram of hydrogen, and actual demand is higher once treatment, cooling and other plant needs are included. In a dry region that competes with towns, stock and wildlife. Plants can use treated or desalinated water, or recycle water, but those add cost and energy. The jobs and clean fuel are real, but so is the demand on a scarce supply.',
     options: [
       {
         id: 'accept', label: 'Accept the plant on the company\'s plan',
@@ -325,7 +325,7 @@ export const RED_DIRT_DILEMMAS: readonly DilemmaDef[] = [
     id: 'a2-school', title: 'Keeping the school open', phase: 'act2', years: [2045, 2095], speaker: BEV,
     when: { any: [t('count.coalmine', '<=', 0), t('year', '>=', 2070)] },
     setup: 'With fewer families, the school roll has dropped to a handful and the clinic only has a nurse three days a week. Without them, families leave. Bev wants both kept, but they cost money the town is not sure it has. Tia and Ben say it is their school.',
-    evidence: 'Schools and clinics are among the biggest reasons families stay in a small town, and the loss of either often leads to more leaving. Remote schools can combine local teachers with online learning and visiting specialists. Telehealth and the Flying Doctor keep clinics going, and are cheaper than a full-time doctor.',
+    evidence: 'Schools and clinics are among the biggest reasons families stay in a small town, and the loss of either often leads to more leaving. Remote schools can combine local teachers with online learning and visiting specialists. Telehealth and visiting clinicians can extend access, but some care still needs an in-person clinician, and costs, connectivity and support needs vary.',
     options: [
       {
         id: 'both', label: 'Keep the school and clinic going with a new community hub', evidenceBacked: true,
@@ -335,9 +335,9 @@ export const RED_DIRT_DILEMMAS: readonly DilemmaDef[] = [
       },
       {
         id: 'school-only', label: 'Keep only the school, and use telehealth for the clinic',
-        outcome: 'The school stays open and the clinic goes to video visits from a hub in the pub. The Flying Doctor still lands for emergencies. Older people find the screen hard.',
+        outcome: 'The school stays open and the clinic goes to video visits from a hub in the pub. The Flying Doctor still lands for emergencies. Some people need help with the screen.',
         effects: { budget: -12, society: 0.5, mood: { [KIDS]: 4, [BEV]: 1 } },
-        preview: { helps: [R(KIDS, 'School stays'), E('Cheaper than both')], hurts: [T('Older residents struggle with telehealth')] },
+        preview: { helps: [R(KIDS, 'School stays'), E('Cheaper than both')], hurts: [T('Some residents need help with telehealth')] },
       },
       {
         id: 'close', label: 'Close both and bus children to the next town',
@@ -351,7 +351,7 @@ export const RED_DIRT_DILEMMAS: readonly DilemmaDef[] = [
     id: 'a2-handback', title: 'Who looks after the new ground?', phase: 'act2', years: [2060, 2100], speaker: WALLY, needsConsultation: true,
     when: { all: [t('rehabPct', '>=', 40)] },
     setup: 'The rehabilitated ground is turning green, and the question now is who looks after it. The Traditional Owners would like to manage it together with the town. The council could keep it as a reserve. Or it could be leased out for solar or grazing.',
-    evidence: 'Joint management of land between Traditional Owners and government is used across Australia for national parks and other reserves. It brings Traditional Owner knowledge of seasons, plants, fire and water, and it gives people a stake in the result. It works best when both sides share decisions and resources over the long term.',
+    evidence: 'Joint management of land between Traditional Owners and government is used across Australia for national parks and other reserves. It brings Traditional Owner knowledge of seasons, plants, fire and water, and it can recognise the continuing responsibilities of Traditional Owners, with agreed decision-making authority, resources and employment. It works best when both sides share decisions and resources over the long term.',
     options: [
       {
         id: 'joint', label: 'Joint management with the Traditional Owners', evidenceBacked: true, needsConsultation: true,

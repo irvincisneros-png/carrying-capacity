@@ -16,8 +16,8 @@ const lorraine: ResidentDef = {
   name: 'Aunty Lorraine',
   role: 'Elder',
   elder: true,
-  family: 'A local Aboriginal family who have lived around this harbour since long before the city (placeholder: to be written with the community)',
-  blurb: 'An Elder of the local Aboriginal community: practical, funny, a city person and a Country person. Wants to be at the table when the city plans. (Placeholder name: to be agreed with the community. All text needs consultation before release.)',
+  family: 'A local Aboriginal family who have lived around this harbour since long before the city',
+  blurb: 'An Elder of the local Aboriginal community: wants to be at the table when the city plans.',
   homeHint: { near: 'estuary', description: 'A brick house near the estuary mudflats, with a view of the birds' },
   portrait: LORRAINE_ID,
   traits: ['practical', 'funny', 'patient', 'sharp-eyed'],
@@ -55,13 +55,13 @@ const lorraine: ResidentDef = {
     {
       id: 'lorraine-birds', title: 'The birds on the mudflats',
       when: { phase: ['act2'], years: [2030, 2100], all: [t('pop.shorebirds', '>=', 5)] }, ...NC,
-      text: 'The long-legged ones are back on the mudflat. They fly all the way from the far north to feed here, you know. Come down at low tide with a thermos and count them with me. {shorebirds} so far this season.',
+      text: 'The long-legged ones are back on the mudflat. Many of them travel thousands of kilometres to feed here, you know. Come down at low tide with a thermos and count them with me. {shorebirds} so far this season.',
       tone: 'joy',
     },
     {
       id: 'lorraine-fire', title: 'Cool burns in the foothills',
       when: { phase: ['act2'], years: [2035, 2100], all: [t('flag.culturalBurning', '>', 0)] }, ...NC,
-      text: 'A low, slow burn in the cool months keeps the foothills bush healthy and the fuel down near the houses. We can do it together with your fire crews. They bring the trucks and the training. We bring the reading of the season.',
+      text: 'A low, slow burn in the cool months keeps the foothills bush healthy and the fuel down near the houses. Cultural fire practitioners and fire-agency staff can agree on roles, training, conditions and responsibilities, then plan the burns together.',
       tone: 'warm',
       choice: {
         prompt: 'Cool burning in the foothills',
@@ -75,7 +75,7 @@ const lorraine: ResidentDef = {
     {
       id: 'lorraine-heat', title: 'Checking on the old ones',
       when: { phase: ['turning-point', 'act2'], years: [2025, 2100], all: [t('recent.heatwave', '>=', 1)] }, ...NC,
-      text: 'In the heat, our family does the rounds: tea, a cold cloth, a fan, a chat. Half the street is on the list now. Funny how a city has to be reminded that looking out for each other is an old way, not a new one.',
+      text: 'In the heat, our family does the rounds: tea, a cold cloth, a fan, a chat. Half the street is on the list now. Funny how a city has to be reminded that looking out for each other is nothing new.',
       tone: 'concern',
     },
     {
@@ -87,7 +87,7 @@ const lorraine: ResidentDef = {
     {
       id: 'lorraine-neglect', title: 'Still at the back of the room',
       when: { phase: ['act2'], years: [2045, 2100], all: [t('partnership', '<=', 22)] }, ...NC,
-      text: 'Plans keep arriving for comment after they are already drawn. I am not angry, love, only tired. A city that wants to be around in a hundred years needs the people who have been here for a lot longer.',
+      text: 'Plans keep arriving for comment after they are already drawn. I am not angry, only tired. A city that wants to be around in a hundred years needs the people who have been here for a lot longer.',
       tone: 'concern',
     },
   ],
@@ -95,16 +95,16 @@ const lorraine: ResidentDef = {
     {
       id: 'lorraine-good', quality: 'good', title: 'The foreshore, planned together', ...NC,
       when: { all: [t('partnership', '>=', 58)] },
-      text: 'The foreshore is shady, the mudflats are busy at low tide, and the city plans with the Traditional Owners at the table from day one. Aunty Lorraine still sits at the back, out of habit, and everyone moves to sit with her.',
+      text: 'The foreshore is shady, the mudflats are busy at low tide, and the city plans with the Traditional Owners at the table from the start. Aunty Lorraine\'s chair is no longer at the back of the room.',
     },
     {
       id: 'lorraine-mixed', quality: 'mixed', title: 'A good start', ...NC,
       when: { all: [t('partnership', '>=', 35)] },
-      text: 'Aunty Lorraine says the city is learning to ask early, but not every time. She is patient and funny about it. "We will keep turning up," she says. "Bring a biscuit and a decent map."',
+      text: 'Aunty Lorraine says the city is learning to ask early, but not every time. "We will keep turning up," she says, "and we will keep asking for agreed ways of working."',
     },
     {
       id: 'lorraine-bad', quality: 'bad', title: 'Still waiting to be asked', ...NC,
-      text: 'The city grew, cooled and changed, and most of it was decided without Aunty Lorraine\'s family in the room. She holds no grudge. "It is not too late to ask," she says. "The kettle is always on."',
+      text: 'The city grew, cooled and changed, but major decisions were made without the Traditional Owners\' agreed participation. Rebuilding that relationship means changing how decisions are made, and it is not too late to start.',
     },
   ],
 };
@@ -196,7 +196,7 @@ const dolores: ResidentDef = {
   id: 'dolores-fitzgerald',
   name: 'Dolores Fitzgerald',
   role: 'Retired teacher (lives alone)',
-  family: 'The Fitzgeralds. Dolores is 82 and has taught three generations of the suburb. Her nephew rings every Sunday.',
+  family: 'The Fitzgeralds. Dolores has taught half the suburb, and her nephew rings every Sunday.',
   blurb: 'Retired primary teacher in a top-floor flat on the hot western side. Sharp, independent and not good at asking for help.',
   homeHint: { near: 'town', description: 'A top-floor flat in an old brick block on a treeless western street' },
   portrait: 'dolores-fitzgerald',
@@ -220,14 +220,14 @@ const dolores: ResidentDef = {
     },
     {
       id: 'dolores-shade', title: 'A tree outside my window',
-      when: { phase: ['act2'], years: [2026, 2060], all: [t('canopyPct', '>=', 12)] },
+      when: { phase: ['act2'], years: [2026, 2045], all: [t('canopyPct', '>=', 12)] },
       text: 'They planted a tree outside my block last winter. It is only as tall as the letterbox, but already the footpath feels different. I watch it every morning like it is one of my old students. {canopy}% shade across the city, they tell me.',
       tone: 'warm',
     },
     {
       id: 'dolores-checkin', title: 'Someone knocks',
-      when: { phase: ['act2'], years: [2027, 2100], all: [t('recent.heatwave', '>=', 1)] },
-      text: 'A young woman from the council rang this morning, then knocked on the door to make sure I was drinking water. I said I was fine. She asked to see the water. I must say, I found that very reassuring.',
+      when: { phase: ['act2'], years: [2027, 2045], all: [t('recent.heatwave', '>=', 1)] },
+      text: 'A young woman from the council rang this morning, then knocked on the door to make sure I was drinking water. I said I was fine. She asked what help I wanted and whether I had somewhere cool to go. We agreed she would ring again that afternoon.',
       tone: 'warm',
       choice: {
         prompt: 'Checking on people who live alone',
@@ -240,20 +240,20 @@ const dolores: ResidentDef = {
     },
     {
       id: 'dolores-blackout', title: 'The power goes off',
-      when: { phase: ['act2'], years: [2026, 2100], all: [t('recent.blackout', '>=', 1)] },
+      when: { phase: ['act2'], years: [2026, 2045], all: [t('recent.blackout', '>=', 1)] },
       text: 'The lights went out at four in the afternoon, in the middle of a heatwave. The lift stopped, and so did the fan. I sat by the window with a book and a bottle of water and tried to behave like a person who was not frightened.',
       tone: 'concern',
     },
     {
       id: 'dolores-cool', title: 'The library has air-conditioning',
-      when: { phase: ['act2'], years: [2030, 2100], all: [t('count.coolingcentre', '>=', 1)] },
+      when: { phase: ['act2'], years: [2030, 2045], all: [t('count.coolingcentre', '>=', 1)] },
       text: 'On hot days I walk to the cooling centre. The chairs are comfortable and there is a quiz on Tuesdays. I have met more of my neighbours in two summers than in twenty years. That, I did not see coming.',
       tone: 'joy',
     },
     {
-      id: 'dolores-late', title: 'Letters from the old class',
+      id: 'dolores-late', title: 'Letters to the old street',
       when: { phase: ['act2'], years: [2060, 2100], all: [t('heatDeaths', '<=', 30)] },
-      text: 'A former student, now a grandfather, wrote to say the street trees have grown over his old school fence. He said the summers are still hot, but nobody on this street has to be afraid of them. I read it twice.',
+      text: 'A former student of Dolores, now a grandfather, wrote to the street\'s check-in group. He said the trees have grown over his old school fence. The summers are still hot, but nobody here has to be afraid of them.',
       tone: 'joy',
     },
   ],
@@ -261,16 +261,16 @@ const dolores: ResidentDef = {
     {
       id: 'dolores-good', quality: 'good', title: 'Dolores on the shady verandah',
       when: { all: [t('heatDeaths', '<=', 30), t('mood.dolores-fitzgerald', '>=', 50)] },
-      text: 'Dolores sits under a canopy of street trees with a cold drink and a book. Her neighbours check in on hot days, and so does she. "I taught this street to read," she says. "Now it looks after me."',
+      text: 'Street trees now shade the old western footpath, and Dolores\'s neighbours continue the check-in program she helped establish. A bench carries her name. "I taught this street to read," she once said. "Now it looks after itself."',
     },
     {
       id: 'dolores-mixed', quality: 'mixed', title: 'Hot summers, kind neighbours',
       when: { all: [t('mood.dolores-fitzgerald', '>=', 40)] },
-      text: 'Summers are still brutal on the western side, but there is a tree, a fan, a knock on the door. Dolores gets through each one with the help of Mrs Haddad and a very good quiz team.',
+      text: 'Summers are still brutal on the western side, but there is a tree, a fan, a knock on the door. Dolores\'s neighbours keep the check-in list going, and the Tuesday quiz team at the cooling centre still meets.',
     },
     {
       id: 'dolores-bad', quality: 'bad', title: 'The summer she did not ring',
-      text: 'Dolores did not make it through a long hot week. The neighbours put a bench under the new tree in her name. Her old students came, and the street was quiet for a long time afterwards.',
+      text: 'Dolores did not make it through a long hot week. The neighbours put a bench under the new tree in her name. Her old students came, and the street kept a check-in list from then on.',
     },
   ],
 };
@@ -281,7 +281,7 @@ const aisha: ResidentDef = {
   role: 'City climate scientist',
   science: true,
   family: 'The Rahmans: her mother ran a pharmacy in the west, her brother is a paramedic',
-  blurb: 'The council\'s chief scientist. Explains emissions, the lag in warming and the urban heat island with your own numbers.',
+  blurb: 'The council\'s chief scientist. Explains emissions, how warming responds to them and the urban heat island with your own numbers.',
   homeHint: { near: 'town', description: 'A flat near the council building, with a thermometer on every windowsill' },
   portrait: 'aisha-rahman',
   traits: ['clear', 'calm', 'curious', 'allergic to jargon'],
@@ -305,19 +305,19 @@ const aisha: ResidentDef = {
     {
       id: 'aisha-progress', title: 'Good news, and a caution',
       when: { phase: ['act2'], years: [2030, 2100], all: [t('emissionsPct', '<=', 70), t('renewablePct', '>=', 30)] },
-      text: 'Emissions are down to {kt} kilotonnes, from a peak of {peakKt}, and {ren}% of your power is renewable. Cutting emissions stops the warming from growing. It does not cool the city. Trees and shade do that.',
+      text: 'Emissions are down to {kt} kilotonnes, from a peak of {peakKt}, and {ren}% of your power is renewable. Lower emissions slow the build-up of carbon dioxide, but they do not cool the city on their own. Trees, shade and better buildings do that.',
       tone: 'warm',
     },
     {
       id: 'aisha-slow', title: 'Where can we cut next?',
       when: { phase: ['act2'], years: [2035, 2100], all: [t('emissionsPct', '>', 75)] },
-      text: 'Emissions are still {kt} kilotonnes a year, close to the peak of {peakKt}. I know it costs money. But every year we wait leaves more carbon dioxide in the air, and it stays there for centuries. Where can we cut first?',
+      text: 'Emissions are still {kt} kilotonnes a year, close to the peak of {peakKt}. I know it costs money. But every year we wait adds more carbon dioxide, and much of it stays in the air for centuries. Where can we cut first?',
       tone: 'concern',
     },
     {
       id: 'aisha-lag', title: 'Why is it still getting warmer?',
       when: { phase: ['act2'], years: [2045, 2100] },
-      text: 'We cut emissions, yet it is {temp} C and still creeping up. Oceans warm slowly and carbon dioxide lasts for centuries, so some warming is already locked in. Every year we cut earlier makes the final number smaller.',
+      text: 'We cut emissions, yet it is {temp} C and still creeping up. Warming follows the total carbon dioxide we have added, so it keeps rising until global emissions reach net zero. Then it should roughly level off. Cutting earlier makes the final number smaller.',
       tone: 'neutral',
       choice: {
         prompt: 'Cooling the city',
@@ -331,7 +331,7 @@ const aisha: ResidentDef = {
     {
       id: 'aisha-netzero', title: 'The curve bends',
       when: { phase: ['act2'], years: [2040, 2100], all: [t('netZeroYear', '<=', 2060)] },
-      text: 'Look at the line. Yearly emissions have stayed under 40 kilotonnes for a while now. That does not undo the carbon already in the air, but it means the city has stopped adding to the pile. Tell people it can be done.',
+      text: 'Look at the line. Yearly emissions have stayed under 48 kilotonnes for a while, which is this game\'s simplified net zero target, with trees and soils absorbing the rest. Real net zero needs measured emissions and credible removals. Tell people it can be done.',
       tone: 'joy',
     },
     {
@@ -446,7 +446,7 @@ const zoe: ResidentDef = {
   name: 'Zoe Lin',
   role: 'Student and climate-strike organiser',
   family: 'The Lins, with a mum who works nights and a little brother Zoe babysits most afternoons',
-  blurb: 'Seventeen, organises the school strike, babysits for the neighbours and wants to know why it is taking so long.',
+  blurb: 'Seventeen in 2025, organises the school strike, babysits for the neighbours and wants to know why it is taking so long.',
   homeHint: { near: 'town', description: 'A unit above a bakery, with strike banners drying on the balcony' },
   portrait: 'zoe-lin',
   traits: ['determined', 'funny', 'impatient', 'organised'],
@@ -462,8 +462,8 @@ const zoe: ResidentDef = {
   beats: [
     {
       id: 'zoe-strike', title: 'We are not too young',
-      when: { phase: ['turning-point', 'act2'], years: [2025, 2045] },
-      text: 'We walked out of school today, three hundred of us, in forty-one degrees. Someone said we should be in class. We were: it was a class about what the adults decided. I made the signs. My little brother drew a sun with a sad face.',
+      when: { phase: ['turning-point', 'act2'], years: [2025, 2035] },
+      text: 'We walked out of school today, three hundred of us, in forty-one degrees. Our group has done its own emissions sums, and we want council to see them: dates, costs and a way to check progress. My little brother drew a sun with a sad face.',
       tone: 'warm',
       choice: {
         prompt: 'The school strike',
@@ -476,33 +476,33 @@ const zoe: ResidentDef = {
     },
     {
       id: 'zoe-slow', title: 'Why so slow?',
-      when: { phase: ['act2'], years: [2030, 2060], all: [t('emissionsPct', '>', 65)] },
+      when: { phase: ['act2'], years: [2030, 2040], all: [t('emissionsPct', '>', 65)] },
       text: 'Emissions are still {kt} kilotonnes a year. I am not trying to be rude. I babysit three kids on my street, and I do the sums: they will be thirty-five in 2050. Can we please be faster?',
       tone: 'concern',
     },
     {
       id: 'zoe-solar', title: 'Panels on the school roof',
-      when: { phase: ['act2'], years: [2030, 2100], all: [t('renewablePct', '>=', 30)] },
-      text: 'Our school roof is covered in solar panels and the whole assembly watched the meter run backwards. {ren}% of the city\'s power is renewable now. Mr Adeyemi said it started with a few kids and a petition. I made him say that again for the camera.',
+      when: { phase: ['act2'], years: [2030, 2045], all: [t('renewablePct', '>=', 30)] },
+      text: 'Our old school roof is covered in solar panels and the whole assembly watched the display switch from importing electricity to exporting it. {ren}% of the city\'s power is renewable now. Mr Adeyemi said it started with a few kids and a petition. I made him say that again for the camera.',
       tone: 'joy',
     },
     {
       id: 'zoe-trees', title: 'Our class planted trees',
-      when: { phase: ['act2'], years: [2028, 2100], all: [t('canopyPct', '>=', 14)] },
-      text: 'We planted forty trees along the oval fence and named every one of them. It is a small thing compared with a power station. But the shade is real, and the little kids already play under it. Small things add up.',
+      when: { phase: ['act2'], years: [2028, 2045], all: [t('canopyPct', '>=', 14)] },
+      text: 'We planted forty trees along the oval fence and named every one of them. It is a small thing compared with a power station. The trees will take years to give much shade, so shade sails help while they grow. Small things add up.',
       tone: 'warm',
     },
     {
       id: 'zoe-vote', title: 'First time voting',
-      when: { phase: ['act2'], years: [2028, 2100] },
+      when: { phase: ['act2'], years: [2026, 2030] },
       text: 'I am eighteen next month and I have already checked the enrolment form three times. I know what I am voting for: trees, trains and a date for the last coal station. Is that too much to ask of a council?',
       tone: 'warm',
       minGapYears: 6,
     },
     {
-      id: 'zoe-letter', title: 'A letter from Zoe, aged fifty',
+      id: 'zoe-letter', title: 'A letter from Zoe\'s group',
       when: { phase: ['act2'], years: [2072, 2100] },
-      text: 'To whoever is deciding things: I turn fifty next year. I think about the kids on the strike, the trees outside my window, and the year the lines finally bent. Whatever happened, thank you for listening before we were old enough to vote.',
+      text: 'To whoever is deciding things: we are the youth climate group, still. A new generation uses the records Zoe\'s group began. We think about the first strike, the trees along the oval and the year the lines bent. Thank you for listening.',
       tone: 'warm',
       minGapYears: 0,
     },
@@ -511,16 +511,16 @@ const zoe: ResidentDef = {
     {
       id: 'zoe-good', quality: 'good', title: 'Zoe runs for council',
       when: { all: [t('emissionsPct', '<=', 25), t('mood.zoe-lin', '>=', 50)] },
-      text: 'Zoe Lin is a councillor now, and her first motion is to plant a tree for every new baby born in the city. "I was seventeen when this started," she says. "I am forty-something and still impatient."',
+      text: 'Zoe Lin was later elected to council, and her first motion was to plant a tree for every new baby born in the city. A new generation keeps the records her group began. "I was seventeen when this started," she told them. "Stay impatient."',
     },
     {
       id: 'zoe-mixed', quality: 'mixed', title: 'The strike goes on',
       when: { all: [t('emissionsPct', '<=', 50)] },
-      text: 'Zoe says the city got there more slowly than she wanted. She teaches kids to read data now, and the strike banners hang on her classroom wall. "We did it," she says. "We could have done it sooner."',
+      text: 'Zoe said the city got there more slowly than she wanted. She went on to teach kids to read data, and the strike banners hang on a classroom wall. "We did it," she said. "We could have done it sooner."',
     },
     {
       id: 'zoe-bad', quality: 'bad', title: 'The banners come out again',
-      text: 'Zoe still organises on the first Friday of the month. The banners are faded, and the kids carrying them are different kids. "We keep turning up," she says. "Somebody has to."',
+      text: 'Zoe\'s group still meets on the first Friday of the month. The banners are faded, and the kids carrying them are different kids. "We keep turning up," one says. "Somebody has to."',
     },
   ],
 };

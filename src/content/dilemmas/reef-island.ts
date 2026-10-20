@@ -76,7 +76,7 @@ export const REEF_ISLAND_DILEMMAS: readonly DilemmaDef[] = [
   {
     id: 'a1-sewage', title: 'Where does the sewage go?', phase: 'act1', years: [1985, 2020], speaker: SIONE,
     setup: 'The resort and the town are growing, and every flush ends up somewhere. Right now that is septic tanks, and some leak into the lagoon. The council can build a treatment plant, pipe everything out past the reef, or ask each house to fix its own tank.',
-    evidence: 'Sewage carries nitrogen and phosphorus. In a lagoon these feed algae that smother seagrass and young coral, and they can help crown-of-thorns starfish larvae grow. Treatment removes most of these nutrients. Pumping raw sewage offshore only moves the problem, and older septic tanks leak when the ground is wet.',
+    evidence: 'Sewage carries nitrogen and phosphorus. In a lagoon these feed algae that smother seagrass and young coral, and they can help crown-of-thorns starfish larvae grow. Treatment designed to remove nitrogen and phosphorus can cut nutrient pollution, while basic settling removes much less. Pumping sewage offshore only moves the problem, and older septic tanks leak when the ground is wet.',
     options: [
       {
         id: 'plant', label: 'Build a sewage treatment plant', evidenceBacked: true,
@@ -101,10 +101,10 @@ export const REEF_ISLAND_DILEMMAS: readonly DilemmaDef[] = [
 
   // ------------------------------------------------------------------------------------------------ Act 2
   {
-    id: 'd2-starfish', title: 'Spiky invaders on the reef', phase: 'act2', years: [2025, 2100], speaker: KIERAN, repeat: 25, priority: 8,
+    id: 'd2-starfish', title: 'Too many crown-of-thorns starfish', phase: 'act2', years: [2025, 2100], speaker: KIERAN, repeat: 25, priority: 8,
     when: { any: [t('recent.crown-of-thorns', '>=', 1), t('outbreaks', '>=', 1)] },
     setup: 'A crown-of-thorns outbreak is eating the coral. Kieran has counted thirty starfish on a single bommie. Divers can inject them one by one, at the main dive sites or across the whole reef. It costs money every year. Some say cut the runoff first and the starfish will thin out themselves.',
-    evidence: 'Crown-of-thorns starfish eat live coral, and outbreaks seem linked to nutrient-rich runoff that feeds their larvae. Divers who inject them with a harmless solution can protect coral at key sites, and control programs on the Great Barrier Reef have shown results. Culling treats the symptoms, so cutting runoff and nutrients is still needed.',
+    evidence: 'Crown-of-thorns starfish eat live coral, and outbreaks seem linked to nutrient-rich runoff that feeds their larvae. Trained divers inject starfish with vinegar or bile salts, which kills them and protects the surrounding coral when done correctly, at key sites, and control programs on the Great Barrier Reef have shown results. Culling treats the symptoms, so cutting runoff and nutrients is still needed.',
     options: [
       {
         id: 'cull-main', label: 'Cull at the main dive sites every year', evidenceBacked: true,
@@ -129,7 +129,7 @@ export const REEF_ISLAND_DILEMMAS: readonly DilemmaDef[] = [
   {
     id: 'd2-turtle-lights', title: 'Lights behind the nesting beach', phase: 'act2', years: [2025, 2060], speaker: TWINS, priority: 7,
     when: { all: [t('pop.reef-turtle', '>=', 1)] },
-    setup: 'Hatchlings crawl towards the brightest horizon, and tonight that is the resort car park. The twins carried a dozen back to the sea in a bucket. Tess says dark streets worry the guests. The rangers want amber lights, or lights off in the nesting months.',
+    setup: 'Hatchlings crawl towards the brightest horizon, and tonight that is the resort car park. The twins alerted the trained turtle patrol. Tess says dark streets worry the guests. The rangers want amber lights, or lights off in the nesting months.',
     evidence: 'Hatchling turtles find the sea by heading for the brightest, lowest horizon, so lights behind a beach lead them inland. Amber or red lights, shielded and pointed down, disturb hatchlings far less than white light, and still light a path for people. Switching lights off during the nesting months is the most effective of all.',
     options: [
       {
@@ -146,7 +146,7 @@ export const REEF_ISLAND_DILEMMAS: readonly DilemmaDef[] = [
       },
       {
         id: 'leave', label: 'Leave the lights as they are',
-        outcome: 'Nothing changes. Volunteers walk the beach every night with buckets. The twins stay quiet at dinner.',
+        outcome: 'Nothing changes. Rangers and volunteers keep walking the beach at night to help stranded hatchlings. The twins stay quiet at dinner.',
         effects: { mood: { [TWINS]: -7 } },
         preview: { helps: [E('No cost')], hurts: [C('reef-turtle', 'Hatchlings go the wrong way'), R(TWINS, 'Their worries are brushed off')] },
       },
@@ -172,7 +172,7 @@ export const REEF_ISLAND_DILEMMAS: readonly DilemmaDef[] = [
       },
       {
         id: 'cuts', label: 'Spend it on cutting runoff and emissions instead',
-        outcome: 'The money goes on drains, rain gardens and a new storage battery. The reef gets slightly better water but no help rebuilding.',
+        outcome: 'The money goes on drains, rain gardens and a new storage battery. The reef gets slightly better water, which may help natural recovery, but no coral is planted.',
         effects: { budget: -12, tiles: [{ op: 'water', scope: 'estuary', mult: 0.93 }], society: 1, mood: { [HANA]: -2 } },
         preview: { helps: [P('Tackles a cause, not a symptom'), C('dugong', 'Cleaner water over the seagrass')], hurts: [R(KIERAN, 'No new coral at his sites'), R(HANA, 'Her plan waits')] },
       },
@@ -233,20 +233,20 @@ export const REEF_ISLAND_DILEMMAS: readonly DilemmaDef[] = [
   {
     id: 'd2-sea-country', title: 'Sea Country and the rules', phase: 'act2', years: [2030, 2095], repeat: 30, speaker: MERE, noCleanAnswer: true, needsConsultation: true, priority: 7,
     when: { all: [t('partnership', '>=', 20)] },
-    setup: 'Aunty Mere has asked to meet about the turtles, the dugong and the fishing. The rangers want to run the rules for the sea around the island. Others want one set of rules for everyone. Some fishers worry they will lose out. Aunty Mere says: please ask us first. (Placeholder: needs consultation.)',
-    evidence: 'Community-led management of land and sea can work well when local knowledge and science are combined. In the Torres Strait and elsewhere, Indigenous ranger groups work with scientists to protect turtles and dugong and to manage hunting. Uniform rules made far away can be simpler to enforce, but may miss local knowledge and lose trust.',
+    setup: 'Aunty Mere has asked to meet about the turtles, the dugong and the fishing. She asks that decisions about the sea around the island be made with the community. The choice is between a community-led management agreement and a plan led by an agency, with different decision rights, funding and monitoring. Aunty Mere says: please ask us first.',
+    evidence: 'Community-led management of land and sea can work well when local knowledge and science are combined. In the Torres Strait and elsewhere, Indigenous ranger groups work with scientists to protect turtles and dugong and to manage hunting. Agency-led plans can be simpler to apply across a region, but may miss local knowledge unless the community is involved.',
     options: [
       {
-        id: 'rangers', label: 'Back community-led rules, with the rangers in charge', needsConsultation: true,
-        outcome: 'The community writes the rules, with seasonal rests and care for the turtle and dugong grounds. Some visitors grumble. Aunty Mere nods slowly and says: this is a start.',
+        id: 'rangers', label: 'Back a community-led management agreement', needsConsultation: true,
+        outcome: 'The community writes the plan, with seasonal rests and care for the turtle and dugong grounds, and agrees how it meets shared legal requirements. Some visitors find it strict. Aunty Mere nods slowly and says: this is a start.',
         effects: { budget: -12, partnership: 8, flags: { 'fishing.rest': 1, 'seacountry.led': 1 }, tiles: [{ op: 'health', scope: 'reef', add: 0.03 }], mood: { [MERE]: 10, [SIONE]: -3, [KIERAN]: 1 } },
         preview: { helps: [R(MERE, 'The community leads'), C('dugong', 'Protected feeding grounds'), C('reef-turtle', 'Safer nesting')], hurts: [R(SIONE, 'Some fishing grounds rest'), T('Rules some visitors find strict')] },
       },
       {
-        id: 'uniform', label: 'Set one set of rules for everyone, from the mainland',
-        outcome: 'The new rules arrive by email. They are clear and easy to enforce. Aunty Mere reads them and says nothing. A week later, the rangers stop sending their reports.',
+        id: 'uniform', label: 'Use an agency-led plan, written on the mainland',
+        outcome: 'The new plan arrives by email. It is clear and easy to apply across the region. Aunty Mere reads it and says she would have liked to be asked first.',
         effects: { budget: -6, partnership: -4, flags: { 'seacountry.top-down': 1 }, mood: { [MERE]: -8, [SIONE]: 2 } },
-        preview: { helps: [E('Simple and cheap to run'), R(SIONE, 'Same rules for all fishers')], hurts: [R(MERE, 'Not asked first'), C('dugong', 'Local knowledge left out')] },
+        preview: { helps: [E('Simple and cheap to run'), R(SIONE, 'Same plan for all fishers')], hurts: [R(MERE, 'Not asked first'), C('dugong', 'Local knowledge left out')] },
       },
       {
         id: 'later', label: 'Hold off, and talk with everyone next year',
@@ -259,7 +259,7 @@ export const REEF_ISLAND_DILEMMAS: readonly DilemmaDef[] = [
   {
     id: 'd2-low-houses', title: 'Wall, mangroves or moving up?', phase: 'act2', years: [2035, 2100], repeat: 25, speaker: TESS, noCleanAnswer: true, priority: 9,
     when: { any: [t('seaRiseCm', '>=', 5), t('recent.storm-surge', '>=', 1)] },
-    setup: 'Forty families live on the low belt, a metre above the high tide. A cyclone surge with the rising sea now reaches their floors. Tess asks what we will do. A seawall is quick. Mangroves take years. Moving the houses uphill is fair to the sea, but heart-breaking for families.',
+    setup: 'Forty families live on the low belt, a metre above the high tide. A cyclone surge with the rising sea now reaches their floors. Tess asks what we will do. A seawall is quick. Mangroves take years. Moving homes above the assessed flood-risk area could reduce repeated losses, but it would disrupt families and cost money.',
     evidence: 'Seawalls protect behind them but can be overtopped by very big surges, and they squeeze the beach and block turtle nesting. Healthy mangroves reduce wave height and slow erosion, and they grow back slowly. Moving homes (managed retreat) is the surest way to stop repeated flooding, but it is expensive and hard for people to accept.',
     options: [
       {

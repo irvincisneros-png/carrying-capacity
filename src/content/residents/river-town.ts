@@ -50,7 +50,7 @@ const kerry: ResidentDef = {
     {
       id: 'kerry-drip', title: 'Drip lines or wait',
       when: { phase: ['act2'], years: [2027, 2060], all: [t('farmViability', '<=', 75)] },
-      text: 'A rep showed me drip lines today. They use far less water and put much less salt in the ground, but the loan is a big one. I can take it on, or keep flooding the rows and hope for good years.',
+      text: 'A rep showed me drip lines today. They can cut water losses, though we would still need to watch salt and drainage, and the loan is a big one. I can take it on, or keep flooding the rows and hope for good years.',
       tone: 'neutral',
       choice: {
         prompt: 'Kerry is weighing up drip irrigation',
@@ -103,10 +103,10 @@ const ray: ResidentDef = {
   role: 'Elder',
   elder: true,
   family: 'A local river Aboriginal family whose story spans the whole timeline of the town (placeholder: to be written with the community)',
-  blurb: 'An Elder of the local river Aboriginal community, with a big family and a dry sense of humour. Knows the river\'s seasons. (Placeholder name: to be agreed with the community. Needs consultation before release.)',
+  blurb: 'An Elder of the local river Aboriginal community.',
   homeHint: { near: 'wetland', description: 'A house on the edge of the floodplain, near the billabongs' },
   portrait: 'uncle-ray',
-  traits: ['patient', 'funny', 'observant', 'generous with time'],
+  traits: ['thoughtful', 'direct', 'community-minded'],
   start: 55,
   needsConsultation: true,
   cares: [
@@ -123,21 +123,21 @@ const ray: ResidentDef = {
       id: 'ray-seasons', title: 'Reading the river',
       when: { phase: ['act1'], years: [1900, 2020] },
       ...RAY,
-      text: 'My family has known this river for longer than anyone can count. We know when it rises, which fish run, and where the billabongs fill. The weir and the channels changed that, but the river still keeps its own calendar. I hope you will learn it.',
+      text: 'The local river community has its own priorities for the river, and its own views on decision-making, resources and outcomes. The town needs to ask, and listen, rather than assume.',
       tone: 'warm',
     },
     {
       id: 'ray-thanks', title: 'Thanks for asking',
       when: { all: [t('acts.consulted', '>=', 1)] },
       ...RAY,
-      text: 'Thank you for sitting down with me. Not many people have, and it means something. There is a lot we can share when it is done in good faith. Bring a thermos and I will bring the stories about the floods.',
+      text: 'Thank you for sitting down with the community. Listening is a start, but the community decides what is shared, on what terms, and what it wants from river management.',
       tone: 'warm',
     },
     {
-      id: 'ray-door', title: 'The gate is open',
+      id: 'ray-door', title: 'Written with community',
       when: { phase: ['act1', 'turning-point'], years: [1930, 2020], all: [t('acts.consulted', '<=', 0)] },
       ...RAY,
-      text: 'I have watched this town grow from my verandah. Nobody has knocked yet, and that is all right. If you ever want to yarn about the river and the flats you are working on, the billy is on.',
+      text: 'The community has not yet been consulted. Its priorities for the river and the flats should come from the community, not be assumed.',
       tone: 'warm',
     },
     {
@@ -151,14 +151,14 @@ const ray: ResidentDef = {
       id: 'ray-teaching', title: 'When the river lifts',
       when: { phase: ['act2'], all: [t('partnership', '>=', 30)] },
       ...RAY,
-      text: 'When the river rises in spring, the fish move onto the floodplain and the frogs start calling. We watch for those signs together. The old people knew when to expect them. You can read them too if you stay a while.',
+      text: 'When the river rises in spring, the fish move onto the floodplain and the frogs start calling. What is shared about reading these signs, and how, is for the community to decide. Many people watch for them as a sign of the river\'s year.',
       tone: 'warm',
     },
     {
       id: 'ray-water', title: 'Water for the trees',
       when: { phase: ['act2'], years: [2030, 2100], all: [t('flag.water.cultural', '>=', 1)] },
       ...RAY,
-      text: 'The flood came over the bank this spring and soaked the gums right out to the old billabong. I stood there with the grandkids and watched the water move. Parrots overhead. That is how it is supposed to look.',
+      text: 'The flood came over the bank this spring and soaked the gums right out to the old billabong. I stood there with the grandkids and watched the water move. Parrots overhead. It was good to see the floodplain get a drink.',
       tone: 'joy',
     },
   ],
@@ -167,18 +167,18 @@ const ray: ResidentDef = {
       id: 'ray-end-good', quality: 'good', title: 'Uncle Ray walks the floodplain',
       ...RAY,
       when: { all: [t('partnership', '>=', 40), t('riverHealth', '>=', 55)] },
-      text: 'Uncle Ray walks the floodplain with his grandchildren after every spring flood, naming what comes back: frogs, parrots, fish. The town asks him before it plans. He says that is all anyone ever wanted.',
+      text: 'Ray\'s family and community walk the floodplain after spring floods, noting what comes back: frogs, parrots, fish. The town asks the community before it plans. The community decides what else it wants.',
     },
     {
       id: 'ray-end-mixed', quality: 'mixed', title: 'A slow trust',
       ...RAY,
       when: { all: [t('partnership', '>=', 20)] },
-      text: 'Uncle Ray sits on the verandah and watches the river. Some things have been done right, and some haven\'t yet. He says good things are slow, and that the gate stays open.',
+      text: 'The community sees some things done well and others not yet. What it wants next, and on what terms, is for the community to say.',
     },
     {
       id: 'ray-end-bad', quality: 'bad', title: 'The river goes on without them',
       ...RAY,
-      text: 'The floodplain is quieter now, and Uncle Ray\'s family feels it. He still goes down to the bank each spring to see whether the river lifts. Some years it does not, and no one has asked him why.',
+      text: 'The floodplain is quieter now, and Uncle Ray\'s family feels it. Some years the river does not lift in spring, and the town has not asked the community what it wants done.',
     },
   ],
 };
@@ -300,7 +300,7 @@ const lan: ResidentDef = {
     {
       id: 'lan-bloom', title: 'Green water',
       when: { phase: ['act2'], years: [2026, 2100], all: [t('recent.algal-bloom', '>=', 1)] },
-      text: 'That is a blue-green algae bloom. It comes in hot, slow, nutrient-rich water, and some kinds make toxins. Keep dogs and kids out. Better flows and less fertiliser washing in will stop most of them, but that takes years.',
+      text: 'That is a blue-green algae bloom. It comes in hot, slow, nutrient-rich water, and some kinds make toxins. Keep dogs and kids out. Suitable flows and less fertiliser washing in can reduce bloom risk, but hot weather and other factors still matter.',
       tone: 'concern',
     },
     {
@@ -365,9 +365,9 @@ const twins: ResidentDef = {
   reacts: { 'algal-bloom': -6, 'fish-kill': -8, flood: 4 },
   beats: [
     {
-      id: 'ruby-swim', title: 'Bombs off the weir',
+      id: 'ruby-swim', title: 'Summer at the swimming spot',
       when: { phase: ['act1'], years: [2000, 2020] },
-      text: 'We swim at the weir pool every summer. The jetty is hot on your feet and the water goes green near the reeds. Eli found a frog under a rock, and we put him in our diary. Frog number one.',
+      text: 'We swim at the supervised spot away from the weir every summer. The jetty is hot on your feet and the water goes green near the reeds. Eli found a frog under a rock, and we put him in our diary. Frog number one.',
       tone: 'joy',
     },
     {
@@ -429,7 +429,7 @@ const marg: ResidentDef = {
   name: 'Marg Kelly',
   role: 'Fishing guide',
   family: 'The Kellys, a river family. Marg runs cod tours and a houseboat, and her son Tom is learning to drive the boat.',
-  blurb: 'Her business is Murray cod, clear water and the way the river looks. She can tell the health of the river from the colour of the water.',
+  blurb: 'Her business is Murray cod, clear water and the way the river looks. She notices changes in the river and checks them against Lan\'s measurements.',
   homeHint: { near: 'river', description: 'A houseboat tied up at the town jetty, with a tin shed full of rods and lures' },
   portrait: 'marg-kelly',
   traits: ['cheerful', 'weathered', 'storyteller', 'patient'],
@@ -451,7 +451,7 @@ const marg: ResidentDef = {
     {
       id: 'marg-slow', title: 'Slow and green',
       when: { phase: ['act2'], years: [2026, 2100], all: [t('recent.algal-bloom', '>=', 1)] },
-      text: 'Cancelled six tours this month. Nobody wants to cruise a green river. The smell is the worst of it. The cod are going deep to escape the heat, and so am I. Is there something we can do about the water?',
+      text: 'Cancelled six tours this month. Nobody wants to cruise a green river. The smell is the worst of it. The cod are going deep to escape the heat, though the deep pools may be short of oxygen too. Is there something we can do about the water?',
       tone: 'concern',
     },
     {
