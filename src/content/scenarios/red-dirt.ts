@@ -33,6 +33,8 @@ export const RED_DIRT: ScenarioDef = {
     },
   ],
   act2: {
+    carryOverCap: 350,
+    carryOverNote: 'The mining company banked most of the boom\'s profits. The shire starts the transition with at most $350k.',
     startYear: 2025,
     endYear: 2100,
     warmingCap: 2.6,

@@ -119,6 +119,13 @@ export interface Act2Def {
   circularYear?: number;
   /** Yearly emissions (kt) at or below which the scenario counts as net zero. */
   netZeroKt?: number;
+  /**
+   * Most of the money the town can carry into Act 2 (thousands). The boom's profits mostly left with the companies;
+   * without a cap Act 1 savings make every Act 2 choice free.
+   */
+  carryOverCap?: number;
+  /** Shown on the turning point when the cap applies. */
+  carryOverNote?: string;
   todo?: string;
 }
 

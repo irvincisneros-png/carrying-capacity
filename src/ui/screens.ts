@@ -192,6 +192,7 @@ export function showTurningPoint(s: GameState, onBegin: () => void, storyOnly = 
         h('div', { class: 'stat' }, h('small', null, 'Warming'), h('b', null, `+${fmt1(tp.stats.tempC)} °C`))),
       h('div', { class: 'fact' }, portrait(sci, 40), h('p', null, h('b', null, sci.name), sci.role ? h('span', { class: 'muted' }, ` · ${sci.role}`) : null, h('br'), degC(tp.scientistNote))),
       h('p', null, h('b', null, 'Act 2: Transition. '), `Time now runs by itself, season by season, to ${getScenario(s.scenarioId).act2.endYear}. Clean up the power, heal the land and water, and keep people with you.`),
+      (() => { const a2 = getScenario(s.scenarioId).act2; return a2.carryOverCap !== undefined && s.budget > a2.carryOverCap && a2.carryOverNote ? h('p', { class: 'muted' }, a2.carryOverNote) : null; })(),
       h('div', { class: 'modal-actions' }, h('button', { class: 'btn green', 'data-tut': 'start-transition', onclick: () => { m.close(); onBegin(); } }, svg(UI_ICONS.sprout), storyOnly ? 'Get to work' : 'Begin the transition')),
     ], { closable: false });
   };

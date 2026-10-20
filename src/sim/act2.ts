@@ -68,6 +68,8 @@ export function startAct2(state: GameState): GameState {
   s.status = 'playing';
   s.a2 = emptyAct2(sc.act2.startYear, s.tempC);
   s.a2.nextEventId = state.a2.nextEventId;
+  const cap = sc.act2.carryOverCap;
+  if (cap !== undefined && s.budget > cap) s.budget = cap;
   initRestoration(s);
   s.meters = computeMeters(s);
   const rctx = buildRestoreCtx(s);
