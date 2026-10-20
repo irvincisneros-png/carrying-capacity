@@ -163,7 +163,13 @@ export function canPlace(
       if (def.replaces) {
         return fail('needs-nearby-building', `${def.name} must be built on top of an existing ${BUILDINGS[def.replaces].name}`, fp, av.cost);
       }
-      if (!def.placement.on.includes(k)) return fail('bad-terrain', terrainReason(def, k), fp, av.cost);
+      // A stormwater wetland may go into bush in Act 2: it adds habitat rather than clearing it.
+      const wetlandInBush = k === TileKind.Bush && phase === 'act2' && def.wetland === true;
+      if (wetlandInBush) continue;
+      if (!def.placement.on.includes(k)) {
+        if (k === TileKind.Bush && phase === 'act2') return fail('bad-terrain', 'This bushland is protected now - build on cleared land (open ground without trees) instead', fp, av.cost);
+        return fail('bad-terrain', terrainReason(def, k), fp, av.cost);
+      }
       if (k === TileKind.Bush) {
         if (phase === 'act2') {
           return fail('bad-terrain', 'This bushland has grown back - protect it and build on cleared land instead', fp, av.cost);

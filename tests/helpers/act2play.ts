@@ -7,6 +7,12 @@ export interface Placed {
 }
 
 /** Highest-scoring valid spot for a building (ignores funds). `score` higher = better; ties break by scan order. */
+function bushIn(s: GameState, f: { x: number; y: number; w: number; h: number }): number {
+  let n = 0;
+  for (let y = f.y; y < f.y + f.h; y++) for (let x = f.x; x < f.x + f.w; x++) if (s.grid.kind[y * s.grid.w + x] === 5) n++;
+  return n;
+}
+
 export function bestSpot(
   state: GameState,
   id: BuildingId,
@@ -21,6 +27,8 @@ export function bestSpot(
       for (const rotation of rotations) {
         const c = canPlace(rich, id, x, y, rotation);
         if (!c.ok) continue;
+        // These careful players keep wetlands on open ground and never dig one into standing bush.
+        if (id === 'wetland' && bushIn(state, c.footprint) > 0) continue;
         const sc = score(x, y, c.footprint.w, c.footprint.h);
         if (sc > bestScore) { bestScore = sc; best = { x, y, rotation }; }
       }

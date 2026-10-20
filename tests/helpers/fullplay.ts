@@ -219,6 +219,10 @@ function moreWetlands(state: GameState, target: number): GameState {
       for (let yy = 0; yy < s.grid.h; yy++) for (let xx = 0; xx < s.grid.w; xx++) {
         if (s.grid.kind[yy * s.grid.w + xx] === TileKind.Estuary) d = Math.min(d, Math.hypot(x - xx, y - yy));
       }
+      // Open ground only: this player never digs a wetland into standing bush.
+      let bush = 0;
+      for (let yy = y; yy < y + 2; yy++) for (let xx = x; xx < x + 2; xx++) if (s.grid.kind[yy * s.grid.w + xx] === TileKind.Bush) bush++;
+      if (bush > 0) continue;
       if (!best || d < best.d) best = { x, y, d };
     }
     if (!best) break;

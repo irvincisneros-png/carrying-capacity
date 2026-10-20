@@ -155,7 +155,7 @@ export function stepMoods(s: GameState, rate: number): void {
     const rt = s.residents.list[def.id];
     if (!rt) continue;
     const next = clamp(rt.mood + (moodTarget(s, def) - rt.mood) * rate, 0, 100);
-    rt.trend = Math.round((next - rt.mood) * 10) / 10;
+    rt.trend = Math.round((next - rt.mood) * 10) / 10 || 0; // never -0 (it does not survive a save)
     rt.mood = Math.round(next * 10) / 10;
   }
 }

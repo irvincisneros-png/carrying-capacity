@@ -91,8 +91,8 @@ export const GREEN_VALLEY_DILEMMAS: readonly DilemmaDef[] = [
         },
       },
       {
-        id: 'wetland', label: 'Build a shallow stormwater wetland',
-        outcome: 'Reeds go in and the water spreads out shallow and slow. Runoff comes out cleaner, and within a season something croaks in the dusk. Jo still wants a little extra water for the trees.',
+        id: 'wetland', label: 'Plan a shallow stormwater wetland',
+        outcome: 'Ali gets the go-ahead and cleans up the boggy patch. Now place Stormwater wetlands beside the creek (Restore menu): shallow, slow water that cleans runoff, and a home frogs may find. Jo still wants a little extra water for the trees.',
         effects: { budget: -12, society: 1, mood: { 'ali-rahman': 7, 'jo-marsh': -2 }, tiles: [{ op: 'water', scope: 'river', mult: 0.9 }] },
         evidenceBacked: true,
         preview: {
