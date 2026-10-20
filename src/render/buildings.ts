@@ -40,7 +40,33 @@ const DIRS: [number, number][] = [[0, 1], [1, 0], [0, -1], [-1, 0]]; // +z(S), +
 export const BSCALE_XZ = 1.08;
 export const BSCALE_Y = 1.35;
 const INDUSTRIAL: ReadonlySet<BuildingId> = new Set<BuildingId>(['steelworks', 'factory', 'coalpower', 'coalmine', 'port', 'landfill', 'gaspower', 'greensteel', 'recycler', 'windport']);
+const EDGE_PIECES: ReadonlySet<BuildingId> = new Set<BuildingId>(['seawall', 'fishway', 'road', 'rail', 'wildlifecrossing']);
+const SMALL_BOOST = 1.14;
 const RAIL_LINKS: ReadonlySet<BuildingId> = new Set<BuildingId>(['rail', 'port', 'coalmine', 'steelworks', 'coalpower']);
+
+/**
+ * 1x1 edge pieces face the water whatever the build rotation: a seawall's sea face (+X in the model) turns to the
+ * nearest sea / reef / estuary tile, and a fishway's flow (+Z) runs to the lower river tile below the weir.
+ */
+function autoYaw(s: GameState, b: PlacedBuilding): number | null {
+  if (b.type !== 'seawall' && b.type !== 'fishway') return null;
+  const g = s.grid;
+  const at = (x: number, y: number): number => (x < 0 || y < 0 || x >= g.w || y >= g.h ? -1 : y * g.w + x);
+  // DIRS order: +z, +x, -z, -x; yaw that turns model +X to (dx, dz) is atan2(-dz, dx); model +Z to (dx, dz) is atan2(dx, dz).
+  let best: [number, number] | null = null;
+  let bestScore = -Infinity;
+  for (const [dx, dz] of DIRS) {
+    const i = at(b.x + dx, b.y + dz);
+    if (i < 0) continue;
+    const k = g.kind[i];
+    let sc = -Infinity;
+    if (b.type === 'seawall' && (k === TileKind.Sea || k === TileKind.Reef || k === TileKind.Estuary)) sc = 1;
+    if (b.type === 'fishway' && k === TileKind.River) sc = -(g.elevation[i] ?? 0);
+    if (sc > bestScore) { bestScore = sc; best = [dx, dz]; }
+  }
+  if (!best || bestScore === -Infinity) return null;
+  return b.type === 'seawall' ? Math.atan2(-best[1], best[0]) : Math.atan2(best[0], best[1]);
+}
 
 const _m = new Matrix4();
 const _q = new Quaternion();
@@ -130,7 +156,10 @@ export class BuildingLayer {
 
   private compose(rec: Rec, scaleXZ: number, scaleY: number): void {
     _q.setFromAxisAngle(_p.set(0, 1, 0), rec.yaw);
-    _m.compose(_p.set(rec.x, rec.y, rec.z), _q, _s.set(scaleXZ * BSCALE_XZ, scaleY * BSCALE_Y, scaleXZ * BSCALE_XZ));
+    // Single-tile buildings (cottages, rooftop solar, parks...) get a little extra size so they still read when the
+    // whole map is in view; edge pieces that must line up with neighbours (seawall, fishway) keep the tile size.
+    const small = rec.b.w === 1 && rec.b.h === 1 && !EDGE_PIECES.has(rec.type) ? SMALL_BOOST : 1;
+    _m.compose(_p.set(rec.x, rec.y, rec.z), _q, _s.set(scaleXZ * BSCALE_XZ * small, scaleY * BSCALE_Y * small, scaleXZ * BSCALE_XZ * small));
   }
 
   sync(s: GameState): void {
@@ -155,6 +184,8 @@ export class BuildingLayer {
       }
       if (!rec) {
         const p = this.place(b);
+        const auto = autoYaw(s, b);
+        if (auto !== null) p.yaw = auto;
         rec = { uid: b.uid, type: b.type, ids: [], mask: -1, dirt: dirtEra, x: p.x, y: p.y, z: p.z, yaw: p.yaw, b };
         this.recs.set(b.uid, rec);
         if (b.type !== 'road' && b.type !== 'rail') {
