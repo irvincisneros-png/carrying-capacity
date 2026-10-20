@@ -127,6 +127,8 @@ export class App {
       sats: lb('Satellites', UI_ICONS.target, () => this.sats.open(this.game.state)),
     };
     this.hud.el.querySelector('.hud-right')?.prepend(this.layerBtns.country, this.layerBtns.research, this.layerBtns.sats);
+    const frame = h('button', { class: 'iconbtn', title: 'Frame the whole map (F)', 'aria-label': 'Frame the whole map', onclick: () => { sfx('click'); this.renderer.rig?.home(true); } }, svg(UI_ICONS.home));
+    this.hud.el.querySelector('.hud-right')?.append(frame);
     this.warnEl = h('div', { class: 'toast panel bad hidden', style: 'position:fixed;top:140px;left:50%;transform:translateX(-50%);z-index:44;max-width:420px' });
     document.body.appendChild(this.warnEl);
     this.demand = h('div', { class: 'demand panel' });
@@ -418,6 +420,7 @@ export class App {
   private onTool(t: Tool): void {
     const rig = this.renderer.rig;
     rig?.setLeftPans(t === null || t === 'inspect');
+    this.renderer.setGrid(t !== null && t !== 'inspect');
     this.inspectEl.classList.add('hidden');
     this.refreshHover();
   }
@@ -499,7 +502,7 @@ export class App {
       else if (k === 'x') this.toolbar.select(this.toolbar.tool === 'demolish' ? null : 'demolish');
       else if (k === 'i') this.toolbar.select(this.toolbar.tool === 'inspect' ? null : 'inspect');
       else if (k === 'g') this.toggleGraphs();
-      else if (k === 'h') rig?.home(true);
+      else if (k === 'h' || k === 'f') rig?.home(true);
       else if (k === ' ' && this.game.state.phase === 'act2') { e.preventDefault(); this.game.togglePause(); }
       else if (k === 'enter' && this.game.state.phase === 'act1') this.nextDecade();
       else if (/^[1-9]$/.test(k)) this.toolbar.selectIndex(Number(k) - 1);

@@ -108,7 +108,7 @@ export class MatLib {
       uGhostCol: { value: this.ghostCol },
     };
     this.outlineMat = new ShaderMaterial({
-      uniforms: { uOutline: { value: 0.0016 }, uInk: { value: new Color(LOOK.ink) } },
+      uniforms: { uOutline: { value: 0.0021 }, uInk: { value: new Color(LOOK.ink) } },
       side: BackSide,
       vertexShader: /* glsl */ `
         #include <common>
@@ -151,7 +151,7 @@ export class MatLib {
     const m = new MeshToonMaterial({ vertexColors: true, gradientMap: this.toonRamp, side });
     if (spec.transparent) {
       m.transparent = true;
-      m.opacity = 0.62;
+      m.opacity = spec.kind === 'smoke' ? 0.7 : 0.62;
       m.depthWrite = false;
     }
     const defines: Record<string, string> = {};

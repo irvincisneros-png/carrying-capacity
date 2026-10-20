@@ -36,6 +36,7 @@ export class Cursor {
   private ringMat: MeshBasicMaterial;
   private col = new Color();
   private pulse = 0;
+  ghostScale: [number, number] = [1.08, 1.35];
 
   constructor(private map: MapGeo, ghostMat: Material) {
     this.bPos = new Float32Array(MAX_SEG * 6 * 3);
@@ -233,6 +234,7 @@ export class Cursor {
   showGhost(x: number, y: number, z: number, yaw: number, ok: boolean, ghostCol: Color): void {
     this.ghost.position.set(x, y + 0.02, z);
     this.ghost.rotation.set(0, yaw, 0);
+    this.ghost.scale.set(this.ghostScale[0], this.ghostScale[1], this.ghostScale[0]);
     ghostCol.set(ok ? 0x5fe39a : 0xff5a4a);
     this.ghost.visible = true;
   }

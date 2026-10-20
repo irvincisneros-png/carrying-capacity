@@ -17,16 +17,17 @@ export class Smoke {
 
   constructor(lib: MatLib, group: Group, cap = 1600) {
     this.cap = cap;
-    const geo = puffGeo(0.2, 5, 0.7);
+    const geo = puffGeo(0.13, 5, 0.85);
     tint(geo, (_x, _y, _z, c) => c.multiply(new Color(0xa69b8c)));
     this.attr = new InstancedBufferAttribute(new Float32Array(cap * 4), 4);
     geo.setAttribute('iSmoke', this.attr);
-    const spec = { key: 'smoke', kind: 'smoke' as const, noSmog: true };
+    const spec = { key: 'smoke', kind: 'smoke' as const, noSmog: true, transparent: true };
     this.mesh = new InstancedMesh(geo, lib.get(spec), cap);
     this.mesh.customDepthMaterial = lib.depth(spec);
     this.mesh.count = 0;
     this.mesh.frustumCulled = false;
-    this.mesh.castShadow = true;
+    this.mesh.castShadow = false;
+    this.mesh.renderOrder = 3;
     this.mesh.name = 'smoke';
     group.add(this.mesh);
   }
@@ -37,13 +38,13 @@ export class Smoke {
     let n = 0;
     for (let e = 0; e < emitters.length; e++) {
       const em = emitters[e]!;
-      const puffs = Math.round((3 + 9 * Math.min(1.4, em.strength)) * this.density * (0.6 + 0.5 * em.size));
+      const puffs = Math.round((4 + 7 * Math.min(1.4, em.strength)) * this.density * (0.6 + 0.4 * Math.min(1.5, em.size)));
       for (let i = 0; i < puffs && n < this.cap; i++) {
         _m.makeTranslation(em.x, em.y, em.z);
         this.mesh.setMatrixAt(n, _m);
         a[n * 4] = i / puffs + rnd() * 0.03 + e * 0.13;
         a[n * 4 + 1] = 0.075 + rnd() * 0.03;
-        a[n * 4 + 2] = Math.max(0.35, em.size * (0.55 + 0.45 * Math.min(1.4, em.strength)));
+        a[n * 4 + 2] = Math.min(1.15, Math.max(0.4, em.size * (0.5 + 0.35 * Math.min(1.4, em.strength))));
         a[n * 4 + 3] = em.steam;
         n++;
       }

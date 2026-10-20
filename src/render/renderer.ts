@@ -22,7 +22,7 @@ import { buildPipeline, type Pipeline } from './post';
 import { AutoTier, loadPref, savePref, TIERS, type GraphicsPref, type Tier } from './quality';
 import { dirtArmGeo, dirtHubGeo, railArmGeo, railHubGeo, roadArmGeo, roadHubGeo } from './roadgeo';
 import { Smoke } from './smoke';
-import { Overlay, type Ramp } from './overlay';
+import { Overlay, makeGrid, type Ramp } from './overlay';
 import { buildTerrain } from './terrain';
 import { TileData } from './tiledata';
 import { Vegetation } from './vegetation';
@@ -55,6 +55,7 @@ interface World {
   cursor: Cursor;
   rig: CameraRig;
   overlay: Overlay;
+  grid: Mesh;
   dispose(): void;
 }
 
@@ -190,6 +191,8 @@ export class GameRenderer {
     const cursor = new Cursor(map, this.lib.get({ key: 'ghost', kind: 'ghost', transparent: true }));
     const overlay = new Overlay(tb.terrain, s.grid.w, s.grid.h, this.shared as unknown as Record<string, IUniform>);
     group.add(overlay.mesh);
+    const gridMesh = makeGrid(tb.terrain, this.shared as unknown as Record<string, IUniform>);
+    group.add(gridMesh);
     group.add(cursor.group);
     bld.onPop = (x, y, z, size, demolish) => fx.dust(x, y, z, size, demolish);
     const rig = prevCam && prevCam.camera ? new CameraRig(this.renderer.domElement, s.grid.w, s.grid.h) : new CameraRig(this.renderer.domElement, s.grid.w, s.grid.h);
@@ -208,7 +211,7 @@ export class GameRenderer {
     this.clouds = makeClouds(this.shared as unknown as Record<string, IUniform>, Math.max(s.grid.w, s.grid.h));
     this.scene.add(this.clouds.mesh);
     this.world = {
-      key, map, group, tiles, veg, bld, amb, smoke, fx, cursor, rig, overlay,
+      key, map, group, tiles, veg, bld, amb, smoke, fx, cursor, rig, overlay, grid: gridMesh,
       dispose: () => {
         this.scene.remove(group);
         group.traverse((o) => {
@@ -369,6 +372,7 @@ export class GameRenderer {
     w.cursor.showRect(tx, ty, fp.w, fp.h, ok ? 'ok' : 'bad');
     const g = this.ghostGeo(tool);
     w.cursor.setGhostGeometry(g);
+    w.cursor.ghostScale = tool === 'road' || tool === 'rail' ? [1, 1] : [1.08, 1.35];
     const water = tool === 'offshorewind' || tool === 'tidal';
     const x = tx + fp.w / 2 - w.map.w / 2;
     const z = ty + fp.h / 2 - w.map.h / 2;
@@ -377,6 +381,11 @@ export class GameRenderer {
     const radius = def.nursery?.radius ?? def.remediation?.radius ?? (def.localPollution >= 2 ? Math.min(6, 1 + Math.ceil(def.localPollution)) : 0);
     if (radius > 0) w.cursor.showRing(x, z, radius + Math.max(fp.w, fp.h) / 2);
     else w.cursor.hideRing();
+  }
+
+  /** Tile grid while a build tool is active. */
+  setGrid(on: boolean): void {
+    if (this.world) this.world.grid.visible = on;
   }
 
   /** Show a per-tile data layer (0..1 values) over the map, or hide it with null. */

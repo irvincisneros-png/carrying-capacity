@@ -94,10 +94,10 @@ float ccGrowV = 1.0;
 #ifdef CC_SMOKE
 {
   float age = fract(uTime * iSmoke.y + iSmoke.x);
-  float sz = (0.35 + age * 1.6) * (1.0 - smoothstep(0.55, 0.92, age)) * smoothstep(0.0, 0.06, age) * iSmoke.z;
+  float sz = (0.3 + age * 1.15) * (1.0 - smoothstep(0.7, 1.0, age) * 0.5) * smoothstep(0.0, 0.06, age) * iSmoke.z;
   transformed *= sz;
   vec2 drift = uWind * age * age * (0.9 + 0.4 * iSmoke.z);
-  transformed += vec3(drift.x + sin(age * 7.0 + iSmoke.x * 30.0) * 0.1, age * (1.9 + 0.5 * iSmoke.z), drift.y + cos(age * 5.0 + iSmoke.x * 20.0) * 0.09);
+  transformed += vec3(drift.x + sin(age * 7.0 + iSmoke.x * 30.0) * 0.08, age * (1.5 + 0.4 * iSmoke.z), drift.y + cos(age * 5.0 + iSmoke.x * 20.0) * 0.07);
   ccGrowV = age;
   vCcSteam = iSmoke.w;
 }
@@ -221,7 +221,7 @@ vec4 ccT = ccTile(vCcW.xz);
   float k1 = ccNoise(q + vec2(uTime * 0.35, uTime * 0.21));
   float k2 = ccNoise(q * 1.3 - vec2(uTime * 0.27, -uTime * 0.3));
   float ca = pow(1.0 - abs(k1 - k2), 9.0);
-  c += ca * 0.38 * under * (1.0 - smoothstep(0.1, 0.6, ccT.b)) * smoothstep(-1.6, -0.2, vCcW.y);
+  c += ca * 0.16 * under * (1.0 - smoothstep(0.1, 0.6, ccT.b)) * smoothstep(-1.6, -0.2, vCcW.y);
   diffuseColor.rgb = c;
 }
 #endif
@@ -229,8 +229,9 @@ vec4 ccT = ccTile(vCcW.xz);
 diffuseColor.rgb = ccStrata(vCcW, vCcDepth, vCcW.y + vCcDepth);
 #endif
 #ifdef CC_SMOKE
-diffuseColor.rgb *= mix(0.55, 1.15, vCcG);
+diffuseColor.rgb *= mix(0.7, 1.15, vCcG);
 diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.96, 0.95, 0.93), vCcSteam * 0.8);
+diffuseColor.a *= (1.0 - smoothstep(0.3, 0.95, vCcG)) * smoothstep(0.0, 0.08, vCcG) * mix(1.0, 0.75, vCcSteam);
 #endif
 #ifdef CC_BRUSH
 {

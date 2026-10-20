@@ -145,7 +145,7 @@ export function makeWater(shared: Record<string, IUniform>, wu: Record<string, I
         col = mix(col, refl, clamp(fres * uRefl * 1.6, 0.0, 0.7) * mix(0.25, 1.0, m));
         vec3 H = normalize(normalize(uSunDir) + V);
         float spec = pow(max(dot(n, H), 0.0), uShine) * uSpec;
-        spec = smoothstep(0.08, 0.14, spec) * 0.55;
+        spec = smoothstep(0.17, 0.2, spec) * 0.35;
         col += uSunCol * spec * mix(0.1, 1.0, m);
         alpha = max(alpha, clamp(spec, 0.0, 1.0));
         float fn = ccNoise(xz * 7.0 + vec2(t * 0.35, -t * 0.2));

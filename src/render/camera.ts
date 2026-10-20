@@ -48,8 +48,10 @@ export class CameraRig {
 
   /** Default close 3/4 view (like the style-lab B shot). */
   home(animate = true): void {
-    const target = new Vector3(-this.halfW * 0.12, 0, this.halfH * 0.05);
-    const dist = Math.max(this.halfW, this.halfH) * 2.6;
+    // frame the whole slab at a 3/4 angle; pull back further on portrait screens
+    const target = new Vector3(0, -0.4, 0);
+    const portrait = this.camera.aspect < 1;
+    const dist = Math.max(this.halfW, this.halfH) * (portrait ? 3.3 : 2.75);
     const pos = new Vector3().setFromSpherical(new Spherical(dist, 50 * DEG, 0.62)).add(target);
     if (animate) this.flyTo(pos, target, 1.1);
     else {

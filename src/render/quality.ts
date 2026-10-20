@@ -20,7 +20,7 @@ export interface TierDef {
 
 export const TIERS: readonly TierDef[] = [
   { name: 'Low', shadows: 0, ao: 'none', outlines: false, tiltShift: false, dof: false, foliage: 0.35, detail: 0, treeDetail: 0, dprMax: 1, props: 0.6, smoke: 0.5 },
-  { name: 'Medium', shadows: 1024, ao: 'none', outlines: false, tiltShift: true, dof: false, foliage: 0.7, detail: 1, treeDetail: 0, dprMax: 1.25, props: 0.85, smoke: 0.8 },
+  { name: 'Medium', shadows: 1024, ao: 'none', outlines: false, tiltShift: true, dof: false, foliage: 0.7, detail: 1, treeDetail: 1, dprMax: 1.25, props: 0.85, smoke: 0.8 },
   { name: 'High', shadows: 2048, ao: 'half', outlines: true, tiltShift: true, dof: false, foliage: 1, detail: 1, treeDetail: 1, dprMax: 1.75, props: 1, smoke: 1 },
   { name: 'Ultra', shadows: 4096, ao: 'full', outlines: true, tiltShift: true, dof: true, foliage: 1.3, detail: 1, treeDetail: 1, dprMax: 2, props: 1.5, smoke: 1.5 },
 ];

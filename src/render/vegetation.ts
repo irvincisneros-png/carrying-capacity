@@ -98,6 +98,32 @@ export class Vegetation {
     const act2 = s.phase === 'act2' || s.phase === 'epilogue' || s.phase === 'failed';
     const ff = this.frac;
     const keep = (t: number, slot: number, salt: number): boolean => hash2(t * 7 + slot, salt) < ff;
+    // distance (world units) from a point to the nearest built tile in the 5x5 neighbourhood: trees keep clear of
+    // buildings and roads so nothing the player builds is hidden under a canopy
+    const clearance = (x: number, z: number): number => {
+      const tx0 = map.tileX(x), ty0 = map.tileY(z);
+      let best = 9;
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+        const xx = tx0 + dx, yy = ty0 + dy;
+        if (xx < 0 || yy < 0 || xx >= W || yy >= g.h) continue;
+        if ((g.building[yy * W + xx] ?? 0) === 0) continue;
+        const x0 = xx - W / 2, z0 = yy - g.h / 2;
+        const ddx = Math.max(x0 - x, 0, x - (x0 + 1));
+        const ddz = Math.max(z0 - z, 0, z - (z0 + 1));
+        best = Math.min(best, Math.hypot(ddx, ddz));
+      }
+      return best;
+    };
+    // tiles close to the estuary / river stay as open grassy flats (a natural first town site)
+    const nearWater = (tx: number, ty: number): boolean => {
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+        const xx = tx + dx, yy = ty + dy;
+        if (xx < 0 || yy < 0 || xx >= W || yy >= g.h) continue;
+        const kk = g.kind[yy * W + xx];
+        if (kk === TileKind.Estuary) return true;
+      }
+      return false;
+    };
     for (let ty = 0; ty < g.h; ty++) {
       for (let tx = 0; tx < W; tx++) {
         const t = ty * W + tx;
@@ -119,7 +145,12 @@ export class Vegetation {
           let young = 1;
           let dry = false;
           if (!act2) {
-            if (k === TileKind.Bush) { trees = 3; shrubs = 1; tufts = 1; }
+            if (k === TileKind.Bush) {
+              // open woodland: 1-2 trees with grassy gaps, near the estuary mostly open flats
+              const open = nearWater(tx, ty);
+              trees = open ? (r(9, 5) < 0.3 ? 1 : 0) : r(9, 6) < 0.35 ? 1 : 2;
+              shrubs = 1; tufts = 2;
+            }
             else { tufts = 2; dry = true; if (r(9, 3) < 0.07) trees = 1; }
           } else if ((g.weed[t] ?? 0) === 1) {
             weeds = 3; tufts = 1; dry = true;
@@ -128,19 +159,23 @@ export class Vegetation {
             if (st === 0) { if (r(9, 4) < 0.25) tufts = 1; dry = true; }
             else if (st === 1) { tufts = 4; }
             else if (st === 2) { shrubs = 2; tufts = 2; trees = health > 0.55 ? 1 : 0; young = 0.55; }
-            else { trees = 3; shrubs = 1; tufts = 1; young = Math.min(1, 0.6 + (health - 0.66) * 1.4); }
+            else { trees = r(9, 6) < 0.35 ? 1 : 2; shrubs = 1; tufts = 2; young = Math.min(1, 0.6 + (health - 0.66) * 1.4); }
           }
-          for (let i = 0; i < trees + (ff > 1 && trees >= 3 ? 1 : 0); i++) {
+          for (let i = 0; i < trees + (ff > 1 && trees >= 2 ? 1 : 0); i++) {
             if (!keep(t, i, 11) && !(trees === 1 && i === 0 && ff >= 0.35)) continue;
             const [x, z] = pos(SLOT4, i, 0.18);
+            const cl = clearance(x, z);
+            if (cl < 0.6) continue;
+            const near = Math.min(1, cl / 1.6);
             const big = r(i, 5) < 0.62;
             const set = big ? S.eucA! : S.eucB!;
             _c.setHSL(0.27 + (r(i, 6) - 0.5) * 0.06, 0.2 + r(i, 7) * 0.15, 0.5).lerp(_c2.setRGB(1, 1, 1), 0.72);
-            set.push(t * 4 + i, x, map.heightAt(x, z) - 0.02, z, r(i, 8) * 6.28, (0.72 + r(i, 9) * 0.36) * young, 1, (r(i, 10) - 0.5) * 0.12, _c);
+            set.push(t * 4 + i, x, map.heightAt(x, z) - 0.02, z, r(i, 8) * 6.28, (0.5 + r(i, 9) * 0.32) * young * (0.7 + 0.3 * near), 0.8 + r(i, 11) * 0.5, (r(i, 10) - 0.5) * 0.12, _c);
           }
           for (let i = 0; i < shrubs; i++) {
             if (!keep(t, i + 4, 12)) continue;
             const [x, z] = pos(SLOT6, i + 2, 0.25);
+            if (clearance(x, z) < 0.25) continue;
             const sc = 0.85 + r(i, 13) * 0.45;
             if (r(i, 14) < 0.5) S.wattle!.push(t * 3 + (i % 3), x, map.heightAt(x, z) - 0.01, z, r(i, 15) * 6.28, sc, 1, 0, 0xffffff);
             else S.shrub!.push(t * 4 + i, x, map.heightAt(x, z) - 0.01, z, r(i, 15) * 6.28, sc, 1, 0, 0xffffff);

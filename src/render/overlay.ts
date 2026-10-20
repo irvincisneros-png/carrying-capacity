@@ -71,3 +71,37 @@ export class Overlay {
     u.value = this.mesh.visible ? Math.min(1, u.value + dt * 3) : 0;
   }
 }
+
+/** Subtle tile grid draped on the land, shown only while a build tool is active. */
+export function makeGrid(terrainGeo: BufferGeometry, shared: Record<string, IUniform>): Mesh {
+  const mat = new ShaderMaterial({
+    uniforms: { uMap: shared.uMap!, uAlpha: { value: 0.13 } },
+    transparent: true,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
+    vertexShader: /* glsl */ `
+      varying vec3 vW;
+      void main(){ vec3 p = position; p.y += 0.012; vec4 w = modelMatrix * vec4(p, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform vec4 uMap; uniform float uAlpha;
+      varying vec3 vW;
+      void main(){
+        if (vW.y < 0.02) discard;
+        vec2 t = vW.xz + 0.5 * uMap.xy;
+        vec2 f = abs(fract(t) - 0.5);
+        vec2 fw = fwidth(t) * 1.2;
+        float l = max(smoothstep(0.5 - fw.x * 1.5, 0.5, f.x), smoothstep(0.5 - fw.y * 1.5, 0.5, f.y));
+        if (l < 0.01) discard;
+        gl_FragColor = vec4(vec3(1.0, 0.97, 0.88), l * uAlpha);
+      }
+    `,
+  });
+  const m = new Mesh(terrainGeo, mat);
+  m.renderOrder = 5;
+  m.visible = false;
+  m.name = 'grid';
+  return m;
+}

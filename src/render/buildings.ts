@@ -36,6 +36,10 @@ interface Anim {
 
 const WATER_BUILDINGS: ReadonlySet<BuildingId> = new Set<BuildingId>(['offshorewind', 'tidal']);
 const DIRS: [number, number][] = [[0, 1], [1, 0], [0, -1], [-1, 0]]; // +z(S), +x(E), -z(N), -x(W)
+/** Buildings are drawn a little taller than modelled so they read clearly above the woodland. */
+export const BSCALE_XZ = 1.08;
+export const BSCALE_Y = 1.35;
+const INDUSTRIAL: ReadonlySet<BuildingId> = new Set<BuildingId>(['steelworks', 'factory', 'coalpower', 'coalmine', 'port', 'landfill', 'gaspower', 'greensteel', 'recycler', 'windport']);
 const RAIL_LINKS: ReadonlySet<BuildingId> = new Set<BuildingId>(['rail', 'port', 'coalmine', 'steelworks', 'coalpower']);
 
 const _m = new Matrix4();
@@ -126,7 +130,7 @@ export class BuildingLayer {
 
   private compose(rec: Rec, scaleXZ: number, scaleY: number): void {
     _q.setFromAxisAngle(_p.set(0, 1, 0), rec.yaw);
-    _m.compose(_p.set(rec.x, rec.y, rec.z), _q, _s.set(scaleXZ, scaleY, scaleXZ));
+    _m.compose(_p.set(rec.x, rec.y, rec.z), _q, _s.set(scaleXZ * BSCALE_XZ, scaleY * BSCALE_Y, scaleXZ * BSCALE_XZ));
   }
 
   sync(s: GameState): void {
@@ -157,9 +161,13 @@ export class BuildingLayer {
           const model = this.model(b.type)!;
           const gid = this.gid(`${b.type}:${this.detail}`, () => model.geo);
           this.compose(rec, this.initial ? 1 : 0.001, this.initial ? 1 : 0.001);
-          _c.setRGB(1 - ((b.uid * 0.37) % 1) * 0.06, 1 - ((b.uid * 0.53) % 1) * 0.05, 1 - ((b.uid * 0.71) % 1) * 0.07);
+          const lift = INDUSTRIAL.has(b.type) ? 1.32 : 1.12;
+          _c.setRGB(lift - ((b.uid * 0.37) % 1) * 0.06, lift - ((b.uid * 0.53) % 1) * 0.05, lift - ((b.uid * 0.71) % 1) * 0.07);
           rec.ids.push(this.batch.add(gid, _m, _c));
-          if (!this.initial) this.anims.push({ rec, t: 0, dir: 1 });
+          if (!this.initial) {
+            this.anims.push({ rec, t: 0, dir: 1 });
+            this.onPop?.(rec.x, rec.y, rec.z, Math.max(b.w, b.h) * 0.45, false);
+          }
         }
       }
       rec.b = b;
@@ -245,7 +253,7 @@ export class BuildingLayer {
       const tx = (lx: number, lz: number): [number, number] => [rec.x + lx * cos + lz * sin, rec.z - lx * sin + lz * cos];
       m.rotors.forEach((r, i) => {
         const [x, z] = tx(r.x, r.z);
-        this.rotorInfo.push({ x, y: rec.y + r.y, z, yaw: r.yaw + rec.yaw, scale: r.scale, speed: 1.0 + ((rec.uid * 0.37 + i * 0.21) % 1) * 0.5, phase: rec.uid * 1.7 + i });
+        this.rotorInfo.push({ x, y: rec.y + r.y * BSCALE_Y, z, yaw: r.yaw + rec.yaw, scale: r.scale, speed: 1.0 + ((rec.uid * 0.37 + i * 0.21) % 1) * 0.5, phase: rec.uid * 1.7 + i });
       });
       const def = BUILDINGS[rec.type];
       let strength = def.co2 > 0 ? Math.min(1.6, Math.max(0.25, def.co2 / 50)) : 0.3;
@@ -255,7 +263,7 @@ export class BuildingLayer {
       if (strength <= 0.02) continue;
       for (const st of m.stacks) {
         const [x, z] = tx(st.x, st.z);
-        this.emitters.push({ x, y: rec.y + st.y, z, size: st.size, steam: st.steam, strength });
+        this.emitters.push({ x, y: rec.y + st.y * BSCALE_Y, z, size: st.size, steam: st.steam, strength });
       }
     }
     this.rotors.count = this.rotorInfo.length;

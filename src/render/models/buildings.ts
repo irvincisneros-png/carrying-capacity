@@ -6,6 +6,7 @@ import {
   SphereGeometry, TorusGeometry, Vector2, Vector3,
 } from 'three';
 import type { BuildingId } from '../../sim/types';
+import { BUILDINGS } from '../../sim/buildings';
 import { T, blob, taperTube, type ColorLike } from '../geo';
 import { mulberry32, vnoise } from '../noise';
 import {
@@ -2047,7 +2048,7 @@ function mRecycler(k: Kit): void {
 }
 
 // ------------------------------------------------------------------ public API
-const BUILDERS: Record<ModelId, (k: Kit) => void> = {
+const BUILDERS: Partial<Record<ModelId, (k: Kit) => void>> = {
   cottage: mCottage,
   farm: mFarm,
   coalmine: mCoalmine,
@@ -2086,9 +2087,24 @@ const BUILDERS: Record<ModelId, (k: Kit) => void> = {
 
 export const MODEL_IDS = Object.keys(BUILDERS) as ModelId[];
 
+/** Placeholder for building ids added to the catalogue before a crafted model exists: pad + hall + roof. */
+function genericModel(k: Kit, id: ModelId): void {
+  const def = (BUILDINGS as Record<string, { w: number; h: number; category?: string } | undefined>)[id];
+  const w = def?.w ?? 1;
+  const d = def?.h ?? 1;
+  k.box(0, -0.3, 0, w - 0.08, 0.32, d - 0.08, 0xa8a090);
+  const bw = Math.max(0.5, w * 0.62);
+  const bd = Math.max(0.4, d * 0.5);
+  k.box(0, 0.02, 0, bw, 0.34, bd, def?.category === 'power' ? 0xe8ece6 : 0xd9c4a0, { ao: 0.8 });
+  k.box(0, 0.36, 0, bw + 0.06, 0.06, bd + 0.06, 0x6f8a8c);
+  k.box(-bw * 0.2, 0.08, bd / 2 + 0.005, 0.12, 0.18, 0.01, 0x2b3a46);
+}
+
 export function buildBuildingModel(id: ModelId, detail: 0 | 1): BuildingModel {
   const k = new Kit(detail);
-  BUILDERS[id](k);
+  const build = BUILDERS[id];
+  if (build) build(k);
+  else genericModel(k, id);
   const geo = k.merge();
   geo.computeBoundingBox();
   let height = geo.boundingBox ? geo.boundingBox.max.y : 0;
