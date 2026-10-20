@@ -191,7 +191,7 @@ const COAST: TerrainParams = {
 
 const COAL_COAST_OBJECTIVES: readonly ObjectiveDef[] = [
   { id: 'warming', label: 'Hold warming to 1.8 C or less by 2100', metric: 'warming', op: '<=', target: 1.8 },
-  { id: 'estuary', label: 'Bring the estuary back to good water health (60+, average of the last 5 years)', metric: 'estuaryHealth', op: '>=', target: 60, avgYears: 5 },
+  { id: 'estuary', label: 'Bring the estuary back to good water health (60+, average of the last 10 years)', metric: 'estuaryHealth', op: '>=', target: 60, avgYears: 10 },
   { id: 'society', label: 'Keep the town together: Society 50 or more', metric: 'society', op: '>=', target: 50 },
   {
     id: 'repurpose', label: 'Repurpose or recycle every Act 1 building', metric: 'act1Repurposed', op: '>=', target: 100,

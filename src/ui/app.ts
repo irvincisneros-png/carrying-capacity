@@ -775,7 +775,7 @@ export class App {
     if (site > 0 && SIM.countryActive(s)) {
       const asked = s.country.consulted.includes(site);
       rows.push(h('div', { class: 'fact', style: 'margin-top:8px' }, h('p', null, h('b', null, siteName(site)), h('br'),
-        asked ? 'You have talked with the community about this place.' : 'Aunty June has asked to be consulted before anything is built here.')));
+        asked ? 'You have talked with the community about this place.' : `${SIM.elderOf(s.scenarioId)?.name ?? 'The local Elder'} has asked to be consulted before anything is built here.`)));
       if (!asked) rows.push(h('button', { class: 'btn small green', style: 'margin-top:6px', onclick: () => {
         const r = this.game.dispatch({ type: 'consult', x: tx, y: ty });
         if (r.ok) { sfx('good'); this.renderer.sparkle(tx, ty, 1, 1, true); this.inspectEl.classList.add('hidden'); }

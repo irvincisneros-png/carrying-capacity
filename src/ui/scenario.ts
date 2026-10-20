@@ -97,6 +97,7 @@ function consequence(p: PolicyDef, v: number): string {
     case 'alloc.town': return v >= 0.35 ? 'Taps stay on in most droughts, but there is less for farms and the river.' : v <= 0.1 ? 'Cheap for farms and the river, but the town may run dry in a drought.' : 'A middle path: the town is safe in normal years.';
     case 'alloc.env': return v >= 0.4 ? 'Fish, red gums and billabongs recover. Farms get less water.' : v <= 0.1 ? 'Farms get more water, but the river slowly dies: salt builds up and fish disappear.' : 'Enough to keep the river alive, not enough to bring it back fully.';
     case 'cots.cull': return v >= 2 ? 'Divers patrol the whole reef. Starfish outbreaks are stopped early. Costs the most.' : v >= 1 ? 'The main dive sites are protected; outbreaks elsewhere still eat coral.' : 'No control: a starfish outbreak can strip big areas of coral.';
+    case 'turtle.lights': return v >= 2 ? 'Beachfront lights are amber and go dark on nesting nights: only something built on the sand itself still glows.' : v >= 1 ? 'Shielded amber lights: only buildings right beside the sand still light it.' : 'Ordinary lights: homes, resorts and anything using power within 2 tiles of the sand light the beach.';
     case 'water.restrict': return v >= 2 ? 'Big water savings, but people grow frustrated (Society falls).' : v >= 1 ? 'Sprinkler bans save water with a little grumbling.' : 'No restrictions: the aquifer drains fastest.';
     default: return p.blurb;
   }

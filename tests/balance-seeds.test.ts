@@ -10,7 +10,7 @@ import { EVENT_SEEDS } from './helpers/seeds';
  * Multi-seed balance bands for the scenarios with an Act 1. Each scripted player runs on the real map with four
  * different weather / event seeds, so a goal that only passes on one lucky sequence of floods, heatwaves and
  * outbreaks shows up here. Recorded results (2026-10, round-2 balance):
- *   Coal Coast  thoughtful 4/4 three stars, estuary (5-year mean) 79-98; idle 0/4.
+ *   Coal Coast  thoughtful 4/4 three stars, estuary (10-year mean) 82-96; idle 0/4.
  *   River Town  thoughtful 3/4 wins (seed 47: a long drought, river 52 / farms 45); idle 0/4.
  *   Reef Island thoughtful 4/4 wins, coral (5-year mean) 51-67; the same plan without the local reef work
  *               (no starfish control, nurseries, wetlands, satellites or turtle lighting) 39-52, 1/4 wins; idle 0/4.
