@@ -68,7 +68,7 @@ const TONE_MOOD: Record<string, StoryLine['mood']> = { warm: 'happy', joy: 'happ
 export function storyLine(s: GameState, e: SimEvent): StoryLine | null {
   if (e.type !== 'story') return null;
   const m = metaOf(e);
-  if (m?.channel === 'dilemma') return null;
+  if (m?.channel === 'dilemma' && m.choice) return null;
   const sp = speaker(s, m?.speakerId, m?.speaker);
   const at = e.at ?? homeTile(s, m?.speakerId);
   return { id: e.id, speaker: m?.speakerId ? sp : { id: m?.channel ?? 'town', name: channelName(m?.channel) }, text: e.text, mood: TONE_MOOD[m?.tone ?? ''] ?? 'ok', at, year: e.year };
@@ -81,6 +81,7 @@ function channelName(c: string | undefined): string {
     case 'circular': return 'Old sites, new lives';
     case 'research': return 'Research';
     case 'satellite': return 'Satellite warning';
+    case 'dilemma': return 'What happened next';
     default: return 'The town';
   }
 }
@@ -101,7 +102,8 @@ export function beatChoice(s: GameState, e: SimEvent): DilemmaCard | null {
 /** Dilemma cards ({type:'choose'}) with the per-option "who is helped / hurt" preview from the dilemma catalogue. */
 export function dilemmaCard(s: GameState, e: SimEvent): DilemmaCard | null {
   const m = metaOf(e);
-  if (!m || m.channel !== 'dilemma' || !m.ref) return null;
+  // Only the offer carries a choice; the outcome story that follows a decision is told as a line, not a new card.
+  if (!m || m.channel !== 'dilemma' || !m.ref || !m.choice?.options?.length) return null;
   let def: Record<string, unknown> | null = null;
   try {
     const d = fn('getDilemma')?.(s.scenarioId, m.ref);
@@ -162,13 +164,16 @@ export function reportCard(s: GameState): ReportCard | undefined {
       label: String(o.label).replace(/(\d)\s?C\b/g, '$1 °C'),
       grade: o.status === 'met' ? 'A' : o.status === 'missed' ? 'D' : o.status === 'pending' ? '–' : 'C',
       ok: o.status === 'met',
-      detail: o.current === null || o.current === undefined ? undefined : `Ended at ${typeof o.current === 'number' ? Math.round(o.current * 10) / 10 : o.current}`,
+      detail: o.current === null || o.current === undefined ? undefined
+        : o.metric === 'wildlifeThriving' ? (o.current ? 'Yes, thriving' : 'Not thriving yet')
+          : o.metric === 'netZeroYear' ? (Number(o.current) >= 9000 ? 'Not reached' : `Reached in ${o.current}`)
+            : `Ended at ${typeof o.current === 'number' ? Math.round(o.current * 10) / 10 : o.current}`,
     }));
     const census = Array.isArray(rc.census) ? (rc.census as Record<string, unknown>[]) : [];
     for (const c of census) items.push({ label: `${c.name}`, grade: c.status === 'thriving' ? 'A' : c.status === 'gone' ? 'D' : 'B', ok: c.status !== 'gone', detail: `${c.pop} animals (started with ${c.start})` });
     const residents = Array.isArray(rc.residents) ? (rc.residents as Record<string, unknown>[]) : [];
     return {
-      title: `${rc.scenarioName ?? ''} · 2100 Report Card`,
+      title: `${rc.scenarioName ?? ''} · ${SIM.getScenario(s.scenarioId).act2.endYear} Report Card`,
       stars: (Number(rc.stars) || 0) as 0 | 1 | 2 | 3,
       items,
       epilogues: residents.map((r) => ({ speaker: speaker(s, String(r.id), String(r.name)), text: `${r.title}. ${r.text}` })),

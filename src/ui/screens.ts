@@ -17,7 +17,8 @@ import { bIcon, UI_ICONS } from './icons';
 import { openModal, type ModalHandle } from './modal';
 import { objectiveRow } from './act2';
 import { portrait, reportCardView, speakerFrom } from './empathy';
-import type { ReportCard } from './types';
+import type { ReportCard, Speaker } from './types';
+import { CAST } from '../content/residents';
 
 const SCEN_ICON: Record<ScenarioId, string> = {
   'green-valley': UI_ICONS.sprout,
@@ -161,24 +162,36 @@ export function showTurningPoint(s: GameState, onBegin: () => void, storyOnly = 
   };
   const step2 = (): void => {
     if (!tp) { onBegin(); return; }
-    const res = speakerFrom(tp.residentId);
-    const sci = speakerFrom('priya-shah');
+    const res = castSpeaker(s.scenarioId, tp.residentId);
+    const sci = castSpeaker(s.scenarioId, SCIENCE_VOICE[s.scenarioId]);
+    const waterLabel = s.scenarioId === 'coal-coast' ? 'Estuary health' : s.scenarioId === 'reef-island' ? 'Lagoon health' : s.scenarioId === 'net-zero-city' ? 'Harbour health' : 'Creek and river health';
     sfx('event');
     const m = openModal([
       h('div', { class: 'kicker' }, 'Turning point'),
       h('h2', null, tp.title),
       h('div', { style: 'display:flex;gap:12px;align-items:flex-start;margin:10px 0' }, portrait(res, 52), h('p', { style: 'margin:0' }, degC(tp.text))),
       h('div', { class: 'stat-grid' },
-        h('div', { class: 'stat' }, h('small', null, 'Estuary health'), h('b', null, `${Math.round(tp.stats.estuaryHealth)}`), h('span', { class: 'd muted' }, '/100')),
+        h('div', { class: 'stat' }, h('small', null, waterLabel), h('b', null, `${Math.round(tp.stats.estuaryHealth)}`), h('span', { class: 'd muted' }, '/100')),
         h('div', { class: 'stat' }, h('small', null, 'Bush remaining'), h('b', null, `${Math.round(tp.stats.bushRemaining * 100)}%`)),
         h('div', { class: 'stat' }, h('small', null, 'Warming'), h('b', null, `+${fmt1(tp.stats.tempC)} °C`))),
-      h('div', { class: 'fact' }, portrait(sci, 40), h('p', null, h('b', null, `${sci.name}: `), degC(tp.scientistNote))),
+      h('div', { class: 'fact' }, portrait(sci, 40), h('p', null, h('b', null, sci.name), sci.role ? h('span', { class: 'muted' }, ` · ${sci.role}`) : null, h('br'), degC(tp.scientistNote))),
       h('p', null, h('b', null, 'Act 2: Transition. '), `Time now runs by itself, season by season, to ${getScenario(s.scenarioId).act2.endYear}. Clean up the power, heal the land and water, and keep people with you.`),
       h('div', { class: 'modal-actions' }, h('button', { class: 'btn green', 'data-tut': 'start-transition', onclick: () => { m.close(); onBegin(); } }, svg(UI_ICONS.sprout), storyOnly ? 'Get to work' : 'Begin the transition')),
     ], { closable: false });
   };
   if (storyOnly || s.history.length <= 1) step2();
   else step1();
+}
+
+/** The person who reads the graphs with the player in each place. */
+const SCIENCE_VOICE: Record<ScenarioId, string> = {
+  'coal-coast': 'priya-shah', 'green-valley': 'ali-rahman', 'river-town': 'lan-nguyen',
+  'reef-island': 'hana-yamamoto', 'red-dirt': 'rohan-mehta', 'net-zero-city': 'aisha-rahman',
+};
+
+function castSpeaker(id: ScenarioId, residentId: string): Speaker {
+  const r = CAST[id]?.find((c) => c.id === residentId);
+  return r ? { id: r.id, name: r.name, role: r.role } : speakerFrom(residentId);
 }
 
 // ---------------------------------------------------------------- epilogue / failure
@@ -189,7 +202,7 @@ export function showEnding(s: GameState, onTitle: () => void, card?: ReportCard,
   const met = objs.filter((o) => !o.bonus && o.status === 'met').length;
   const req = objs.filter((o) => !o.bonus).length;
   const rc: ReportCard = card ?? {
-    title: '2100 Report Card',
+    title: `${getScenario(s.scenarioId).act2.endYear} Report Card`,
     stars: failed ? 0 : s.a2.outcome?.success ? (objs.some((o) => o.bonus && o.status === 'met') ? 2 : 1) : 0,
     items: objs.map((o) => ({ label: degC(o.label), grade: o.status === 'met' ? 'A' : o.status === 'pending' ? '–' : o.status === 'missed' ? 'D' : 'C', ok: o.status === 'met' || o.status === 'pending', detail: o.current === null ? 'Measured in a later update' : `Ended at ${o.metric === 'warming' ? fmt1(o.current) + ' °C' : Math.round(o.current)}` })),
   };

@@ -6,6 +6,7 @@ import { eventChances } from '../sim/events';
 import { objectiveStatus } from '../sim/objectives';
 import { hash32, seasonWeather } from '../sim/season';
 import { getScenario } from '../sim/scenarios';
+import { BONUS_SPECIES, SPECIES_BY_ID } from '../content/species';
 import type { EnergySource, EventType, GameState, GridBlock, ObjectiveResult } from '../sim/types';
 import { clear, degC, fmt1, h, svg } from './dom';
 import { UI_ICONS } from './icons';
@@ -202,10 +203,11 @@ export class ObjectivesPanel {
   el: HTMLElement;
   private list: HTMLElement;
   private sig = '';
+  private titleEl = h('span', null, 'Goals for 2100');
 
   constructor() {
     this.list = h('div');
-    this.el = h('div', { class: 'side objectives panel hidden' }, h('div', { class: 'panel-head' }, h('h3', null, svg(UI_ICONS.target), 'Goals for 2100'), h('button', { class: 'linkbtn', onclick: (e: Event) => collapse(this.el, e) }, 'hide')), this.list);
+    this.el = h('div', { class: 'side objectives panel hidden' }, h('div', { class: 'panel-head' }, h('h3', null, svg(UI_ICONS.target), this.titleEl), h('button', { class: 'linkbtn', onclick: (e: Event) => collapse(this.el, e) }, 'hide')), this.list);
   }
 
   update(s: GameState): void {
@@ -215,15 +217,46 @@ export class ObjectivesPanel {
     } catch {
       objs = [];
     }
-    const sig = objs.map((o) => `${o.id}:${o.status}:${o.current === null ? 'n' : Math.round(o.current * 10)}`).join('|');
+    const end = getScenario(s.scenarioId).act2.endYear;
+    const sig = `${end}|${s.circular?.unlocked}|` + objs.map((o) => `${o.id}:${o.status}:${o.current === null ? 'n' : Math.round(o.current * 10)}`).join('|');
     if (sig === this.sig) return;
+    this.titleEl.textContent = `Goals for ${end}`;
     this.sig = sig;
     clear(this.list);
-    for (const o of objs) this.list.appendChild(objectiveRow(o));
+    for (const o of objs) this.list.appendChild(objectiveRow(o, s));
   }
 }
 
-export function objectiveRow(o: ObjectiveResult): HTMLElement {
+/** One line on how to move each goal, shown under a goal that is not yet on track. */
+const HOW_TO: Partial<Record<string, string>> = {
+  renewableShare: 'Build solar, wind and batteries, then retire the coal and gas plants with the Old sites tool.',
+  environment: 'Plant nurseries and wetlands, clean dirty soil (phyto gardens), and retire polluting sites.',
+  society: 'People need homes, jobs, clean air and reliable power. Blackouts and disasters hurt most.',
+  speciesBack: 'Give animals habitat and time: wetlands, clean water and joined-up bush.',
+  act1Repurposed: 'Use the Old sites tool on each old Act 1 building: repurpose or recycle, not landfill.',
+  warming: 'Cut emissions early: clean power first, then industry and transport. Warming lags behind CO₂.',
+  estuaryHealth: 'Treat sewage, add stormwater wetlands, and keep farms and industry away from the water.',
+  riverHealth: 'Leave more water in the river (Town policies), build wetlands and a fishway, and treat runoff.',
+  townWaterFailures: 'Store water before droughts (town water storage) and set water sharing in Town policies.',
+  farmViability: 'Farms need water: efficient irrigation farms use less, and the water policy decides their share.',
+  reefHealth: 'Cut runoff and sewage, grow coral nurseries, use the starfish cull lever, and cut emissions.',
+  homesLost: 'Keep homes off low ground near the sea. Mangroves and dunes soften storm surges.',
+  tourism: 'Visitors come for a healthy reef and beaches. Resorts earn more when the reef is well.',
+  netZeroYear: 'Emissions must fall to the net-zero line and stay there: clean power, retrofits, transit.',
+  rehabPct: 'Close the mine, then use Rehab mine on the pit: reshape, topsoil, then seed with the Traditional Owners.',
+  aquifer: 'Pump less from bores: cap mine water in Town policies and recycle water.',
+  waterFailures: 'Keep the town supplied in dry years: bores, storage and water policies.',
+  heatDeaths: 'Cooling centres, street trees, retrofitted homes and a reliable grid protect people in heatwaves.',
+  societyMin: 'Keep Society up every single year: avoid blackouts, protect people in heatwaves, keep jobs.',
+  capitalSpent: 'Choose cheaper fixes first (retrofits, rooftop solar, parks) and avoid building twice.',
+};
+
+const PENDING_TEXT: Record<string, string> = {
+  circular: 'Opens with the circular economy (the Old sites tool)',
+  wildlife: 'Counted once animals start coming back',
+};
+
+export function objectiveRow(o: ObjectiveResult, s?: GameState): HTMLElement {
   const icon = o.status === 'met' || o.status === 'on-track' ? UI_ICONS.check : o.status === 'missed' ? UI_ICONS.cross : o.status === 'at-risk' ? UI_ICONS.warn : UI_ICONS.clock;
   let pct = 0;
   if (o.current !== null) {
@@ -231,10 +264,25 @@ export function objectiveRow(o: ObjectiveResult): HTMLElement {
     else pct = o.current <= o.target ? 1 : Math.max(0, 1 - (o.current - o.target) / Math.max(0.5, o.target));
   }
   const unit = o.metric === 'warming' ? ' °C' : '';
-  const val = o.metric === 'netZeroYear' && o.current !== null && o.current >= 9000 ? `Not reached yet · target by ${o.target}` : o.current === null ? (o.pendingTier ? `Comes with a later update (${o.pendingTier})` : 'Not measured yet') : `Now ${o.metric === 'warming' ? fmt1(o.current) : Math.round(o.current)}${unit} · target ${o.op === '<=' ? '≤' : '≥'} ${o.target}${unit}`;
+  const val = o.metric === 'netZeroYear' && o.current !== null && o.current >= 9000 ? `Not reached yet · target by ${o.target}` : o.current === null ? (o.pendingTier ? PENDING_TEXT[o.pendingTier] ?? 'Opens later in the game' : 'Not measured yet') : `Now ${o.metric === 'warming' ? fmt1(o.current) : Math.round(o.current)}${unit} · target ${o.op === '<=' ? '≤' : '≥'} ${o.target}${unit}`;
   const label = { 'on-track': 'On track', 'at-risk': 'At risk', met: 'Met', missed: 'Missed', pending: 'Later' }[o.status];
+  let detail = val;
+  if (s && o.metric === 'wildlifeThriving') {
+    // Say which animals the bonus needs and how close each one is, not a bare 0 / 1.
+    try {
+      const parts = (BONUS_SPECIES[s.scenarioId] ?? []).map((id) => {
+        const d = SPECIES_BY_ID[id];
+        const rt = s.wildlife?.species?.[id];
+        if (!d) return '';
+        const nest = d.thrive.nestStreak !== undefined ? `, nesting ${rt?.nestStreak ?? 0} of ${d.thrive.nestStreak} summers in a row` : '';
+        return `${d.name}: ${rt?.pop ?? 0} of ${d.thrive.pop}${nest}`;
+      }).filter(Boolean);
+      if (parts.length && o.status !== 'pending') detail = parts.join(' · ');
+    } catch { /* keep the plain value */ }
+  }
+  const how = s && (o.status === 'at-risk' || o.status === 'missed') && s.phase === 'act2' ? HOW_TO[o.metric] : undefined;
   return h('div', { class: `obj ${o.status} ${o.bonus ? 'bonus' : ''}` }, svg(icon),
-    h('div', { style: 'flex:1;min-width:0' }, h('div', { class: 'lab' }, degC(o.label)), h('div', { class: 'val' }, `${label} · ${val}`), h('div', { class: 'bar' }, h('i', { style: `width:${pct * 100}%` }))));
+    h('div', { style: 'flex:1;min-width:0' }, h('div', { class: 'lab' }, degC(o.label)), h('div', { class: 'val' }, `${label} · ${detail}`), h('div', { class: 'bar' }, h('i', { style: `width:${pct * 100}%` })), how ? h('div', { class: 'how' }, degC(how)) : null));
 }
 
 /** Mobile: close the bottom sheet. Desktop: fold the panel down to its title. */

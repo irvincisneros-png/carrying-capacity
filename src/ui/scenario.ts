@@ -206,9 +206,28 @@ export class TutorialOverlay {
         else if (s.budget < av.cost) blocker = `You need $${av.cost}k and have $${Math.round(s.budget)}k: press Next decade to earn more.`;
       } catch { blocker = ''; }
     }
+    if (hl.startsWith('build:') && s.phase === 'act2') {
+      const id = hl.slice(6) as BuildingId;
+      try {
+        const av = availability(s.scenarioId, id);
+        if (s.budget < av.cost) blocker = `You need $${av.cost}k and have $${Math.round(s.budget)}k: let time run (press play) to earn more.`;
+      } catch { blocker = ''; }
+    }
+    let wait = '';
+    if (st.current?.id === 'swap' && s.phase === 'act2') {
+      // Retiring the coal before clean power covers the nights means blackouts: say so plainly.
+      const g = s.a2?.lastGrid;
+      const fossil = (b: { bySource: Partial<Record<string, number>> }): number => (b.bySource.coal ?? 0) + (b.bySource.gas ?? 0);
+      if (g) {
+        const cover = Math.min(...[g.day, g.night].map((b) => (b.demand > 0 ? (b.supply - fossil(b)) / b.demand : 1)));
+        if (cover < 0.99) wait = `Not yet: clean power covers only ${Math.round(Math.max(0, cover) * 100)}% of demand ${(g.night.supply - fossil(g.night)) / Math.max(1e-6, g.night.demand) <= (g.day.supply - fossil(g.day)) / Math.max(1e-6, g.day.demand) ? 'at night' : 'by day'}. Add wind turbines or another battery first, or the lights go out.`;
+        else wait = 'Clean power now covers day and night. Time to retire the coal.';
+      }
+    }
+    if (wait && !blocker) blocker = wait;
     this.blocker.textContent = blocker;
     this.blocker.classList.toggle('hidden', !blocker);
-    this.blockedNext = !!blocker;
+    this.blockedNext = !!blocker && s.phase === 'act1';
     this.applyHighlight(st);
   }
 

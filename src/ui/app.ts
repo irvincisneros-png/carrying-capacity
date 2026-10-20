@@ -418,7 +418,7 @@ export class App {
       this.demand.replaceChildren(h('b', null, `The ${s.year}s · the town needs`), dem);
       this.demand.classList.toggle('hidden', !dem);
     }
-    this.undoBtn.classList.toggle('hidden', !this.game.canUndo());
+    this.undoBtn.classList.toggle('hidden', !this.game.canUndo() || (s.phase !== 'act1' && s.phase !== 'act2'));
     this.clock.el.classList.toggle('hidden', !act2);
     this.energy.el.classList.toggle('hidden', !act2);
     this.objectives.el.classList.toggle('hidden', !act2);
@@ -596,7 +596,11 @@ export class App {
     if (t === 'demolish') {
       const b = buildingAt(s, hv.tx, hv.ty);
       this.renderer.showCursor('demolish', hv.tx, hv.ty, 0, !!b, b ? { x: b.x, y: b.y, w: b.w, h: b.h } : undefined);
-      if (b) this.tip.show(px, py, `<b>Demolish ${BUILDINGS[b.type].name}</b><br>Refund $${Math.floor(availability(s.scenarioId, b.type).cost * DEMOLISH_REFUND)}k`, '');
+      let legacy = false;
+      try { legacy = !!b && s.phase === 'act2' && SIM.itemAt(s, hv.tx, hv.ty)?.status === 'standing'; } catch { legacy = false; }
+      if (b && legacy) this.tip.show(px, py, `<b>Demolish ${BUILDINGS[b.type].name}</b><br>${s.circular?.unlocked ? 'This old site would go to landfill (the worst choice). Use the <b>Old sites</b> tool to repurpose or recycle it.' : 'This old site would become rubble. Wait for the circular economy to give it a second life.'}`, 'bad');
+      else if (b) this.tip.show(px, py, `<b>Demolish ${BUILDINGS[b.type].name}</b><br>Refund $${Math.floor(availability(s.scenarioId, b.type).cost * DEMOLISH_REFUND)}k`, '');
+      if (b) { const pw = powerLossWarning(s, b.type); if (pw) this.tip.show(px, py, `${this.tip.el.innerHTML}<br><b>${pw}</b>`, 'bad'); }
       else this.tip.hide();
       return;
     }
@@ -604,7 +608,8 @@ export class App {
       const it = SIM.itemAt(s, hv.tx, hv.ty);
       const live = it && it.status === 'standing' ? it : undefined;
       this.renderer.showCursor('demolish', hv.tx, hv.ty, 0, !!live, live ? { x: live.x, y: live.y, w: live.w, h: live.h } : undefined);
-      this.tip.show(px, py, live ? `<b>${BUILDINGS[live.type].name}</b><br>Click to choose its future` : 'Point at an old Act 1 building', live ? 'ok' : 'bad');
+      const pw = live ? powerLossWarning(s, live.type) : '';
+      this.tip.show(px, py, live ? `<b>${BUILDINGS[live.type].name}</b><br>Click to choose its future${pw ? `<br><b>${pw}</b>` : ''}` : 'Point at an old Act 1 building', live && !pw ? 'ok' : 'bad');
       return;
     }
     if (t === 'rehab') {
@@ -805,10 +810,12 @@ export class App {
       const { progress } = SIM.recordResult(loadProgressSafe(), 'green-valley', 1);
       SIM.saveProgress(localStorage, progress);
     } catch { /* ignore */ }
-    toast('Tutorial complete!', 'Coal Coast is unlocked. Play on to see the valley through to 2000, or head back to the title.', 'good', UI_ICONS.star, 9000);
+    toast('Tutorial complete!', 'Coal Coast is unlocked. Read your report card, then head on to Coal Coast.', 'good', UI_ICONS.star, 9000);
   }
 
   private openDisposal(tx: number, ty: number): void {
+    let warn = '';
+    try { const it = SIM.itemAt(this.game.state, tx, ty); warn = it ? powerLossWarning(this.game.state, it.type) : ''; } catch { warn = ''; }
     const ok = showDisposal(this.game.state, tx, ty, (plan) => {
       const r = this.game.dispatch({ type: 'dispose', x: tx, y: ty, how: plan.how, into: plan.how === 'repurpose' ? plan.id : undefined });
       if (r.ok) {
@@ -819,7 +826,7 @@ export class App {
         sfx('error');
         toast('Not possible', degC(r.reason ?? ''), 'warn', UI_ICONS.info, 5000);
       }
-    });
+    }, warn);
     if (!ok) { sfx('error'); toast('Nothing to decide here', 'Choose an old Act 1 building that is still standing.', 'info', UI_ICONS.info, 3000); }
     this.inspectEl.classList.add('hidden');
   }
@@ -930,6 +937,29 @@ export class App {
       speed: (sp: Speed) => this.game.setSpeed(sp),
     };
   }
+}
+
+/**
+ * If this power station went, would the town run short? Uses the last season's grid: the plant's share of its
+ * source's output is taken away from day and night supply. Returns a warning line, or '' when it is safe.
+ */
+export function powerLossWarning(s: GameState, type: BuildingId): string {
+  const d = BUILDINGS[type];
+  const g = s.a2?.lastGrid;
+  if (!d.energy || !g || s.phase !== 'act2') return '';
+  const src = d.energy.source;
+  const cap = g.capacity[src] ?? 0;
+  if (cap <= 0) return '';
+  const share = Math.min(1, d.energy.capacity / cap);
+  let worst = 0;
+  let when = '';
+  for (const [k, b] of [['by day', g.day], ['at night', g.night]] as const) {
+    const after = b.supply - (b.bySource[src] ?? 0) * share;
+    const short = b.demand > 0 ? (b.demand - after) / b.demand : 0;
+    if (short > worst) { worst = short; when = k; }
+  }
+  if (worst <= 0.01) return '';
+  return `⚠ Without it the town would be about ${Math.round(worst * 100)}% short of power ${when}: expect blackouts. Build more clean power or batteries first.`;
 }
 
 function capital(s: string): string {

@@ -151,7 +151,7 @@ export class SatellitePanel {
 }
 
 // ---------------------------------------------------------------- legacy site chooser
-export function showDisposal(s: GameState, x: number, y: number, choose: (plan: DisposalPlan) => void): boolean {
+export function showDisposal(s: GameState, x: number, y: number, choose: (plan: DisposalPlan) => void, warning = ''): boolean {
   const ch = disposalChoice(s, x, y);
   if (!ch) return false;
   const def = BUILDINGS[ch.item.type];
@@ -159,6 +159,7 @@ export function showDisposal(s: GameState, x: number, y: number, choose: (plan: 
     h('div', { class: 'kicker' }, 'Old site, new life?'),
     h('h2', { style: 'display:flex;gap:10px;align-items:center' }, svg(bIcon(ch.item.type)), def.name),
     h('p', null, 'Every Act 1 building has to be dealt with. The waste hierarchy says: reuse first, recycle next, landfill last.'),
+    warning ? h('p', { style: 'font-weight:800;color:#b5651d' }, warning) : null,
     h('div', { class: 'dil-opts' }, ...ch.plans.map((p) => h('button', {
       class: 'dil-opt', disabled: !p.ok,
       onclick: () => { if (!p.ok) return; sfx('click'); m.close(); choose(p); },
