@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  advanceDecade, applyAction, clearSave, createGame, deserialize, loadFromStorage, SAVE_KEY, SAVE_VERSION,
+  advanceDecade, applyAction, clearSave, cloneState, createGame, deserialize, generateTerrain, getScenario, startAct2, tick, loadFromStorage, SAVE_KEY, SAVE_VERSION,
   saveToStorage, serialize,
 } from '../src/sim';
 import type { StorageLike } from '../src/sim';
@@ -133,5 +133,53 @@ describe('save / load', () => {
       const s = createGame(id);
       expect(deserialize(serialize(s))?.scenarioId).toBe(id);
     }
+  });
+  it('still loads a save made on a scenario\'s original, smaller map: it keeps its own size and plays on', () => {
+    // The scenarios were enlarged (coal-coast 32 -> 40, green-valley 16 -> 20, reef-island 32 -> 44, ...). Rebuild a game the
+    // way the old code made it: the same scenario on its old map, and write it out as a version 3 save.
+    const old: Record<string, number> = { 'coal-coast': 32, 'green-valley': 16, 'river-town': 32, 'reef-island': 32, 'red-dirt': 32 };
+    for (const [id, size] of Object.entries(old)) {
+      const sid = id as 'coal-coast';
+      const sc = getScenario(sid);
+      expect(sc.mapW).toBeGreaterThan(size);
+      const s = cloneState(createGame(sid));
+      s.grid = generateTerrain({ ...sc, mapW: size, mapH: size }, s.seed);
+      let b = 0;
+      for (let i = 0; i < s.grid.kind.length && b < 3; i++) {
+        const r = applyAction(s, { type: 'place', building: 'cottage', x: i % size, y: Math.floor(i / size) });
+        if (r.result.ok) { Object.assign(s, r.state); b++; }
+      }
+      expect(s.buildings.length).toBeGreaterThan(0);
+      const raw = JSON.parse(serialize(s)) as { saveVersion: number };
+      raw.saveVersion = 3;
+      const back = deserialize(JSON.stringify(raw));
+      expect(back, id).not.toBeNull();
+      expect([back?.grid.w, back?.grid.h], id).toEqual([size, size]);
+      expect(back?.buildings.length).toBe(s.buildings.length);
+      expect(back?.saveVersion).toBe(SAVE_VERSION);
+      // It is still a working game: a decade of Act 1 runs, then a year of Act 2 on the old-size map.
+      let g = advanceDecade(back as NonNullable<typeof back>).state;
+      expect(g.year).toBe(sc.startYear + 10);
+      g = { ...g, grid: g.grid };
+      const again = deserialize(serialize(g));
+      expect([again?.grid.w, again?.grid.h]).toEqual([size, size]);
+    }
+    // And a corrupt size is refused.
+    const bad = JSON.parse(serialize(createGame('coal-coast'))) as { grid: { w: number } };
+    bad.grid.w = 41;
+    expect(deserialize(JSON.stringify(bad))).toBeNull();
+  });
+  it('an old-size game in Act 2 keeps running (tick works on a non-scenario map size)', () => {
+    const sc = getScenario('green-valley');
+    const s = cloneState(createGame('green-valley'));
+    s.grid = generateTerrain({ ...sc, mapW: 16, mapH: 16 }, s.seed);
+    const raw = JSON.parse(serialize(s)) as { saveVersion: number };
+    raw.saveVersion = 3;
+    let back = deserialize(JSON.stringify(raw)) as NonNullable<ReturnType<typeof deserialize>>;
+    while (back.status === 'playing') back = advanceDecade(back).state;
+    back = startAct2(back);
+    back = tick(back, 1).state;
+    expect([back.grid.w, back.grid.h]).toEqual([16, 16]);
+    expect(back.year).toBe(sc.act2.startYear + 1);
   });
 });

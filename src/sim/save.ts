@@ -125,20 +125,23 @@ export function deserialize(text: string | null): GameState | null {
     const raw: unknown = JSON.parse(text);
     if (!isObj(raw)) return null;
     const ver = raw.saveVersion;
-    if (ver !== 1 && ver !== 2 && ver !== SAVE_VERSION) return null;
+    if (ver !== 1 && ver !== 2 && ver !== 3 && ver !== SAVE_VERSION) return null;
     if (typeof raw.scenarioId !== 'string' || !isScenarioId(raw.scenarioId)) return null;
     const scenarioId: ScenarioId = raw.scenarioId;
     const sc = getScenario(scenarioId);
     const g = raw.grid;
-    if (!isObj(g) || g.w !== sc.mapW || g.h !== sc.mapH) return null;
-    const n = sc.mapW * sc.mapH;
+    // A save keeps the map size it was made with (the scenarios have been enlarged since version 3 saves were written).
+    if (!isObj(g) || !Number.isInteger(g.w) || !Number.isInteger(g.h)) return null;
+    const mapW = g.w as number, mapH = g.h as number;
+    if (mapW < 8 || mapH < 8 || mapW > 128 || mapH > 128) return null;
+    const n = mapW * mapH;
     if (!finArr(g.kind, n) || !finArr(g.elevation, n) || !finArr(g.building, n)) return null;
     if (!finArr(g.airPollution, n) || !finArr(g.waterPollution, n) || !finArr(g.soilContamination, n)) return null;
-    const nChunks = chunkCount(sc.mapW, sc.mapH);
+    const nChunks = chunkCount(mapW, mapH);
     if (ver >= 2) {
       if (!finArr(g.health, n) || !finArr(g.stage, n) || !finArr(g.weed, n) || !finArr(g.chunkVersion, nChunks)) return null;
     }
-    if (ver === SAVE_VERSION && !finArr(g.significant, n)) return null;
+    if (ver >= 3 && !finArr(g.significant, n)) return null;
     if (g.zone !== undefined && !finArr(g.zone, n)) return null;
     if (g.kind.some((k) => !Number.isInteger(k) || k < 0 || k > 9)) return null;
     if (!fin(raw.seed) || !fin(raw.year) || !fin(raw.budget) || !fin(raw.population) || !fin(raw.lastIncome)) return null;
@@ -171,7 +174,7 @@ export function deserialize(text: string | null): GameState | null {
       if (!fin(b.uid) || !fin(b.x) || !fin(b.y) || !fin(b.w) || !fin(b.h) || !fin(b.builtYear)) return null;
       if (![0, 1, 2, 3].includes(b.rotation as number)) return null;
       if (uids.has(b.uid) || b.uid < 1 || b.uid > 65535) return null;
-      if (b.x < 0 || b.y < 0 || b.x + b.w > sc.mapW || b.y + b.h > sc.mapH) return null;
+      if (b.x < 0 || b.y < 0 || b.x + b.w > mapW || b.y + b.h > mapH) return null;
       uids.add(b.uid);
     }
     for (const u of g.building) if (u !== 0 && !uids.has(u)) return null;
@@ -182,8 +185,8 @@ export function deserialize(text: string | null): GameState | null {
     }
 
     const grid: TileGrid = {
-      w: g.w,
-      h: g.h,
+      w: mapW,
+      h: mapH,
       kind: Uint8Array.from(g.kind),
       elevation: Uint8Array.from(g.elevation),
       building: Uint16Array.from(g.building),
@@ -194,10 +197,10 @@ export function deserialize(text: string | null): GameState | null {
       stage: ver >= 2 ? Uint8Array.from(g.stage as number[]) : new Uint8Array(n),
       weed: ver >= 2 ? Uint8Array.from(g.weed as number[]) : new Uint8Array(n),
       chunkVersion: ver >= 2 ? Uint32Array.from(g.chunkVersion as number[]) : new Uint32Array(nChunks),
-      significant: ver === SAVE_VERSION ? Uint8Array.from(g.significant as number[]) : new Uint8Array(n),
+      significant: ver >= 3 ? Uint8Array.from(g.significant as number[]) : new Uint8Array(n),
       zone: g.zone !== undefined ? Uint8Array.from(g.zone as number[]) : new Uint8Array(n),
     };
-    if (ver !== SAVE_VERSION) markSignificant(grid);
+    if (ver < 3) markSignificant(grid);
 
     let a2: Act2State = emptyAct2(sc.act2.startYear, raw.tempC);
     let flags: Record<string, boolean | number> = {};
@@ -249,7 +252,7 @@ export function deserialize(text: string | null): GameState | null {
       turningPoint,
       ...emptyLayers(scenarioId),
     };
-    if (ver === SAVE_VERSION) {
+    if (ver >= 3) {
       if (!validLayers(raw)) return null;
       state.residents = raw.residents as GameState['residents'];
       state.dilemmas = raw.dilemmas as GameState['dilemmas'];
@@ -259,7 +262,7 @@ export function deserialize(text: string | null): GameState | null {
       state.satellites = raw.satellites as GameState['satellites'];
     }
     if (ver === 1 && phase === 'turning-point') enterTurningPoint(state);
-    if (ver !== SAVE_VERSION && (phase === 'act2' || phase === 'epilogue' || phase === 'failed')) {
+    if (ver < 3 && (phase === 'act2' || phase === 'epilogue' || phase === 'failed')) {
       // Migrating a game that is already in Act 2: legacy sites are the buildings from before the transition.
       initCircular(state, (b) => b.builtYear <= sc.endYear);
       initWildlife(state);

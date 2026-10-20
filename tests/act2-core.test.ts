@@ -331,8 +331,8 @@ describe('objectives', () => {
 });
 
 describe('save / load for Act 2', () => {
-  it('has bumped the save version to 3 (empathy layers)', () => {
-    expect(SAVE_VERSION).toBe(3);
+  it('has bumped the save version (4: enlarged maps; 3 added the empathy layers)', () => {
+    expect(SAVE_VERSION).toBe(4);
   });
   it('round-trips an Act 2 game exactly, including typed arrays, events and the clock', () => {
     let s = startAct2(dirtyEnd);

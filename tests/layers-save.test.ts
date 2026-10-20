@@ -31,10 +31,10 @@ const asV2 = (s: GameState): string => {
   return JSON.stringify(o);
 };
 
-describe('save version 3', () => {
-  it('is version 3', () => {
-    expect(SAVE_VERSION).toBe(3);
-    expect((JSON.parse(serialize(createGame('coal-coast'))) as { saveVersion: number }).saveVersion).toBe(3);
+describe('save version 4', () => {
+  it('is version 4 (3 and older still load)', () => {
+    expect(SAVE_VERSION).toBe(4);
+    expect((JSON.parse(serialize(createGame('coal-coast'))) as { saveVersion: number }).saveVersion).toBe(4);
   });
   it('round-trips every layer exactly, mid-Act 2', () => {
     // The state really has something in every layer.

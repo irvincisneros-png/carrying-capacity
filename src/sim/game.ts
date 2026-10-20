@@ -26,7 +26,8 @@ import type {
  * v2 adds Act 2 (phase, a2, flags, events, restoration grids). v3 adds the empathy-and-care layers (residents, dilemmas,
  * wildlife, Country, circular, satellites) and the significant-places grid. v1 and v2 saves are migrated in save.ts.
  */
-export const SAVE_VERSION = 3;
+/** 4: scenario maps were enlarged; saves carry their own map size (3 and older still load, at their old size). */
+export const SAVE_VERSION = 4;
 export const DECADE_YEARS = 10;
 
 export { cloneState, emptyEmissions };
