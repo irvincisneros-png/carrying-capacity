@@ -209,8 +209,8 @@ describe('coral and crown-of-thorns starfish', () => {
     addBuilding(b, 'coralnursery', 4, 8);
     for (const s of [a, b]) {
       for (let i = 0; i < s.grid.kind.length; i++) if (s.grid.kind[i] === TileKind.Reef) s.grid.health[i] = 0.2;
-      s.tempC = 1.6;
-      s.a2.eqTempC = 1.6;
+      s.tempC = 2.0;
+      s.a2.eqTempC = 2.0;
     }
     const meanReef = (s: GameState): number => {
       let t = 0, n = 0;

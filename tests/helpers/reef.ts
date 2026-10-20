@@ -72,15 +72,25 @@ export function reefThoughtfulPlan(): Plan {
     s = comanageBush(s, 2);
     s = burnPatches(s);
     s = treatSewage(s);
+    // Homes first: with more reef to look after, the nurseries would otherwise eat the money the move needs.
+    if (REEF_BOT.relocate && REEF_BOT.scale >= 0.6) s = relocateLowHomes(s);
+    // The early-warning satellite before the nurseries: their running costs would otherwise leave no money for it.
+    if (REEF_BOT.satellites && REEF_BOT.scale >= 0.6) s = satellites(s);
     if (REEF_BOT.lights > 0 && s.year === y0) s = setPolicy(s, 'turtle.lights', REEF_BOT.lights);
-    for (let k = count(s, 'coralnursery'); k < sc(REEF_BOT.nurseries); k++) s = placeUpTo(s, 'coralnursery', 1, reefReach(s));
-    s = placeUpTo(s, 'wetland', Math.max(0, sc(REEF_BOT.wetlands) - count(s, 'wetland')), nearTiles(s, [TileKind.Estuary]));
-    s = placeUpTo(s, 'nursery', Math.max(0, 3 - count(s, 'nursery')), nearTiles(s, [TileKind.Estuary]));
+    // The clean-energy build-out comes before the (more numerous, on a bigger reef) coral nurseries: it sets the warming.
     s = buildEnergy(s, [['solarfarm', 3], ['battery', 3], ['windfarm', 2], ['tidal', 1, 2030], ['rooftopsolar', 4]], () => () => 0);
     s = retireFossil(s, { circularSafe: true });
+    // The first six at once, then a few more every year or two as money allows (the energy build-out above comes first).
+    const wantNurseries = Math.min(sc(REEF_BOT.nurseries), 6 + Math.floor((s.year - y0) / 2));
+    // Keep money back for the satellite subscription until it is in place.
+    const satReady = !REEF_BOT.satellites || s.satellites.overlays.sst;
+    for (let k = count(s, 'coralnursery'); k < wantNurseries; k++) {
+      if (s.budget < BUILDINGS.coralnursery.cost + (satReady ? 15 : 130)) break;
+      s = placeUpTo(s, 'coralnursery', 1, reefReach(s));
+    }
+    s = placeUpTo(s, 'wetland', Math.max(0, sc(REEF_BOT.wetlands) - count(s, 'wetland')), nearTiles(s, [TileKind.Estuary]));
+    s = placeUpTo(s, 'nursery', Math.max(0, 3 - count(s, 'nursery')), nearTiles(s, [TileKind.Estuary]));
     if (REEF_BOT.circular) s = disposeLegacy(s, { reserve: 120, skip: ['port', 'resort', 'farm'] });
-    if (REEF_BOT.satellites && REEF_BOT.scale >= 0.6) s = satellites(s);
-    if (REEF_BOT.relocate && REEF_BOT.scale >= 0.6) s = relocateLowHomes(s);
     return s;
   };
 }

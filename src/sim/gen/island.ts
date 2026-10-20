@@ -1,7 +1,9 @@
 /**
- * Reef Island (32x32): a small tropical island with a ring of beach, a rainforest-covered core, a mangrove inlet on the
- * sheltered north-west side, rocky headlands on the windward south-east side and a broad fringing reef with a boat
- * pass. The low coastal belt (elevation 1) on the lee side is where a town naturally grows, a metre or so above the tide.
+ * Reef Island (44x44): a tropical island about twice the land area of the original 32x32 map: a ring of beach, a
+ * rainforest-covered core of hills with an open inland valley between them, a mangrove inlet on the sheltered
+ * north-west side, rocky headlands on the windward south-east side and a broad fringing reef with a boat pass. The low
+ * coastal belt (elevation 1) on the lee side is where a town naturally grows, a metre or so above the tide; the
+ * valley and the lower slopes (elevation 2) are real inland building ground, well away from the turtle beaches.
  */
 import type { ScenarioDef } from '../scenarios';
 import { TileKind } from '../types';
@@ -11,8 +13,11 @@ import { at, distanceField, kit, markSite, plantBush, set } from './util';
 export function generateIsland(sc: ScenarioDef, seed: number): TileGrid {
   const k = kit(sc.mapW, sc.mapH, seed);
   const { w, h, grid } = k;
-  const cx = w * 0.47, cy = h * 0.47;
-  const rx = w * 0.35, ry = h * 0.255;
+  /** Linear scale against the original 32x32 map (sizes in tiles: inlet, pass, reef band). */
+  const s = Math.min(w, h) / 32;
+  const cx = w * 0.48, cy = h * 0.47;
+  // About 2x the original island's land area (the old ellipse was 0.35w x 0.255h on 32 tiles).
+  const rx = w * 0.36, ry = h * 0.26;
   const ang = -0.45;
   const ca = Math.cos(ang), sa = Math.sin(ang);
 
@@ -29,7 +34,7 @@ export function generateIsland(sc: ScenarioDef, seed: number): TileGrid {
   // Depth from the coast: 1 = coastal tile, 2 = next one in, ...
   const depth = new Uint8Array(w * h);
   const isLand = (x: number, y: number): boolean => x >= 0 && y >= 0 && x < w && y < h && land[y * w + x] === 1;
-  for (let pass = 1; pass <= 12; pass++) {
+  for (let pass = 1; pass <= 18; pass++) {
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const i = y * w + x;
@@ -43,6 +48,14 @@ export function generateIsland(sc: ScenarioDef, seed: number): TileGrid {
   }
   // Windward = south-east: rocky headlands there.
   const windward = (x: number, y: number): number => ((x - cx) * 0.7 + (y - cy) * 0.7) / (rx * 0.9);
+  // The inland valley: an open, flat basin in the core, a little off-centre towards the lee (north-west) side. Hills close
+  // it in on the windward side.
+  const vx = cx - rx * 0.12, vy = cy - ry * 0.05;
+  const inValley = (x: number, y: number): boolean => {
+    const dx = x - vx, dy = y - vy;
+    const u = (dx * ca + dy * sa) / (rx * 0.3), v = (-dx * sa + dy * ca) / (ry * 0.34);
+    return Math.hypot(u, v) + (k.n3(x / 3, y / 3) - 0.5) * 0.35 < 1;
+  };
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const i = y * w + x;
@@ -54,8 +67,12 @@ export function generateIsland(sc: ScenarioDef, seed: number): TileGrid {
         else { grid.kind[i] = TileKind.Beach; grid.elevation[i] = 0; }
       } else {
         grid.kind[i] = TileKind.Land;
-        const hill = dep >= 5 || (dep >= 4 && k.n2(x / 3, y / 3) > 0.6);
-        grid.elevation[i] = hill ? 3 : dep >= 3 ? 2 : 1;
+        // Hill field: noise plus distance from the coast, so the high ground sits well inland and is lumpy rather than a dome.
+        const height = k.n2(x / 6.5, y / 6.5) * 0.5 + k.n1(x / 11, y / 11) * 0.3 + Math.min(1, dep / 9) * 0.4 + Math.max(0, windward(x, y)) * 0.12;
+        const hill = dep >= 5 && height > 0.7 && !inValley(x, y);
+        // The low belt is one tile deep on the windward side and two on the lee side, where the town grows.
+        const belt = dep === 2 || (dep === 3 && windward(x, y) < -0.1);
+        grid.elevation[i] = hill ? 3 : belt ? 1 : 2;
       }
     }
   }
@@ -80,10 +97,10 @@ export function generateIsland(sc: ScenarioDef, seed: number): TileGrid {
   const stepX = Math.abs(toC.x) >= Math.abs(toC.y) ? Math.sign(toC.x) : 0;
   const stepY = stepX === 0 ? Math.sign(toC.y) : 0;
   const mangrove: number[] = [];
-  for (let s = 0; s < 6; s++) {
+  for (let d = 0; d < Math.round(6 * s); d++) {
     for (let wdt = 0; wdt < 2; wdt++) {
-      const x = mx + stepX * s + (stepY !== 0 ? wdt : 0), y = my + stepY * s + (stepX !== 0 ? wdt : 0);
-      if (!isLand(x, y) && s > 0) continue;
+      const x = mx + stepX * d + (stepY !== 0 ? wdt : 0), y = my + stepY * d + (stepX !== 0 ? wdt : 0);
+      if (!isLand(x, y) && d > 0) continue;
       set(k, x, y, TileKind.Estuary, 0);
       mangrove.push(y * w + x);
     }
@@ -107,17 +124,17 @@ export function generateIsland(sc: ScenarioDef, seed: number): TileGrid {
     const d = dLand[i] ?? 99;
     const wob = (k.n1(x / 3, y / 3) - 0.5) * 1.6;
     const inBand = d + wob >= 3 && d + wob <= 5.6;
-    const pass = toMouth(x, y) < 6.5;
+    const pass = toMouth(x, y) < 6.5 * s;
     if (inBand && !pass) grid.kind[i] = TileKind.Reef;
   }
-  for (let p = 0; p < 4; p++) {
+  for (let p = 0; p < 5; p++) {
     const ang2 = k.rng.next() * Math.PI * 2;
-    const rr = 10 + k.rng.next() * 3;
+    const rr = (10 + k.rng.next() * 3) * s * 1.1;
     const px = cx + Math.cos(ang2) * rr * 1.25, py = cy + Math.sin(ang2) * rr * 0.9;
-    for (let y = Math.floor(py - 2); y <= Math.ceil(py + 2); y++) {
-      for (let x = Math.floor(px - 2); x <= Math.ceil(px + 2); x++) {
+    for (let y = Math.floor(py - 3); y <= Math.ceil(py + 3); y++) {
+      for (let x = Math.floor(px - 3); x <= Math.ceil(px + 3); x++) {
         if (x < 1 || y < 1 || x >= w - 1 || y >= h - 1 || at(k, x, y) !== TileKind.Sea) continue;
-        if (Math.hypot(x - px, y - py) + (k.n3(x / 1.7, y / 1.7) - 0.5) * 1.4 < 1.8) set(k, x, y, TileKind.Reef, 0);
+        if (Math.hypot(x - px, y - py) + (k.n3(x / 1.7, y / 1.7) - 0.5) * 1.4 < 2.3) set(k, x, y, TileKind.Reef, 0);
       }
     }
   }
@@ -125,9 +142,11 @@ export function generateIsland(sc: ScenarioDef, seed: number): TileGrid {
   // Rainforest cover: the core first, with the low lee-side belt left open for the town.
   plantBush(k, sc.terrain.bushCover, (x, y) => {
     const i = y * w + x;
-    const interior = Math.min(1, (depth[i] ?? 1) / 6);
+    const interior = Math.min(1, (depth[i] ?? 1) / 8);
     const lee = Math.max(0, -windward(x, y));
-    return interior * 0.7 + k.n2(x / 3.5, y / 3.5) * 0.35 - (grid.elevation[i] === 1 ? 0.18 * lee : 0);
+    // Hills are rainforest; the valley floor stays open pasture and the lee belt stays open for the town.
+    return interior * 0.7 + k.n2(x / 3.5, y / 3.5) * 0.35 + (grid.elevation[i] === 3 ? 0.25 : 0)
+      - (grid.elevation[i] === 1 ? 0.18 * lee : 0) - (inValley(x, y) ? 0.55 : 0);
   });
 
   // Significant places: the mangrove bank, the high ground, the windward back-beach.

@@ -108,7 +108,7 @@ describe('Reef Island across four event seeds: local action decides the reef', (
   it('the idle run loses the reef on every seed', () => {
     for (const r of reefBad) {
       expect(buildReportCard(r.end).stars).toBe(0);
-      expect(value(r.end, 'reef')).toBeLessThan(10);
+      expect(value(r.end, 'reef')).toBeLessThan(15);
     }
   });
   moneyChecks('reef-island', reef);
