@@ -34,7 +34,7 @@ export const EVENT_NAMES: Readonly<Record<EventType, string>> = {
   heatwave: 'Heatwave',
   bushfire: 'Bushfire',
   drought: 'Drought',
-  flood: 'Flood / storm surge',
+  flood: 'Flood',
   'marine-heatwave': 'Marine heatwave',
   'fish-kill': 'Fish kill',
   blackout: 'Blackout',

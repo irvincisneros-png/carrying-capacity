@@ -1,6 +1,6 @@
 // Full-screen flows: title + scenario select, intro (Acknowledgement of Country), decade report, present-day
 // summary + turning point story, epilogue / failure, settings.
-import { objectiveStatus } from '../sim/objectives';
+import { metricValue, objectiveStatus } from '../sim/objectives';
 import { SCENARIOS, SCENARIO_IDS, getScenario } from '../sim/scenarios';
 import { MAX_STARS, isScenarioUnlocked, loadProgress, lockedReason, starsOf, totalStars, type Progress } from '../sim/progress';
 
@@ -175,14 +175,20 @@ export function showTurningPoint(s: GameState, onBegin: () => void, storyOnly = 
     if (!tp) { onBegin(); return; }
     const res = castSpeaker(s.scenarioId, tp.residentId);
     const sci = castSpeaker(s.scenarioId, SCIENCE_VOICE[s.scenarioId]);
-    const waterLabel = s.scenarioId === 'coal-coast' ? 'Estuary health' : s.scenarioId === 'reef-island' ? 'Lagoon health' : s.scenarioId === 'net-zero-city' ? 'Harbour health' : 'Creek and river health';
+    // The stat that matters most here (estuary health is meaningless on a map with no estuary).
+    const mv = (m: Parameters<typeof metricValue>[1]): number => { try { return metricValue(s, m) ?? 0; } catch { return 0; } };
+    const [waterLabel, waterVal] = s.scenarioId === 'river-town' ? ['River health', mv('riverHealth')]
+      : s.scenarioId === 'reef-island' ? ['Reef health', mv('reefHealth')]
+        : s.scenarioId === 'red-dirt' ? ['Aquifer', mv('aquifer')]
+          : s.scenarioId === 'coal-coast' ? ['Estuary health', tp.stats.estuaryHealth]
+            : ['Environment', s.meters.environment];
     sfx('event');
     const m = openModal([
       h('div', { class: 'kicker' }, 'Turning point'),
       h('h2', null, tp.title),
       h('div', { style: 'display:flex;gap:12px;align-items:flex-start;margin:10px 0' }, portrait(res, 52), h('p', { style: 'margin:0' }, degC(tp.text))),
       h('div', { class: 'stat-grid' },
-        h('div', { class: 'stat' }, h('small', null, waterLabel), h('b', null, `${Math.round(tp.stats.estuaryHealth)}`), h('span', { class: 'd muted' }, '/100')),
+        h('div', { class: 'stat' }, h('small', null, waterLabel), h('b', null, `${Math.round(waterVal)}`), h('span', { class: 'd muted' }, '/100')),
         h('div', { class: 'stat' }, h('small', null, 'Bush remaining'), h('b', null, `${Math.round(tp.stats.bushRemaining * 100)}%`)),
         h('div', { class: 'stat' }, h('small', null, 'Warming'), h('b', null, `+${fmt1(tp.stats.tempC)} °C`))),
       h('div', { class: 'fact' }, portrait(sci, 40), h('p', null, h('b', null, sci.name), sci.role ? h('span', { class: 'muted' }, ` · ${sci.role}`) : null, h('br'), degC(tp.scientistNote))),

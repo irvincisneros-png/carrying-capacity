@@ -180,7 +180,8 @@ const BASE_EVENTS: readonly EventDef[] = [
     fire: (c, rng) => {
       const sev = (0.5 + rng.next() * 0.8) * (0.7 + 0.3 * c.mult);
       const g = c.state.grid;
-      const surge = rng.next() < 0.5;
+      // Only a coast gets a storm surge; inland it is a river flood (same roll, so the dice stay in step).
+      const surge = rng.next() < 0.5 && g.kind.includes(TileKind.Sea);
       const damage = Math.min(c.state.budget, Math.round(15 + 45 * sev));
       c.state.budget -= damage;
       // Runoff pulse down the river and into the estuary, stronger where the soil is contaminated.
