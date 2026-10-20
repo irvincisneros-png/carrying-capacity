@@ -36,6 +36,7 @@ const BY_MECH: Record<string, string[]> = {
 
 /** Year-on-year change of each readout (UI memory only), so a slow slide is visible before it is too late. */
 const TREND = new Map<string, { year: number; v: number; prevYear: number; prev: number }>();
+/** Change per year between the starts of the last two years seen (null until two year-starts are known). */
 export function readoutTrend(key: string): number | null {
   const t = TREND.get(key);
   if (!t || t.prevYear < 0 || t.year <= t.prevYear) return null;
@@ -43,8 +44,9 @@ export function readoutTrend(key: string): number | null {
 }
 function noteTrend(key: string, year: number, v: number): void {
   const t = TREND.get(key);
+  // Keep the first value seen in each year: the difference between year-starts is the yearly change.
   if (!t || year < t.year) { TREND.set(key, { year, v, prevYear: -1, prev: v }); return; }
-  if (year === t.year) { t.v = v; return; }
+  if (year === t.year) return;
   TREND.set(key, { year, v, prevYear: t.year, prev: t.v });
 }
 
