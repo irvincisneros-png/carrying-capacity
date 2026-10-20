@@ -22,9 +22,11 @@ export const EVENT_TEXT = {
     `Blue-green algae bloom: warm, slow, nutrient-rich water turned the river green${sev > 1 ? ' from bank to bank' : ''}. Some blooms release toxins, so swimming and stock watering are banned and the town's water treatment is working overtime. Fish are dying where the oxygen has run out.`,
   crownOfThorns: (pctLost: number): string =>
     `Crown-of-thorns outbreak: numbers of these native coral-eating starfish have surged on the reef, and nutrient runoff from the land may contribute. About ${pctLost}% of the coral health has gone. Trained control teams can protect priority sites.`,
-  stormSurge: (heightM: number, damage: number, homesLost: number, saved: number): string =>
+  stormSurge: (heightM: number, damage: number, homesLost: number, saved: number, warned = 0): string =>
     `Storm surge: a cyclone pushed the sea about ${heightM.toFixed(1)} m above the predicted tide. Repairs cost ${damage}.` +
-    (homesLost > 0 ? ` ${homesLost} low-lying home${homesLost > 1 ? 's were' : ' was'} flooded beyond repair.` : ' No homes were lost.') +
+    (homesLost > 0 ? ` ${homesLost} low-lying home${homesLost > 1 ? 's were' : ' was'} flooded beyond repair.`
+      : warned > 0 ? ` Water got into ${warned} low-lying home${warned > 1 ? 's' : ''}. They can be dried out this time, but the next surge will be higher: move people to higher ground.`
+        : ' No homes were lost.') +
     (saved > 0 ? ` Seawalls and mangroves kept ${saved} home${saved > 1 ? 's' : ''} dry.` : ''),
   blackout: (seasonName: string, unmetPct: number): string =>
     `Blackout: in ${seasonName} the grid fell ${unmetPct}% short of demand. Homes and factories went dark during the peak.`,

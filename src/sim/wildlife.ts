@@ -267,9 +267,10 @@ function evalBeach(s: GameState, h: Spec<'nesting-beach'>, wantMask: boolean): H
   const limiting = seagrass.length < h.minSeagrass
     ? `Only ${seagrass.length} tiles of healthy seagrass; it needs ${h.minSeagrass}.`
     : !waterOk ? 'The water by the beach is too polluted.'
-      : darkFrac < h.minDarkFrac ? `Only ${Math.round(darkFrac * 100)}% of the beach is dark at night; it needs ${Math.round(h.minDarkFrac * 100)}%.` : '';
+      : darkFrac < h.minDarkFrac ? `Only ${Math.round(darkFrac * 100)}% of the beach is dark at night; it needs ${Math.round(h.minDarkFrac * 100)}%. Homes, resorts and anything that uses power within ${Math.max(1, h.darkDist - lightFix)} tiles of the sand light it up.` : '';
   const mask = new Uint8Array(g.kind.length);
-  if (wantMask) for (const i of seagrass) mask[i] = 1;
+  // The habitat view shows the seagrass meadow and the stretches of sand that are dark enough to nest on.
+  if (wantMask) { for (const i of seagrass) mask[i] = 1; for (const i of dark) mask[i] = 1; }
   return {
     suitable, capacity: Math.floor(seagrass.length * h.perTile), limiting,
     quality: clamp(Math.min(seagrass.length / (h.minSeagrass * 2), darkFrac / (h.minDarkFrac * 1.5), 1), 0, 1) * (waterOk ? 1 : 0.4),

@@ -17,6 +17,7 @@ const READOUTS: Record<string, Readout> = {
   farmViability: { key: 'farmViability', label: 'Farms', icon: UI_ICONS.sprout, fmt: (v) => `${Math.round(v)}`, good: (v) => (v >= 50 ? 2 : v >= 30 ? 1 : 0), tip: 'How well the farms are doing (0-100)' },
   envFlowPct: { key: 'envFlowPct', label: 'Env. flow', icon: UI_ICONS.fish, fmt: (v) => `${Math.round(v)}%`, good: (v) => (v >= 60 ? 2 : v >= 35 ? 1 : 0), tip: 'How much of the water the river needs it is actually getting' },
   seaLevelCm: { key: 'seaLevelCm', label: 'Sea level', icon: UI_ICONS.wave, fmt: (v) => `+${Math.round(v)} cm`, good: (v) => (v < 40 ? 2 : v < 70 ? 1 : 0), tip: 'Sea-level rise since pre-industrial times' },
+  homesAtRisk: { key: 'homesAtRisk', label: 'Homes at risk', icon: UI_ICONS.warn, fmt: (v) => `${Math.round(v)}`, good: (v) => (v <= 0 ? 2 : 0), tip: 'Homes on ground low enough for a 1.3 m storm surge to flood. Inspect homes by the shore; rebuild them on raised ground' },
   tourism: { key: 'tourism', label: 'Tourism', icon: UI_ICONS.coral, fmt: (v) => `${Math.round(v)}`, good: (v) => (v >= 45 ? 2 : v >= 30 ? 1 : 0), tip: 'Tourism index: visitors come for the reef and the beaches' },
   aquifer: { key: 'aquifer', label: 'Aquifer', icon: UI_ICONS.wave, fmt: (v) => `${Math.round(v)}`, good: (v) => (v >= 40 ? 2 : v >= 20 ? 1 : 0), tip: 'Groundwater left in the aquifer (0-100). It refills very slowly' },
   rehabPct: { key: 'rehabPct', label: 'Mine rehab', icon: UI_ICONS.sprout, fmt: (v) => `${Math.round(v)}%`, good: (v) => (v >= 100 ? 2 : v >= 40 ? 1 : 0), tip: 'Share of the mine site reshaped, topsoiled, seeded and signed off' },
@@ -27,7 +28,7 @@ const READOUTS: Record<string, Readout> = {
 
 const BY_MECH: Record<string, string[]> = {
   river: ['riverHealth', 'envFlowPct', 'farmViability'],
-  reef: ['seaLevelCm', 'tourism'],
+  reef: ['seaLevelCm', 'homesAtRisk', 'tourism'],
   outback: ['aquifer', 'rehabPct'],
   heat: ['heatDeaths'],
   city: ['canopyPct', 'transitPct'],

@@ -4,6 +4,7 @@ import type { Speed } from '../game/controller';
 import { EVENT_NAMES } from '../content/act2';
 import { eventChances } from '../sim/events';
 import { objectiveStatus } from '../sim/objectives';
+import { mechMetric } from '../sim/mechanics';
 import { hash32, seasonWeather } from '../sim/season';
 import { getScenario } from '../sim/scenarios';
 import { BONUS_SPECIES, SPECIES_BY_ID } from '../content/species';
@@ -218,7 +219,9 @@ export class ObjectivesPanel {
       objs = [];
     }
     const end = getScenario(s.scenarioId).act2.endYear;
-    const sig = `${end}|${s.circular?.unlocked}|` + objs.map((o) => `${o.id}:${o.status}:${o.current === null ? 'n' : Math.round(o.current * 10)}`).join('|');
+    let risk = 0;
+    try { risk = mechMetric(s, 'homesAtRisk') ?? 0; } catch { risk = 0; }
+    const sig = `${end}|${s.year}|${risk}|${s.phase}|${s.circular?.unlocked}|` + objs.map((o) => `${o.id}:${o.status}:${o.current === null ? 'n' : Math.round(o.current * 10)}`).join('|');
     if (sig === this.sig) return;
     this.titleEl.textContent = `Goals for ${end}`;
     this.sig = sig;
@@ -240,7 +243,7 @@ const HOW_TO: Partial<Record<string, string>> = {
   townWaterFailures: 'Store water before droughts (town water storage) and set water sharing in Town policies.',
   farmViability: 'Farms need water: efficient irrigation farms use less, and the water policy decides their share.',
   reefHealth: 'Cut runoff and sewage, grow coral nurseries, use the starfish cull lever, and cut emissions.',
-  homesLost: 'Keep homes off low ground near the sea. Mangroves and dunes soften storm surges.',
+  homesLost: 'Watch "Homes at risk" (top right): inspect homes by the shore and rebuild them on raised ground before a big cyclone. Mangroves soften surges.',
   tourism: 'Visitors come for a healthy reef and beaches. Resorts earn more when the reef is well.',
   netZeroYear: 'Emissions must fall to the net-zero line and stay there: clean power, retrofits, transit.',
   rehabPct: 'Close the mine, then use Rehab mine on the pit: reshape, topsoil, then seed with the Traditional Owners.',
@@ -280,7 +283,10 @@ export function objectiveRow(o: ObjectiveResult, s?: GameState): HTMLElement {
       if (parts.length && o.status !== 'pending') detail = parts.join(' · ');
     } catch { /* keep the plain value */ }
   }
-  const how = s && (o.status === 'at-risk' || o.status === 'missed') && s.phase === 'act2' ? HOW_TO[o.metric] : undefined;
+  let atRiskHomes = 0;
+  try { atRiskHomes = s && o.metric === 'homesLost' ? mechMetric(s, 'homesAtRisk') ?? 0 : 0; } catch { atRiskHomes = 0; }
+  if (atRiskHomes > 0 && o.status === 'on-track') detail = `${detail} · ${atRiskHomes} home${atRiskHomes > 1 ? 's' : ''} on low ground`;
+  const how = s && (o.status === 'at-risk' || o.status === 'missed' || atRiskHomes > 0) && s.phase === 'act2' ? HOW_TO[o.metric] : undefined;
   return h('div', { class: `obj ${o.status} ${o.bonus ? 'bonus' : ''}` }, svg(icon),
     h('div', { style: 'flex:1;min-width:0' }, h('div', { class: 'lab' }, degC(o.label)), h('div', { class: 'val' }, `${label} · ${detail}`), h('div', { class: 'bar' }, h('i', { style: `width:${pct * 100}%` })), how ? h('div', { class: 'how' }, degC(how)) : null));
 }

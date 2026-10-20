@@ -60,6 +60,9 @@ const crownOfThorns: EventDef = {
   },
 };
 
+/** Years at the start of Act 2 when a surge floods low homes without destroying them. */
+export const SURGE_GRACE_YEARS = 2;
+
 const stormSurge: EventDef = {
   type: 'storm-surge', name: 'Storm surge', stage: 'post', scenarios: ['reef-island'],
   chance: (c) => {
@@ -80,7 +83,11 @@ const stormSurge: EventDef = {
     const homes = s.buildings.filter((b) => BUILDINGS[b.type].housing > 0);
     const saved = homes.filter((b) => wouldFloodBare(s, b, surge) && !wouldFlood(s, b, surge)).length;
     const flooded = homes.filter((b) => wouldFlood(s, b, surge)).sort((a, b) => a.uid - b.uid);
-    const lostHomes = flooded.slice(0, 2);
+    // The first few years of Act 2 are a warning shot: low homes flood but can be repaired, giving the player time to
+    // move people to higher ground before the goal starts counting losses.
+    const grace = s.year < s.a2.startYear + SURGE_GRACE_YEARS;
+    const warned = grace ? flooded.length : 0;
+    const lostHomes = grace ? [] : flooded.slice(0, 2);
     for (const v of lostHomes) {
       for (let y = v.y; y < v.y + v.h; y++) for (let x = v.x; x < v.x + v.w; x++) g.building[y * g.w + x] = 0;
     }
@@ -93,7 +100,7 @@ const stormSurge: EventDef = {
     setFlag(s, 'r.surges', flag(s, 'r.surges') + 1);
     s.a2.stress += clamp(5 * sev + 6 * lost, 1, 30);
     return {
-      severity: sev, text: EVENT_TEXT.stormSurge(surge + seaRiseM(s), damage, lost, saved),
+      severity: sev, text: EVENT_TEXT.stormSurge(surge + seaRiseM(s), damage, lost, saved, warned),
       data: { damage, homesLost: lost, surgeCm: Math.round(surge * 100) },
     };
   },

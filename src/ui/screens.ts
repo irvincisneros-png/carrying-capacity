@@ -178,10 +178,9 @@ export function showTurningPoint(s: GameState, onBegin: () => void, storyOnly = 
     // The stat that matters most here (estuary health is meaningless on a map with no estuary).
     const mv = (m: Parameters<typeof metricValue>[1]): number => { try { return metricValue(s, m) ?? 0; } catch { return 0; } };
     const [waterLabel, waterVal] = s.scenarioId === 'river-town' ? ['River health', mv('riverHealth')]
-      : s.scenarioId === 'reef-island' ? ['Reef health', mv('reefHealth')]
-        : s.scenarioId === 'red-dirt' ? ['Aquifer', mv('aquifer')]
-          : s.scenarioId === 'coal-coast' ? ['Estuary health', tp.stats.estuaryHealth]
-            : ['Environment', s.meters.environment];
+      : s.scenarioId === 'red-dirt' ? ['Aquifer', mv('aquifer')]
+        : s.scenarioId === 'coal-coast' ? ['Estuary health', tp.stats.estuaryHealth]
+          : ['Environment', s.meters.environment];
     sfx('event');
     const m = openModal([
       h('div', { class: 'kicker' }, 'Turning point'),

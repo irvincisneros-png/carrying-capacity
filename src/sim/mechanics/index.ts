@@ -3,6 +3,7 @@
  * dispatchers below at fixed points (Act 2 start, each season, each year end, an income calculation, a placement) and
  * never needs to know what River Town or Red Dirt are. All state lives in GameState.flags and the tile grid.
  */
+import { BUILDINGS } from '../buildings';
 import { availability } from '../rules';
 import { getScenario } from '../scenarios';
 import type { MechanicsId } from '../scenarios';
@@ -13,7 +14,7 @@ import { heatSeason } from './heat';
 import { aquifer, rehabPct } from './outbackCore';
 import { outbackBegin, outbackSeason, outbackYear } from './outback';
 import { reefBegin, reefIncome, reefSeason } from './reef';
-import { seaLevelCm, seaRiseM, tourismIndex } from './reefCore';
+import { seaLevelCm, seaRiseM, tourismIndex, wouldFlood as wouldFloodNow } from './reefCore';
 import { riverBegin, riverIncome, riverSeason, riverYear } from './river';
 import { farmViability, riverHealth } from './riverCore';
 import type { GameState, PlacedBuilding, SimEvent } from '../types';
@@ -24,7 +25,7 @@ const uses = (s: GameState, id: MechanicsId): boolean => (getScenario(s.scenario
 
 /** Metric keys the mechanics add. Content may use them in conditions (see conditions.ts) and objectives (objectives.ts). */
 export const MECH_METRIC_KEYS: readonly string[] = [
-  'riverHealth', 'farmViability', 'townWaterFailures', 'envFlowPct', 'tourism', 'homesLost', 'seaLevelCm', 'seaRiseCm',
+  'riverHealth', 'farmViability', 'townWaterFailures', 'envFlowPct', 'tourism', 'homesLost', 'homesAtRisk', 'seaLevelCm', 'seaRiseCm',
   'rehabPct', 'aquifer', 'waterFailures', 'heatDeaths', 'canopyPct', 'transitPct', 'netZeroYear', 'societyMin', 'capitalSpent',
   'outbreaks', 'speciesBack', 'speciesAlive',
 ];
@@ -98,6 +99,17 @@ export function societyMin(s: GameState): number {
   return Math.round(m * 10) / 10;
 }
 
+/** A storm surge of this height (metres above the tide) is the planning benchmark for 'homes at risk'. */
+export const DESIGN_SURGE_M = 1.3;
+
+/** Homes (any housing) that a design storm surge would flood today, after seawalls and mangroves. */
+export function homesAtRisk(s: GameState): number {
+  if (!(getScenario(s.scenarioId).mechanics ?? []).includes('reef')) return 0;
+  let n = 0;
+  for (const b of s.buildings) if (BUILDINGS[b.type].housing > 0 && wouldFloodNow(s, b, DESIGN_SURGE_M)) n++;
+  return n;
+}
+
 /** Live value of a mechanics metric, or null if the key is not one of theirs. */
 export function mechMetric(s: GameState, key: string): number | null {
   switch (key) {
@@ -107,6 +119,7 @@ export function mechMetric(s: GameState, key: string): number | null {
     case 'envFlowPct': return Math.round(clamp01(flag(s, 'w.envAvg', 0.9)) * 100);
     case 'tourism': return tourismIndex(s);
     case 'homesLost': return flag(s, 'r.homesLost');
+    case 'homesAtRisk': return homesAtRisk(s);
     case 'seaLevelCm': return Math.round(seaLevelCm(s));
     case 'seaRiseCm': return Math.round(seaRiseM(s) * 100);
     case 'rehabPct': return rehabPct(s);

@@ -737,6 +737,11 @@ export class App {
       const d = BUILDINGS[b.type];
       rows.push(h('h3', null, svg(bIcon(b.type)), d.name));
       rows.push(h('p', { style: 'margin:4px 0 8px' }, d.blurb));
+      try {
+        if (d.housing > 0 && (getScenarioMech(s) ?? []).includes('reef') && SIM.wouldFlood(s, b, SIM.DESIGN_SURGE_M)) {
+          rows.push(h('div', { class: 'fact', style: 'margin:0 0 8px;color:#b5651d' }, h('p', null, h('b', null, '⚠ Low ground. '), 'A storm surge could flood these homes. Demolish and rebuild them on raised or high ground, or grow mangroves in front.')));
+        }
+      } catch { /* not an island */ }
       if (d.jobs) rows.push(kv('Jobs', String(d.jobs)));
       if (d.housing) rows.push(kv('Homes for', `${d.housing} people`));
       if (d.energy) rows.push(kv('Generates', `${d.energy.capacity} power`));
@@ -962,6 +967,10 @@ export function powerLossWarning(s: GameState, type: BuildingId): string {
   }
   if (worst <= 0.01) return '';
   return `⚠ Without it the town would be about ${Math.round(worst * 100)}% short of power ${when}: expect blackouts. Build more clean power or batteries first.`;
+}
+
+function getScenarioMech(s: GameState): readonly string[] | undefined {
+  return SIM.getScenario(s.scenarioId).mechanics;
 }
 
 function capital(s: string): string {

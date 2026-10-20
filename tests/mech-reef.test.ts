@@ -8,6 +8,7 @@ import {
   cotsChance, protectionM, resortCount, seaLevelCm, seaRiseM, surgeHeightM, tourismIncome, tourismIndex, wouldFlood, wouldFloodBare,
 } from '../src/sim/mechanics/reefCore';
 import { act2Sandbox, addBuilding, paint } from './helpers/fixtures';
+import { SURGE_GRACE_YEARS } from '../src/sim/mechanics/events';
 
 /** A strip of island: sea on the left, beach, then low land (elevation 1) and higher land (2) to the right. */
 function island(year = 2040): GameState {
@@ -90,8 +91,19 @@ describe('storm surge and the homes on the low belt', () => {
     for (let y = 5; y < 13; y++) { s.grid.stage[y * 32 + 5] = 1; s.grid.health[y * 32 + 5] = 0.2; }
     expect(protectionM(s, home, 1)).toBe(none);
   });
+  it('in the first years of Act 2 a surge floods low homes but they can be repaired (a warning, not a loss)', () => {
+    const s = island();
+    s.year = s.a2.startYear;
+    addBuilding(s, 'cottage', 8, 5);
+    const def = EVENTS.find((e) => e.type === 'storm-surge');
+    const fired = def?.fire(makeCtx(s, 0, null, buildRestoreCtx(s)), { next: () => 0.9, int: () => 1, state: () => 0 });
+    expect(fired?.text).toMatch(/move people to higher ground/);
+    expect(s.flags['r.homesLost'] ?? 0).toBe(0);
+    expect(s.buildings.filter((b) => b.type === 'cottage')).toHaveLength(1);
+  });
   it('destroys unprotected low homes when a storm-surge event fires, counts them, and costs money', () => {
     const s = island();
+    s.year = s.a2.startYear + SURGE_GRACE_YEARS;
     s.budget = 200;
     addBuilding(s, 'cottage', 8, 5);
     addBuilding(s, 'cottage', 8, 8);
