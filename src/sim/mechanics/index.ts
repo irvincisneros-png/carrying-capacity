@@ -83,10 +83,16 @@ export function netZeroYear(s: GameState): number {
   const limit = getScenario(s.scenarioId).act2.netZeroKt;
   const ys = s.a2.yearly;
   if (limit === undefined || ys.length === 0) return 9999;
+  // A single one-off spike (taking an old power station apart, a bushfire) between two years under the line doesn't
+  // reset a town that has genuinely reached net zero, as long as the three years together average under it. Two years
+  // over the line, or a real slide back, still do.
+  const under = (i: number): boolean => (ys[i]?.totalKt ?? Infinity) <= limit;
+  const spike = (i: number): boolean => i > 0 && i < ys.length - 1 && under(i - 1) && under(i + 1)
+    && ((ys[i - 1]?.totalKt ?? 0) + (ys[i]?.totalKt ?? 0) + (ys[i + 1]?.totalKt ?? 0)) / 3 <= limit;
   let first = 9999;
   for (let i = ys.length - 1; i >= 0; i--) {
     const y = ys[i];
-    if (!y || y.totalKt > limit) break;
+    if (!y || !(under(i) || spike(i))) break;
     first = y.year;
   }
   return first;

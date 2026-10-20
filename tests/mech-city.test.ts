@@ -139,9 +139,12 @@ describe('net zero, the society floor and the spending bonus', () => {
     expect(netZeroYear(s)).toBe(9999);
     s.a2.yearly = [rec(2031, 120, 80), rec(2032, 60, 75), rec(2033, 40, 55), rec(2034, 30, 70), rec(2035, 20, 90)];
     expect(netZeroYear(s)).toBe(2033);
-    s.a2.yearly.push(rec(2036, 90, 90)); // a relapse resets the clock
+    s.a2.yearly.push(rec(2036, 200, 90)); // a relapse resets the clock
     expect(netZeroYear(s)).toBe(9999);
     s.a2.yearly.push(rec(2037, 10, 90));
+    expect(netZeroYear(s)).toBe(2037);
+    // ...but a single small one-off spike between two years under the line (an old plant taken apart) does not
+    s.a2.yearly.push(rec(2038, 70, 90), rec(2039, 10, 90));
     expect(netZeroYear(s)).toBe(2037);
     expect(societyMin(s)).toBe(55);
     expect(mechMetric(s, 'societyMin')).toBe(55);
