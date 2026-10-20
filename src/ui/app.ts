@@ -992,7 +992,8 @@ export function netZeroBudgetNote(s: GameState): string {
   // The town's ongoing level: the lowest of the last three years (one-off work only ever adds to a year).
   const ongoing = Math.min(...s.a2.yearly.slice(-3).map((y) => y.totalKt));
   const thisYear = ongoing + (s.pendingLandKt ?? 0);
-  if (thisYear + 6 <= limit) return '';
+  // Only worth saying once the town is actually at the line: far above it, one-off work changes nothing.
+  if (ongoing > limit || thisYear + 6 <= limit) return '';
   return `Net-zero line: this year is already at about ${Math.round(thisYear)} of ${limit} kt. Taking a site apart adds its CO₂ to this year, so spread the work over several years.`;
 }
 
