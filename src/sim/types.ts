@@ -437,6 +437,8 @@ export type Action =
   | { type: 'dispose'; x: number; y: number; how: DisposalHow; into?: string }
   /** Buy a recycling innovation. */
   | { type: 'research'; id: string }
+  /** Fund the next round of a community project (content/projects.ts). */
+  | { type: 'project'; id: string }
   /** Buy a satellite overlay (needs a ground station). */
   | { type: 'subscribe'; overlay: SatelliteOverlay }
   /** Act on a satellite early warning (cut runoff before the marine heatwave arrives). */

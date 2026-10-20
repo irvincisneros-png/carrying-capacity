@@ -33,6 +33,7 @@ export * from './satellites';
 export * from './layers';
 export * from './report';
 export * from './outlook';
+export * from './projects';
 export { SPECIES, SPECIES_BY_ID, speciesFor, BONUS_SPECIES } from '../content/species';
 export type { SpeciesDef, FamilyDef, HabitatSpec } from '../content/species';
 export type { ResearchDef, ResearchEffects } from '../content/research';

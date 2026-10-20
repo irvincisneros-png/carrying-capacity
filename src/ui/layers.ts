@@ -2,7 +2,7 @@
 // dual names, consult / co-manage / cool burn), the circular tier (legacy-site disposal chooser, research tree)
 // and satellites (overlays + early warning). All copy marked needsConsultation stays visibly flagged.
 import {
-  COUNTRY, OVERLAY_INFO, RESEARCH, SATELLITE_OVERLAYS, canResearch, countryActive, dualNames, hasGroundStation,
+  COUNTRY, OVERLAY_INFO, PROJECTS, RESEARCH, SATELLITE_OVERLAYS, canFundProject, canResearch, projectCost, projectRounds, projectsOpen, countryActive, dualNames, hasGroundStation,
   disposalChoice, legacyPercent, type DisposalPlan, type GameState, type SatelliteOverlay,
 } from '../sim';
 import { BUILDINGS } from '../sim/buildings';
@@ -85,8 +85,8 @@ export function siteName(id: number): string {
 export class ResearchPanel {
   el: HTMLElement;
   private body: HTMLElement;
-  constructor(private buy: (id: string) => void) {
-    const d = drawer('Recycling innovations', UI_ICONS.sprout);
+  constructor(private buy: (id: string) => void, private fund: (id: string) => void = () => undefined) {
+    const d = drawer('Innovations and projects', UI_ICONS.sprout);
     this.el = d.el;
     this.body = d.body;
   }
@@ -112,7 +112,29 @@ export class ResearchPanel {
         !done && !chk.ok && chk.reason ? h('div', { class: 'muted', style: 'font-size:12px;margin-top:4px' }, chk.reason) : null,
         ev));
     }
+    this.renderProjects(s);
     this.lastState = s;
+  }
+  private renderProjects(s: GameState): void {
+    const open = projectsOpen(s);
+    this.body.appendChild(h('h3', { style: 'margin:18px 0 4px', 'data-qa': 'projects' }, 'Community projects'));
+    this.body.appendChild(h('p', { style: 'font-size:13px' }, open
+      ? 'Once your own town\'s transition is paid for, savings can do good beyond it. Each project can be funded a few times; later rounds cost more.'
+      : 'Open with the circular economy, alongside the research above.'));
+    for (const p of PROJECTS) {
+      const n = projectRounds(s, p.id);
+      const cost = projectCost(s, p.id);
+      const chk = canFundProject(s, p.id);
+      const ev = h('div', { class: 'science hidden' }, h('p', null, p.evidence));
+      this.body.appendChild(h('div', { class: 'dil-opt', style: 'margin-top:8px' },
+        h('h4', null, h('span', null, p.name), h('span', { class: 'muted' }, cost === null ? 'all rounds funded' : `$${cost}k · round ${n + 1} of ${p.rounds}`)),
+        h('p', { style: 'margin:0 0 6px;font-size:13px' }, p.blurb),
+        h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' },
+          h('button', { class: 'btn small teal', onclick: () => ev.classList.toggle('hidden') }, 'What does the evidence say?'),
+          cost === null ? null : h('button', { class: 'btn small primary', disabled: !chk.ok, title: chk.reason ?? '', onclick: () => { this.fund(p.id); this.render(this.lastState ?? s); } }, 'Fund')),
+        cost !== null && !chk.ok && chk.reason && open ? h('div', { class: 'muted', style: 'font-size:12px;margin-top:4px' }, chk.reason) : null,
+        ev));
+    }
   }
   lastState: GameState | null = null;
 }

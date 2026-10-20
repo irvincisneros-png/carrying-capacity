@@ -8,6 +8,7 @@ import { EPILOGUE, LETTER_PROMPT, REFLECTIONS } from '../content/report';
 import { RESEARCH_BY_ID } from '../content/research';
 import { counts, legacyPercent } from './circular';
 import { objectiveStatus } from './objectives';
+import { projectsFunded } from './projects';
 import { resolveEndings } from './residents';
 import type { ResidentEnding } from './residents';
 import { realTemp } from './realData';
@@ -91,6 +92,12 @@ function topDecisions(s: GameState, n: number): DecisionNote[] {
   const rep = (a['repurposed.steelworks'] ?? 0) + (a['repurposed.coalpower'] ?? 0) + (a['repurposed.port'] ?? 0);
   if (rep > 0) add(s.circular.unlockedYear ?? s.year, 'Giving old sites new lives', `Repurposed ${rep} major industrial site${rep > 1 ? 's' : ''}`, 10 + rep);
   if (s.satellites.mitigations > 0) add(s.year, 'Acting on a satellite warning', `Cut runoff ${s.satellites.mitigations} time${s.satellites.mitigations > 1 ? 's' : ''} before marine heatwaves arrived`, 7);
+  const funded = projectsFunded(s);
+  if (funded > 0) {
+    const spent = typeof s.flags['proj.spent'] === 'number' ? s.flags['proj.spent'] : 0;
+    const kt = typeof s.flags['proj.avoidedKt'] === 'number' ? s.flags['proj.avoidedKt'] : 0;
+    add(s.year, 'Community projects', `Funded ${funded} round${funded > 1 ? 's' : ''} of community projects ($${Math.round(spent)}k)${kt > 0 ? `, helping neighbours avoid ${kt} kt of CO2` : ''}`, 5 + funded);
+  }
   const landfilled = s.circular.items.filter((i) => i.status === 'landfilled').length;
   if (landfilled > 0) add(s.year, 'Taking the landfill shortcut', `${landfilled} old site${landfilled > 1 ? 's' : ''} went to landfill`, 8 + landfilled);
   return out.sort((x, y) => y.impact - x.impact || x.year - y.year).slice(0, n);

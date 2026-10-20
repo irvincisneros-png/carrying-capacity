@@ -77,6 +77,7 @@ export class App {
   private warnEl: HTMLElement;
   private droughtEl: HTMLElement;
   private droughtDismissed = -1;
+  private projectNudge = '';
   private overlayFn: ((s: GameState) => ArrayLike<number>) | null = null;
   private overlayRamp: import('../render/overlay').Ramp = 'heat';
 
@@ -122,6 +123,11 @@ export class App {
       if (r.ok) { sfx('good'); toast('Research complete', SIM.RESEARCH_BY_ID[id]?.name ?? id, 'good', UI_ICONS.sprout, 3500); }
       else { sfx('error'); toast('Not yet', degC(r.reason ?? ''), 'warn', UI_ICONS.info, 4000); }
       this.research.render(this.game.state);
+    }, (id) => {
+      const r = this.game.dispatch({ type: 'project', id });
+      if (r.ok) { sfx('good'); toast('Project funded', SIM.PROJECTS_BY_ID[id]?.name ?? id, 'good', UI_ICONS.sprout, 3500); }
+      else { sfx('error'); toast('Not yet', degC(r.reason ?? ''), 'warn', UI_ICONS.info, 4000); }
+      this.research.render(this.game.state);
     });
     this.sats = new SatellitePanel((o) => {
       const r = this.game.dispatch({ type: 'subscribe', overlay: o });
@@ -132,7 +138,7 @@ export class App {
     const lb = (title: string, icon: string, fn: () => void): HTMLButtonElement => h('button', { class: 'iconbtn hidden', title, 'aria-label': title, onclick: fn }, svg(icon));
     this.layerBtns = {
       country: lb('Caring for Country', UI_ICONS.sprout, () => this.country.open(this.game.state)),
-      research: lb('Recycling innovations', UI_ICONS.rotate, () => this.research.open(this.game.state)),
+      research: lb('Recycling innovations and community projects', UI_ICONS.rotate, () => this.research.open(this.game.state)),
       sats: lb('Satellites', UI_ICONS.target, () => this.sats.open(this.game.state)),
     };
     this.hud.el.querySelector('.hud-right')?.prepend(this.layerBtns.country, this.layerBtns.research, this.layerBtns.sats);
@@ -441,6 +447,11 @@ export class App {
           h('button', { class: 'btn small teal', onclick: () => { const r = this.game.dispatch({ type: 'mitigate' }); if (r.ok) { sfx('good'); this.warnEl.replaceChildren(); } else toast('Not possible', degC(r.reason ?? ''), 'warn'); } }, `Cut runoff now ($${SIM.MITIGATION.cost}k)`)));
       } else if (!show) this.warnEl.replaceChildren();
       this.syncDroughtWarning(s, show);
+      // Money piling up late in the game: point at the community projects once per scenario run.
+      if (s.phase === 'act2' && s.budget >= 400 && SIM.projectsOpen(s) && SIM.projectsFunded(s) === 0 && this.projectNudge !== s.scenarioId) {
+        this.projectNudge = s.scenarioId;
+        toast('Savings in the bank', 'Community projects can put them to work: adopt a habitat, climate aid for a neighbouring town, cool refuges, junior rangers. Open Innovations and projects (top right).', 'good', UI_ICONS.sprout, 7000);
+      }
     } catch { /* layer state missing in old saves */ }
     if (this.overlayFn) this.renderer.setOverlay(this.overlayFn(s), this.overlayRamp);
     this.readouts.update(s);

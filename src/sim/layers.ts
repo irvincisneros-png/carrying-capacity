@@ -12,6 +12,7 @@ import { emptySatellites, mitigate, subscribe } from './satellites';
 import { meanMood } from './conditions';
 import { mechBegin, mechPlaced, mechSeason, mechYear } from './mechanics';
 import { applyPolicy, policyCostPerYear, rehabStep } from './scenarioActions';
+import { fundProject } from './projects';
 import type { Action, ActionResult, GameState, PlacedBuilding, ScenarioId, SimEvent } from './types';
 
 /** The fresh layer state for a new game. */
@@ -136,6 +137,7 @@ export function applyLayerAction(
     case 'burn': return burn(state, action.x, action.y);
     case 'dispose': return dispose(state, action);
     case 'research': return research(state, action.id);
+    case 'project': return fundProject(state, action.id);
     case 'subscribe': return subscribe(state, action.overlay);
     case 'mitigate': return mitigate(state);
     case 'policy': return applyPolicy(state, action.id, action.value);
