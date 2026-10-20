@@ -80,6 +80,11 @@ export function rectDistance(
   return Math.max(dx, dy);
 }
 
+function onMineSite(state: GameState, i: number): boolean {
+  const z = state.grid.zone?.[i] ?? 0;
+  return z > 0 && z < 250 && (getScenario(state.scenarioId).mechanics ?? []).includes('outback');
+}
+
 function terrainReason(def: BuildingDef, kind: TileKindValue): string {
   const plural = def.name;
   switch (kind) {
@@ -162,6 +167,10 @@ export function canPlace(
       }
       if (def.replaces) {
         return fail('needs-nearby-building', `${def.name} must be built on top of an existing ${BUILDINGS[def.replaces].name}`, fp, av.cost);
+      }
+      // Red Dirt: the mine site being rehabilitated can't be built over, or it could never be signed off.
+      if (phase === 'act2' && onMineSite(state, i)) {
+        return fail('bad-terrain', 'This is mine-site ground being rehabilitated. Leave it to grow and build beside it instead', fp, av.cost);
       }
       // A stormwater wetland may go into bush in Act 2: it adds habitat rather than clearing it.
       const wetlandInBush = k === TileKind.Bush && phase === 'act2' && def.wetland === true;
