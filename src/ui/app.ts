@@ -834,6 +834,7 @@ export class App {
   private openDisposal(tx: number, ty: number): void {
     let warn = '';
     try { const it = SIM.itemAt(this.game.state, tx, ty); warn = it ? powerLossWarning(this.game.state, it.type) : ''; } catch { warn = ''; }
+    try { warn = [warn, netZeroBudgetNote(this.game.state)].filter(Boolean).join(' '); } catch { /* no net-zero line here */ }
     const ok = showDisposal(this.game.state, tx, ty, (plan) => {
       const r = this.game.dispatch({ type: 'dispose', x: tx, y: ty, how: plan.how, into: plan.how === 'repurpose' ? plan.id : undefined });
       if (r.ok) {
@@ -978,6 +979,21 @@ export function powerLossWarning(s: GameState, type: BuildingId): string {
   }
   if (worst <= 0.01) return '';
   return `⚠ Without it the town would be about ${Math.round(worst * 100)}% short of power ${when}: expect blackouts. Build more clean power or batteries first.`;
+}
+
+/**
+ * Net-zero scenarios: taking a site apart adds one-off emissions to this year's total. Say how close this year
+ * already is to the line, so the player spreads the work out instead of tipping a net-zero year over.
+ */
+export function netZeroBudgetNote(s: GameState): string {
+  const limit = SIM.getScenario(s.scenarioId).act2.netZeroKt;
+  const last = s.a2?.yearly?.[s.a2.yearly.length - 1];
+  if (limit === undefined || !last || s.phase !== 'act2') return '';
+  // The town's ongoing level: the lowest of the last three years (one-off work only ever adds to a year).
+  const ongoing = Math.min(...s.a2.yearly.slice(-3).map((y) => y.totalKt));
+  const thisYear = ongoing + (s.pendingLandKt ?? 0);
+  if (thisYear + 6 <= limit) return '';
+  return `Net-zero line: this year is already at about ${Math.round(thisYear)} of ${limit} kt. Taking a site apart adds its CO₂ to this year, so spread the work over several years.`;
 }
 
 function getScenarioMech(s: GameState): readonly string[] | undefined {

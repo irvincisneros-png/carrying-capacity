@@ -159,7 +159,9 @@ export function canPlace(
         if (!(existing && existing.type === def.replaces && existing.x === x && existing.y === y && existing.w === w && existing.h === h)) {
           return fail(
             def.replaces ? 'needs-nearby-building' : 'occupied',
-            def.replaces ? `${def.name} must be built on top of an existing ${BUILDINGS[def.replaces].name}` : 'Something is already built here',
+            def.replaces ? `${def.name} must be built on top of an existing ${BUILDINGS[def.replaces].name}`
+              : buildingId === 'parkland' ? 'Street trees need an empty tile: pick open ground beside the streets and homes you want to shade (they cool everything within a tile)'
+                : 'Something is already built here',
             fp, av.cost,
           );
         }
