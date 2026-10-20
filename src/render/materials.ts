@@ -108,14 +108,22 @@ export class MatLib {
       uGhostCol: { value: this.ghostCol },
     };
     this.outlineMat = new ShaderMaterial({
-      uniforms: { uOutline: { value: 0.0021 }, uInk: { value: new Color(LOOK.ink) } },
+      // Subtle outlines: about half the old width (0.0021), a tight world-unit cap, and a zoom fade (uFade, set per frame
+      // from the camera distance) so a whole-map view carries no ink at all. Colour is the model's own vertex colour
+      // darkened and slightly desaturated, so no near-black ink anywhere.
+      uniforms: { uOutline: { value: 0.00105 }, uFade: { value: 1 } },
       side: BackSide,
+      vertexColors: true,
       vertexShader: /* glsl */ `
         #include <common>
         #include <batching_pars_vertex>
         attribute vec3 onrm;
         uniform float uOutline;
+        uniform float uFade;
+        varying vec3 vInk;
         void main(){
+          float lum = dot(color, vec3(0.299, 0.587, 0.114));
+          vInk = mix(vec3(lum), color, 0.8) * 0.55;
           #include <batching_vertex>
           vec4 w = vec4(position, 1.0);
           vec3 n = normalize(onrm);
@@ -131,15 +139,21 @@ export class MatLib {
           float d = distance(cameraPosition, w.xyz);
           // Constant screen width up close, but capped in world units so that zoomed out over a whole city the ink
           // doesn't swallow small houses and turn every block dark.
-          w.xyz += n * min(uOutline * d, 0.04);
+          w.xyz += n * min(uOutline * d, 0.02) * uFade;
           gl_Position = projectionMatrix * viewMatrix * w;
         }
       `,
       fragmentShader: /* glsl */ `
-        uniform vec3 uInk;
-        void main(){ gl_FragColor = vec4(uInk, 1.0); }
+        varying vec3 vInk;
+        void main(){ gl_FragColor = vec4(vInk, 1.0); }
       `,
     });
+  }
+
+  /** Fade the outline out as the camera pulls back: full up to 0.8 map spans, gone by 2 spans (whole-map zoom). */
+  setOutlineZoom(dist: number, span: number): void {
+    const t = Math.min(1, Math.max(0, (dist / span - 0.8) / 1.2));
+    this.outlineMat.uniforms.uFade!.value = 1 - t * t * (3 - 2 * t);
   }
 
   /** Biome: colours used for contaminated ground (salt crust inland, ochre/rust on the coast). */

@@ -293,6 +293,11 @@ export function showSettings(r: GameRenderer, onReset: (() => void) | null): voi
       ...TIER_NAMES.map((n, i) => h('button', { class: r.pref.mode === 'manual' && r.tier === i ? 'on' : '', onclick: () => { r.applyTier(i as Tier); draw(); } }, n)));
   };
   draw();
+  const outl = h('div', { class: 'seg' });
+  const drawOutl = (): void => {
+    outl.replaceChildren(...(['subtle', 'off'] as const).map((m) => h('button', { class: r.pref.outlines === m ? 'on' : '', onclick: () => { r.setOutlineMode(m); drawOutl(); } }, m === 'subtle' ? 'Subtle' : 'Off')));
+  };
+  drawOutl();
   const snd = h('div', { class: 'seg' });
   const drawSnd = (): void => {
     snd.replaceChildren(
@@ -303,6 +308,7 @@ export function showSettings(r: GameRenderer, onReset: (() => void) | null): voi
   const m = openModal([
     h('h2', null, 'Settings'),
     h('div', { class: 'settings-row' }, h('div', null, h('b', null, 'Graphics'), h('div', { class: 'muted', style: 'font-size:12px' }, 'Auto picks the best level your computer can run smoothly.')), tiers),
+    h('div', { class: 'settings-row' }, h('div', null, h('b', null, 'Outlines'), h('div', { class: 'muted', style: 'font-size:12px' }, 'Thin edges on buildings. Not drawn on Low or Medium graphics.')), outl),
     h('div', { class: 'settings-row' }, h('b', null, 'Sound'), snd),
     h('div', { class: 'settings-row' }, h('div', null, h('b', null, 'Controls'), h('div', { class: 'muted', style: 'font-size:12px;line-height:1.6' },
       'Drag: pan · Right-drag / two fingers: turn · Scroll / pinch: zoom', h('br'), h('kbd', null, 'Q'), ' ', h('kbd', null, 'E'), ' turn 90° · ', h('kbd', null, 'R'), ' rotate building · ', h('kbd', null, 'X'), ' demolish · ', h('kbd', null, 'Esc'), ' cancel · ', h('kbd', null, 'G'), ' graphs · ', h('kbd', null, 'Ctrl Z'), ' undo · ', h('kbd', null, 'Space'), ' pause (Act 2)'))),

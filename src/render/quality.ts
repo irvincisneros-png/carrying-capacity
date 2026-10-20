@@ -27,9 +27,13 @@ export const TIERS: readonly TierDef[] = [
 
 const KEY = 'cc.graphics.v1';
 
+export type OutlineMode = 'off' | 'subtle';
+
 export interface GraphicsPref {
   mode: 'auto' | 'manual';
   tier: Tier;
+  /** Building outlines (only drawn on tiers that support them; Low never draws them). */
+  outlines: OutlineMode;
 }
 
 export function loadPref(): GraphicsPref {
@@ -38,13 +42,13 @@ export function loadPref(): GraphicsPref {
     if (raw) {
       const p = JSON.parse(raw) as Partial<GraphicsPref>;
       if ((p.mode === 'auto' || p.mode === 'manual') && typeof p.tier === 'number' && p.tier >= 0 && p.tier <= 3) {
-        return { mode: p.mode, tier: p.tier as Tier };
+        return { mode: p.mode, tier: p.tier as Tier, outlines: p.outlines === 'off' ? 'off' : 'subtle' };
       }
     }
   } catch {
     /* ignore */
   }
-  return { mode: 'auto', tier: 1 };
+  return { mode: 'auto', tier: 1, outlines: 'subtle' };
 }
 
 export function savePref(p: GraphicsPref): void {

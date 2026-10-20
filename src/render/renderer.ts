@@ -23,7 +23,7 @@ import { seaRiseM } from '../sim/mechanics';
 import { MatLib, type SharedUniforms } from './materials';
 import { LOOK } from './palette';
 import { buildPipeline, type Pipeline } from './post';
-import { AutoTier, loadPref, savePref, TIERS, type GraphicsPref, type Tier } from './quality';
+import { AutoTier, loadPref, savePref, TIERS, type GraphicsPref, type OutlineMode, type Tier } from './quality';
 import { dirtArmGeo, dirtHubGeo, railArmGeo, railHubGeo, roadArmGeo, roadHubGeo } from './roadgeo';
 import { Smoke } from './smoke';
 import { Overlay, makeGrid, type Ramp } from './overlay';
@@ -527,7 +527,7 @@ export class GameRenderer {
   applyTier(t: Tier, fromAuto = false): void {
     this.tier = t;
     if (!fromAuto) {
-      this.pref = { mode: 'manual', tier: t };
+      this.pref = { ...this.pref, mode: 'manual', tier: t };
       savePref(this.pref);
       this.auto.done = true;
     }
@@ -537,8 +537,15 @@ export class GameRenderer {
     this.onTierChange?.(t, this.pref.mode === 'auto');
   }
 
+  /** Building outlines: Off / Subtle (remembered; Low tier never draws them). */
+  setOutlineMode(m: OutlineMode): void {
+    this.pref = { ...this.pref, outlines: m };
+    savePref(this.pref);
+    this.world?.bld.setOutlines(TIERS[this.tier]!.outlines && m === 'subtle');
+  }
+
   setAuto(): void {
-    this.pref = { mode: 'auto', tier: this.tier };
+    this.pref = { ...this.pref, mode: 'auto', tier: this.tier };
     savePref(this.pref);
     this.auto = new AutoTier((t) => this.applyTier(t, true), () => this.tier);
     this.applyTier(1, true);
@@ -561,7 +568,7 @@ export class GameRenderer {
     if (w) {
       w.veg.setTier(d.foliage, d.treeDetail);
       w.bld.setDetail(d.detail, this.state);
-      w.bld.setOutlines(d.outlines);
+      w.bld.setOutlines(d.outlines && this.pref.outlines === 'subtle');
       w.amb.setDetail(d.detail);
       w.amb.density = d.props * (w.map.w > 40 && this.tier === 0 ? 0.2 : 1);
       w.smoke.density = d.smoke;
@@ -659,6 +666,7 @@ export class GameRenderer {
     this.pipeline.grade.clean = this.clean;
     this.sun.intensity = LOOK.sun.intensity * (1 - this.haze * 0.12);
     this.skyMesh.position.copy(w.rig.camera.position);
+    this.lib.setOutlineZoom(w.rig.camera.position.distanceTo(w.rig.controls.target), Math.max(w.map.w, w.map.h));
     this.skyU.uCamY!.value = w.rig.camera.position.y;
 
     this.renderer.info.reset();
