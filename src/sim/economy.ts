@@ -1,5 +1,6 @@
 import { BUILDINGS } from './buildings';
 import { reefHealth } from './climate';
+import { mechEnvScore } from './mechanics';
 import { estuaryHealth, hasReef, meanHealth, meanReefHealth } from './metrics';
 import { getScenario } from './scenarios';
 import { TileKind } from './types';
@@ -173,9 +174,12 @@ function computeMetersAct2(state: GameState): Meters {
 
   const landScore = clamp01(meanHealth(state) / 0.6);
   const pollutionScore = 1 - clamp01(m.meanPollution / T.pollutionBad);
-  const marine = hasReef(state)
-    ? 0.5 * estuaryHealth(state) / 100 + 0.5 * meanReefHealth(state)
-    : estuaryHealth(state) / 100;
+  const own = mechEnvScore(state);
+  const marine = own !== null
+    ? own
+    : hasReef(state)
+      ? 0.5 * estuaryHealth(state) / 100 + 0.5 * meanReefHealth(state)
+      : estuaryHealth(state) / 100;
   const environment = 100 * (0.35 * landScore + 0.3 * pollutionScore + 0.35 * marine);
   const r = (v: number): number => Math.round(Math.max(0, Math.min(100, v)) * 10) / 10;
   return { economy: r(economy), society: r(society), environment: r(environment) };

@@ -142,6 +142,17 @@ export const BUILDING_IDS: readonly BuildingId[] = [
   'batteryhub',
   'communityhub',
   'recycler',
+  'reservoir',
+  'dripfarm',
+  'fishway',
+  'seawall',
+  'resort',
+  'coralnursery',
+  'bore',
+  'coolingcentre',
+  'transitline',
+  'greensuburb',
+  'parkland',
 ];
 
 /** Act 1 buildings that may still be built during the transition (everything else dirty is act1 only). */
@@ -422,6 +433,89 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
     co2: 6, localPollution: 0.3, pollutes: { air: 0.2 }, unlock: 2025, category: 'waste', phases: ACT2, repurposeOnly: true,
     placement: { on: [Land] },
     blurb: 'Sorts and processes the town\'s glass, metals and plastics so they become new products instead of rubbish.',
+  },
+
+  // ---- Scenario catalogue: River Town, Reef Island, Red Dirt, Net Zero City ----
+  reservoir: {
+    id: 'reservoir', name: 'Town water storage', w: 2, h: 2, cost: 60, jobs: 2, housing: 0, power: -1,
+    co2: 3, localPollution: 0, pollutes: {}, unlock: 1900, category: 'land',
+    placement: {
+      on: [Land],
+      nearTerrain: { kinds: [TileKind.River, TileKind.Wetland], dist: 2, reason: 'Water storage fills from the river: build it within 2 tiles of the river or a billabong' },
+    },
+    blurb: 'An off-river storage that fills when the river runs high and holds water for the dry. Some evaporates, and it takes farmland.',
+  },
+  dripfarm: {
+    id: 'dripfarm', name: 'Efficient irrigation farm', w: 2, h: 2, cost: 45, jobs: 10, housing: 0, power: 0,
+    co2: 4, localPollution: 0.6, pollutes: { water: 0.6 }, unlock: 1990, category: 'land', replaces: 'farm',
+    placement: { on: [Land, Bush] },
+    blurb: 'Build it on an existing farm. Drip lines and soil sensors put water on the roots, using about 40% less and adding much less salt.',
+  },
+  fishway: {
+    id: 'fishway', name: 'Fishway', w: 1, h: 1, cost: 30, jobs: 0, housing: 0, power: 0,
+    co2: 1, localPollution: 0, pollutes: {}, unlock: 1990, category: 'land',
+    placement: {
+      on: [TileKind.River],
+      drop: { kinds: [TileKind.River], dist: 1, minDrop: 1, reason: 'A fishway goes on a weir: build it on the raised river tiles across the weir' },
+    },
+    blurb: 'A stepped channel beside a weir so fish such as Murray cod and golden perch can swim upstream to breed.',
+  },
+  seawall: {
+    id: 'seawall', name: 'Seawall', w: 1, h: 1, cost: 14, jobs: 0, housing: 0, power: 0,
+    co2: 5, localPollution: 0, pollutes: {}, unlock: 1950, category: 'land',
+    placement: {
+      on: [Land, Beach],
+      nearTerrain: { kinds: [TileKind.Sea, TileKind.Reef, TileKind.Estuary], dist: 1, reason: 'A seawall goes on the shoreline, touching the sea or mangroves' },
+    },
+    blurb: 'Concrete and rock that keeps storm surge off the land behind it. It works until the water goes over the top, and it squeezes the beach and blocks turtle nesting.',
+  },
+  resort: {
+    id: 'resort', name: 'Island resort', w: 2, h: 2, cost: 55, jobs: 25, housing: 0, power: -4,
+    co2: 10, localPollution: 0.8, pollutes: { water: 0.8 }, unlock: 1930, category: 'land',
+    placement: {
+      on: [Land, Bush],
+      nearTerrain: { kinds: [TileKind.Beach], dist: 2, reason: 'Resorts need a beach within 2 tiles' },
+    },
+    blurb: 'Guests come for the reef and the beach. Income rises and falls with how healthy they are, and the lights and sewage reach the water.',
+  },
+  coralnursery: {
+    id: 'coralnursery', name: 'Coral nursery', w: 2, h: 2, cost: 35, jobs: 4, housing: 0, power: 0,
+    co2: 2, localPollution: 0, pollutes: {}, unlock: 2025, category: 'land', phases: ACT2,
+    placement: {
+      on: [TileKind.Sea],
+      nearTerrain: { kinds: [TileKind.Reef], dist: 2, reason: 'A coral nursery goes in the shallows beside the reef' },
+    },
+    blurb: 'Fragments of the toughest local coral are grown on frames and planted back, speeding recovery and spreading heat-tolerant genes.',
+  },
+  bore: {
+    id: 'bore', name: 'Water bore', w: 1, h: 1, cost: 25, jobs: 1, housing: 0, power: -1,
+    co2: 2, localPollution: 0, pollutes: {}, unlock: 1880, category: 'land',
+    placement: { on: [Land] },
+    blurb: 'A pump on a deep bore draws water from the aquifer. It is reliable in a drought, but the aquifer refills very slowly.',
+  },
+  coolingcentre: {
+    id: 'coolingcentre', name: 'Cooling centre', w: 2, h: 2, cost: 40, jobs: 6, housing: 0, power: -3,
+    co2: 2, localPollution: 0, pollutes: {}, unlock: 1990, category: 'land',
+    placement: { on: [Land] },
+    blurb: 'An air-conditioned hall where people can shelter on the hottest days. Cooling centres save lives in heatwaves.',
+  },
+  transitline: {
+    id: 'transitline', name: 'Light rail and bus lane', w: 1, h: 3, cost: 55, jobs: 15, housing: 0, power: -6,
+    co2: 3, localPollution: 0, pollutes: {}, unlock: 2025, category: 'transport', phases: ACT2,
+    placement: { on: [Land] },
+    blurb: 'Electric trams and buses on their own lanes. Every line moves people who would otherwise drive, cutting car emissions and traffic. Rotate with R.',
+  },
+  greensuburb: {
+    id: 'greensuburb', name: 'Retrofitted homes', w: 2, h: 2, cost: 28, jobs: 2, housing: 120, power: -2,
+    co2: 1.5, localPollution: 0, pollutes: {}, unlock: 2025, category: 'land', phases: ACT2, replaces: 'suburb',
+    placement: { on: [Land, Bush] },
+    blurb: 'Build it on a brick suburb. Insulation, heat pumps, rooftop panels and cool roofs cut energy use by half and keep homes safer in a heatwave.',
+  },
+  parkland: {
+    id: 'parkland', name: 'Street trees and pocket park', w: 1, h: 1, cost: 8, jobs: 0, housing: 0, power: 0,
+    co2: 0, localPollution: 0, pollutes: {}, unlock: 2025, category: 'land', phases: ACT2,
+    placement: { on: [Land] },
+    blurb: 'Shade trees and a patch of green. Tree canopy cools a street by several degrees in a heatwave and soaks up some carbon.',
   },
 
 };

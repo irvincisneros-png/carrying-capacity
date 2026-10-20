@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  speciesFor,
   applyAction, canPlace, census, evaluateHabitat, habitatMask, initWildlife, isThriving, noteHeat, objectiveStatus, patchesOf,
   publishWildlifeMetric, roadExposure, SPECIES_BY_ID, speciesStatus, TileKind, tick, wildlifeSummer, wildlifeYear, woodlandMask,
 } from '../src/sim';
@@ -336,13 +337,12 @@ describe('populations, families and events', () => {
     expect(objectiveStatus(s).find((o) => o.id === 'wildlife')?.status).toBe('on-track');
     expect(speciesStatus(s, def('koala'))).toBe('thriving');
   });
-  it('leaves other scenarios without wildlife until they get species', () => {
-    const s = act2Sandbox(TileKind.Land, { scenario: 'river-town' });
-    initWildlife(s);
-    expect(Object.keys(s.wildlife.species)).toHaveLength(0);
-    s.year++;
-    expect(() => wildlifeYear(s)).not.toThrow();
-    expect(census(s)).toEqual([]);
+  it('gives every scenario its own species list', () => {
+    expect(speciesFor('green-valley').map((x) => x.id)).toEqual(['koala', 'frogs']);
+    expect(speciesFor('river-town').map((x) => x.id)).toEqual(['platypus', 'murray-cod', 'superb-parrot', 'southern-bell-frog']);
+    expect(speciesFor('reef-island').map((x) => x.id)).toEqual(['reef-turtle', 'dugong', 'reef-fish', 'mangrove-kingfisher']);
+    expect(speciesFor('red-dirt').map((x) => x.id)).toEqual(['bilby', 'rock-wallaby', 'budgerigar']);
+    expect(speciesFor('net-zero-city').map((x) => x.id)).toEqual(['flying-fox', 'shorebirds', 'powerful-owl']);
   });
   it('is reproducible and does not change when the clock is split differently', () => {
     const a = act2Sandbox(TileKind.Land);

@@ -7,7 +7,9 @@ import { BONUS_SPECIES, SPECIES_BY_ID, speciesFor } from '../content/species';
 import type { FamilyDef, HabitatSpec, SpeciesDef } from '../content/species';
 import { BUILDINGS } from './buildings';
 import { renderText } from './conditions';
-import { estuaryHealth } from './metrics';
+import { estuaryHealth, meanReefHealth } from './metrics';
+import { riverHealth, hasFishway, weirTileIdx } from './mechanics/riverCore';
+import { aquifer } from './mechanics/outbackCore';
 import { hash32, seasonIndexOf } from './season';
 import { emitStory } from './story';
 import { TileKind } from './types';
@@ -223,6 +225,7 @@ function evalSheOak(s: GameState, h: Spec<'she-oak'>, wantMask: boolean): Habita
 
 /** Lit buildings: homes, workplaces, roads and ports show lights at night. */
 function isLit(type: BuildingId): boolean {
+  if (type === 'seawall') return true;
   if (DARK_OK.includes(type)) return false;
   const d = BUILDINGS[type];
   return d.housing > 0 || d.power < 0 || BARRIERS.includes(type) || type === 'port';
@@ -287,9 +290,11 @@ function evalRiver(s: GameState, h: Spec<'clean-river'>, wantMask: boolean): Hab
     const k = g.kind[i];
     if ((k === TileKind.Land || k === TileKind.Bush) && (g.building[i] ?? 0) === 0 && (g.stage[i] ?? 0) >= 2 && nearRiver[i] === 1) { mask[i] = 1; bank++; }
   }
-  const dry = isDrought(s);
+  const flowOn = h.minFlow !== undefined && typeof s.flags['w.envAvg'] === 'number';
+  const flowEma = typeof s.flags['w.envAvg'] === 'number' ? s.flags['w.envAvg'] : 1;
+  const dry = flowOn ? flowEma < (h.minFlow ?? 0) : isDrought(s);
   const suitable = river.length > 0 && water <= h.maxWater && bank >= h.minRiparian && !dry;
-  const limiting = dry ? 'A drought has the river running thin.'
+  const limiting = dry ? (flowOn ? 'The river is not getting enough water: too much is being taken out.' : 'A drought has the river running thin.')
     : water > h.maxWater ? 'River water is too polluted.'
       : bank < h.minRiparian ? `Only ${bank} tiles of riverbank plants; it needs ${h.minRiparian}.` : '';
   return {
@@ -330,7 +335,7 @@ function evalWetland(s: GameState, h: Spec<'wetland'>, wantMask: boolean): Habit
 function evalRoost(s: GameState, h: Spec<'roost'>, wantMask: boolean): HabitatEval {
   const g = s.grid;
   const mask = woodlandMask(s, 0.8);
-  const water = within(s, h.waterDist, (i) => g.kind[i] === TileKind.River || g.kind[i] === TileKind.Estuary || g.kind[i] === TileKind.Sea);
+  const water = within(s, h.waterDist, (i) => g.kind[i] === TileKind.River || g.kind[i] === TileKind.Estuary || g.kind[i] === TileKind.Sea || g.kind[i] === TileKind.Wetland);
   const patches = patchesOf(s, mask).filter((p) => p.tiles.some((i) => water[i] === 1));
   const largest = patches[0]?.size ?? 0;
   const tiles = patches.filter((p) => p.size >= h.minPatch).flatMap((p) => p.tiles);
@@ -368,9 +373,128 @@ function evalMudflat(s: GameState, h: Spec<'mudflat'>, wantMask: boolean): Habit
   };
 }
 
+function evalRiverHealth(s: GameState, h: Spec<'river-health'>, wantMask: boolean): HabitatEval {
+  const g = s.grid;
+  const hp = riverHealth(s);
+  const weir = weirTileIdx(s).length > 0;
+  const passage = !h.needsPassage || !weir || hasFishway(s);
+  const suitable = hp >= h.minHealth && passage;
+  const mask = new Uint8Array(g.kind.length);
+  if (wantMask) for (let i = 0; i < mask.length; i++) if (g.kind[i] === TileKind.River) mask[i] = 1;
+  return {
+    suitable, capacity: Math.floor(Math.max(0, hp - h.minHealth + 8) * h.perPoint * (passage ? 1 : 0.2)),
+    limiting: !passage ? 'The weir blocks the fish from moving upstream to breed. A fishway would open the river.'
+      : hp < h.minHealth ? `River health is ${Math.round(hp)}; the fish need ${h.minHealth}.` : '',
+    quality: clamp(hp / (h.minHealth * 1.4), 0, 1) * (passage ? 1 : 0.4),
+    extra: { riverHealth: hp, passage: passage ? 1 : 0 },
+    ...(wantMask ? { mask } : {}),
+  };
+}
+
+function evalBillabong(s: GameState, h: Spec<'billabong'>, wantMask: boolean): HabitatEval {
+  const g = s.grid;
+  const wet = typeof s.flags['w.wet'] === 'number' ? s.flags['w.wet'] : 1;
+  let good = 0, total = 0;
+  const mask = new Uint8Array(g.kind.length);
+  for (let i = 0; i < g.kind.length; i++) {
+    if (g.kind[i] !== TileKind.Wetland) continue;
+    total++;
+    if ((g.waterPollution[i] ?? 0) <= h.maxWater) { good++; mask[i] = 1; }
+  }
+  const suitable = good > 0 && wet >= h.minWet;
+  return {
+    suitable, capacity: Math.floor(good * h.perTile * wet),
+    limiting: total === 0 ? 'There are no billabongs.' : wet < h.minWet ? 'The billabongs have dried out: they need a spring flood to fill them.' : good === 0 ? 'The billabong water is too polluted.' : '',
+    quality: clamp(wet * (good / Math.max(1, total)), 0, 1),
+    extra: { wet, billabongs: total },
+    ...(wantMask ? { mask } : {}),
+  };
+}
+
+function evalSeagrass(s: GameState, h: Spec<'seagrass-meadow'>, wantMask: boolean): HabitatEval {
+  const g = s.grid;
+  const mask = new Uint8Array(g.kind.length);
+  let n = 0, water = 0;
+  for (let i = 0; i < g.kind.length; i++) {
+    if (g.kind[i] === TileKind.Sea && (g.health[i] ?? 0) >= 0.45) { n++; water += g.waterPollution[i] ?? 0; mask[i] = 1; }
+  }
+  const mean = n > 0 ? water / n : 0;
+  const suitable = n >= h.minTiles && mean <= h.maxWater;
+  return {
+    suitable, capacity: Math.floor(n * h.perTile),
+    limiting: n < h.minTiles ? `Only ${n} tiles of healthy seagrass; it needs ${h.minTiles}.` : mean > h.maxWater ? 'Runoff is clouding the water over the seagrass.' : '',
+    quality: clamp(n / (h.minTiles * 2), 0, 1),
+    extra: { seagrass: n },
+    ...(wantMask ? { mask } : {}),
+  };
+}
+
+function evalReefCover(s: GameState, h: Spec<'reef-cover'>, wantMask: boolean): HabitatEval {
+  const g = s.grid;
+  const hp = meanReefHealth(s);
+  const mask = new Uint8Array(g.kind.length);
+  if (wantMask) for (let i = 0; i < mask.length; i++) if (g.kind[i] === TileKind.Reef) mask[i] = 1;
+  return {
+    suitable: hp >= h.minHealth, capacity: Math.floor(hp * 100 * h.perPoint),
+    limiting: hp < h.minHealth ? `Coral health is ${Math.round(hp * 100)}%; reef fish need ${Math.round(h.minHealth * 100)}%.` : '',
+    quality: clamp(hp / (h.minHealth * 1.6), 0, 1),
+    extra: { reef: hp },
+    ...(wantMask ? { mask } : {}),
+  };
+}
+
+function evalMangrove(s: GameState, h: Spec<'mangrove'>, wantMask: boolean): HabitatEval {
+  const g = s.grid;
+  const mask = new Uint8Array(g.kind.length);
+  let n = 0, water = 0;
+  for (let i = 0; i < g.kind.length; i++) {
+    if (g.kind[i] === TileKind.Estuary && (g.stage[i] ?? 0) >= 3) { n++; water += g.waterPollution[i] ?? 0; mask[i] = 1; }
+  }
+  const mean = n > 0 ? water / n : 0;
+  return {
+    suitable: n >= h.minTiles && mean <= h.maxWater, capacity: Math.floor(n * h.perTile),
+    limiting: n < h.minTiles ? `Only ${n} tiles of mature mangrove; it needs ${h.minTiles}.` : mean > h.maxWater ? 'The water around the mangroves is too polluted.' : '',
+    quality: clamp(n / (h.minTiles * 2), 0, 1),
+    extra: { mangrove: n },
+    ...(wantMask ? { mask } : {}),
+  };
+}
+
+function evalWaterhole(s: GameState, h: Spec<'waterhole'>, wantMask: boolean): HabitatEval {
+  const g = s.grid;
+  const level = typeof s.flags['o.wh'] === 'number' ? s.flags['o.wh'] : 1;
+  const aq = aquifer(s);
+  let shrub = 0;
+  const mask = new Uint8Array(g.kind.length);
+  for (let i = 0; i < g.kind.length; i++) {
+    if (g.kind[i] !== TileKind.Bush || (g.stage[i] ?? 0) < 2) continue;
+    const x = i % g.w, y = Math.floor(i / g.w);
+    let near = false;
+    for (let dy = -3; dy <= 3 && !near; dy++) for (let dx = -3; dx <= 3; dx++) {
+      const xx = x + dx, yy = y + dy;
+      if (xx >= 0 && yy >= 0 && xx < g.w && yy < g.h && g.kind[yy * g.w + xx] === TileKind.Wetland) { near = true; break; }
+    }
+    if (near) { shrub++; mask[i] = 1; }
+  }
+  const suitable = level >= h.minLevel && aq >= h.minAquifer && shrub >= h.minShrub;
+  return {
+    suitable, capacity: Math.floor(shrub * h.perShrub * level),
+    limiting: level < h.minLevel ? 'The waterhole has dried up.' : aq < h.minAquifer ? 'The aquifer is too low to keep the waterhole topped up.' : shrub < h.minShrub ? `Only ${shrub} shrubs by the waterhole; it needs ${h.minShrub}.` : '',
+    quality: clamp(Math.min(level / (h.minLevel * 1.5), shrub / (h.minShrub * 1.5)), 0, 1),
+    extra: { level, shrub },
+    ...(wantMask ? { mask } : {}),
+  };
+}
+
 export function evaluateHabitat(s: GameState, def: SpeciesDef, wantMask = false): HabitatEval {
   const h = def.habitat;
   switch (h.kind) {
+    case 'river-health': return evalRiverHealth(s, h, wantMask);
+    case 'billabong': return evalBillabong(s, h, wantMask);
+    case 'seagrass-meadow': return evalSeagrass(s, h, wantMask);
+    case 'reef-cover': return evalReefCover(s, h, wantMask);
+    case 'mangrove': return evalMangrove(s, h, wantMask);
+    case 'waterhole': return evalWaterhole(s, h, wantMask);
     case 'woodland-patch': return evalWoodland(s, h, wantMask);
     case 'she-oak': return evalSheOak(s, h, wantMask);
     case 'nesting-beach': return evalBeach(s, h, wantMask);
@@ -549,16 +673,18 @@ export function wildlifeSummer(s: GameState): void {
       rt.lastNestYear = s.year;
       const eggs = 95 + (h % 40);
       const hatch = Math.round(eggs * 0.8);
+      const fill = (t: string): string => t.replace(/\{eggs\}/g, String(eggs)).replace(/\{hatch\}/g, String(hatch)).replace(/\{n\}/g, String(rt.nestStreak));
+      const nest = def.nest;
       say(s, rt.nestStreak === 1
-        ? `Old Shelly came ashore at night and laid ${eggs} eggs in the warm sand. Volunteers marked the nest and watched over it.`
+        ? fill(nest?.first ?? `Old Shelly came ashore at night and laid {eggs} eggs in the warm sand. Volunteers marked the nest and watched over it.`)
         : rt.nestStreak === def.thrive.nestStreak
-          ? `Old Shelly has now nested ${rt.nestStreak} summers in a row: ${eggs} eggs. About ${hatch} hatchlings are expected to scramble to the sea.`
-          : `Old Shelly nested again this summer: ${eggs} eggs on the dark end of the beach.`, def.id, 'joy');
+          ? fill(nest?.streak ?? `Old Shelly has now nested {n} summers in a row: {eggs} eggs. About {hatch} hatchlings are expected to scramble to the sea.`)
+          : fill(nest?.again ?? `Old Shelly nested again this summer: {eggs} eggs on the dark end of the beach.`), def.id, 'joy');
     } else {
       const broke = rt.nestStreak > 0;
       rt.nestStreak = 0;
       if (broke || s.year % 6 === 0) {
-        say(s, `Old Shelly did not come ashore this summer. ${ev.limiting || 'Something about the beach is not right.'}`, def.id, 'concern');
+        say(s, (def.nest?.missed ?? 'Old Shelly did not come ashore this summer. {why}').replace(/\{why\}/g, ev.limiting || 'Something about the beach is not right.'), def.id, 'concern');
       }
     }
   }

@@ -2,10 +2,12 @@
  * Caring for Country: partnership with the local Aboriginal community, grown by respect and never purchased.
  * All player-facing text lives in content/country.ts and is flagged needsConsultation.
  */
+import { COUNTRY_BY_SCENARIO } from '../content/countries';
 import { COUNTRY } from '../content/country';
+import type { CountryContent } from '../content/country';
 import { stageFromHealth, WEED_CAP } from './restoration';
 import { hash32, seasonIndexOf } from './season';
-import { castFor } from './residents';
+import { castFor, elderOf } from './residents';
 import { emitStory } from './story';
 import { cloneState } from './state';
 import { TileKind } from './types';
@@ -15,7 +17,20 @@ import { WATER_TOXIC } from './pollution';
 
 /** Caring for Country is written for scenarios whose cast includes the local Elder (placeholder scenarios have none yet). */
 export function countryActive(s: GameState): boolean {
-  return castFor(s.scenarioId).some((r) => r.id === 'aunty-june');
+  return elderOf(s.scenarioId) !== undefined;
+}
+
+/** The Country content for a scenario: shared numbers, with the scenario's own places, lines and sites where it has them. */
+export function countryFor(scenario: GameState['scenarioId']): CountryContent {
+  const ov = COUNTRY_BY_SCENARIO[scenario];
+  const base = COUNTRY as unknown as CountryContent;
+  if (!ov) return base;
+  return {
+    ...base,
+    sites: ov.sites ?? base.sites,
+    places: ov.places ?? base.places,
+    lines: { ...base.lines, ...ov.lines },
+  };
 }
 
 export function initCountry(): CountryState {
@@ -33,10 +48,10 @@ export function initCountry(): CountryState {
 }
 
 const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v));
-const JUNE = { speakerId: 'aunty-june', speaker: 'Aunty June', portrait: 'aunty-june' } as const;
-
 function say(s: GameState, text: string, tone: 'warm' | 'concern' | 'joy' | 'neutral' = 'warm', ref?: string): void {
-  emitStory(s, text, { channel: 'country', ...JUNE, tone, needsConsultation: true, ...(ref ? { ref } : {}) });
+  const elder = elderOf(s.scenarioId);
+  const who = elder ? { speakerId: elder.id, speaker: elder.name, portrait: elder.portrait } : {};
+  emitStory(s, text, { channel: 'country', ...who, tone, needsConsultation: true, ...(ref ? { ref } : {}) });
 }
 
 export function addPartnership(s: GameState, delta: number, why = ''): void {
@@ -81,20 +96,21 @@ const bump = (s: GameState, key: string): void => {
 };
 
 export function consult(state: GameState, x: number, y: number): { state: GameState; result: ActionResult } {
+  const C = countryFor(state.scenarioId);
   if (!countryActive(state)) return fail(state, 'not-open', 'There is no local community partnership in this scenario yet');
   const id = siteAt(state, x, y);
   if (id === 0) return fail(state, 'invalid', 'This is not one of the places the community has asked to be consulted about');
   if (state.country.consulted.includes(id)) return fail(state, 'already-done', 'You have already talked with the community about this place');
-  const cost = COUNTRY.costs.consult;
+  const cost = C.costs.consult;
   if (state.budget < cost) return fail(state, 'no-funds', `Not enough money: a community meeting costs ${cost}`);
-  const site = COUNTRY.sites[id];
+  const site = C.sites[id];
   const s = cloneState(state);
   s.budget -= cost;
   s.country.consulted.push(id);
   s.country.consulted.sort((a, b) => a - b);
   // Having asked first before anything was built is better than an apology afterwards.
   const protect = site?.guidance === 'protect';
-  addPartnership(s, protect ? COUNTRY.gains.consultProtect : COUNTRY.gains.consult, 'Asked the community before building');
+  addPartnership(s, protect ? C.gains.consultProtect : C.gains.consult, 'Asked the community before building');
   bump(s, 'consulted');
   if (site) say(s, site.consulted.text, 'warm', `site.${id}`);
   s.version = state.version + 1;
@@ -104,21 +120,22 @@ export function consult(state: GameState, x: number, y: number): { state: GameSt
 /** Called after a building is placed. Building on a significant place without asking costs trust. */
 export function notePlacement(s: GameState, b: PlacedBuilding): void {
   if (!countryActive(s)) return;
+  const C = countryFor(s.scenarioId);
   const ids = footprintSites(s, b.x, b.y, b.w, b.h);
-  const pen = s.phase === 'act2' ? COUNTRY.penalty.act2 : COUNTRY.penalty.act1;
+  const pen = s.phase === 'act2' ? C.penalty.act2 : C.penalty.act1;
   for (const id of ids) {
-    const site = COUNTRY.sites[id];
+    const site = C.sites[id];
     const consulted = s.country.consulted.includes(id);
     const already = s.country.disturbed.includes(id);
     if (consulted && site?.guidance === 'care') continue; // asked first, advice was "build with care"
     if (already) {
-      addPartnership(s, -COUNTRY.penalty.repeat, 'Built on a significant place again');
+      addPartnership(s, -C.penalty.repeat, 'Built on a significant place again');
       continue;
     }
     s.country.disturbed.push(id);
     s.country.disturbed.sort((a, c) => a - c);
     if (consulted && site?.guidance === 'protect') {
-      addPartnership(s, -COUNTRY.penalty.ignoredAdvice, 'Built where the community asked you to leave it be');
+      addPartnership(s, -C.penalty.ignoredAdvice, 'Built where the community asked you to leave it be');
       if (site) say(s, site.ignored.text, 'concern', `site.${id}`);
     } else {
       addPartnership(s, -pen, 'Built on a significant place without asking');
@@ -158,6 +175,7 @@ function flood(s: GameState, start: number, ok: (i: number) => boolean): number[
 const MIN_PATCH = 4;
 
 export function comanage(state: GameState, x: number, y: number): { state: GameState; result: ActionResult } {
+  const C = countryFor(state.scenarioId);
   if (!countryActive(state)) return fail(state, 'not-open', 'There is no local community partnership in this scenario yet');
   const g = state.grid;
   if (x < 0 || y < 0 || x >= g.w || y >= g.h) return fail(state, 'out-of-bounds', "That isn't on the map");
@@ -165,19 +183,19 @@ export function comanage(state: GameState, x: number, y: number): { state: GameS
   const isBush = (i: number): boolean => g.kind[i] === TileKind.Bush && (g.building[i] ?? 0) === 0;
   if (!isBush(start)) return fail(state, 'not-bush', 'Only bushland can be returned to co-management');
   const patch = flood(state, start, isBush);
-  if (patch.length < MIN_PATCH) return fail(state, 'invalid', COUNTRY.lines.comanageSmall.text);
+  if (patch.length < MIN_PATCH) return fail(state, 'invalid', C.lines.comanageSmall.text);
   const have = new Set(state.country.comanaged);
   const fresh = patch.filter((i) => !have.has(i));
   if (fresh.length === 0) return fail(state, 'already-done', 'This bush is already looked after together with the community');
-  const cost = COUNTRY.costs.comanage;
+  const cost = C.costs.comanage;
   if (state.budget < cost) return fail(state, 'no-funds', `Not enough money: setting up co-management costs ${cost}`);
   const s = cloneState(state);
   s.budget -= cost;
   const first = s.country.comanaged.length === 0;
   s.country.comanaged = Array.from(new Set([...s.country.comanaged, ...patch])).sort((a, b) => a - b);
-  addPartnership(s, first ? COUNTRY.gains.comanageFirst : COUNTRY.gains.comanageLater, 'Returned the care of bushland to the community');
+  addPartnership(s, first ? C.gains.comanageFirst : C.gains.comanageLater, 'Returned the care of bushland to the community');
   bump(s, 'comanaged');
-  say(s, COUNTRY.lines.comanage.text, 'joy', 'comanage');
+  say(s, C.lines.comanage.text, 'joy', 'comanage');
   s.version = state.version + 1;
   return { state: s, result: { ok: true, spent: cost } };
 }
@@ -190,21 +208,22 @@ export function comanagedPatch(s: GameState, start: number): number[] {
 }
 
 export function burn(state: GameState, x: number, y: number): { state: GameState; result: ActionResult } {
+  const C = countryFor(state.scenarioId);
   const g = state.grid;
-  if (state.phase !== 'act2') return fail(state, 'not-open', COUNTRY.lines.burnLocked.text);
-  if (!state.country.unlocked.culturalBurning) return fail(state, 'not-open', COUNTRY.lines.burnLocked.text);
+  if (state.phase !== 'act2') return fail(state, 'not-open', C.lines.burnLocked.text);
+  if (!state.country.unlocked.culturalBurning) return fail(state, 'not-open', C.lines.burnLocked.text);
   if (x < 0 || y < 0 || x >= g.w || y >= g.h) return fail(state, 'out-of-bounds', "That isn't on the map");
-  if (state.a2.season !== 1 && state.a2.season !== 2) return fail(state, 'wrong-season', COUNTRY.lines.burnWrongSeason.text);
+  if (state.a2.season !== 1 && state.a2.season !== 2) return fail(state, 'wrong-season', C.lines.burnWrongSeason.text);
   const start = y * g.w + x;
   const patch = comanagedPatch(state, start);
-  if (patch.length === 0) return fail(state, 'invalid', COUNTRY.lines.burnNeedsCoMgmt.text);
+  if (patch.length === 0) return fail(state, 'invalid', C.lines.burnNeedsCoMgmt.text);
   const anchor = patch[0] as number;
   if (state.country.burns.some((b) => b.patch === anchor && b.year > state.year - 3)) {
-    return fail(state, 'already-done', COUNTRY.lines.burnTooSoon.text);
+    return fail(state, 'already-done', C.lines.burnTooSoon.text);
   }
-  const cost = COUNTRY.costs.burn;
+  const cost = C.costs.burn;
   if (state.budget < cost) return fail(state, 'no-funds', `Not enough money: a cool burn costs ${cost}`);
-  const picked = patch.filter((i) => (g.stage[i] ?? 0) >= 1 && hash32(state.seed, i, state.year) % 100 < COUNTRY.mosaicShare * 100);
+  const picked = patch.filter((i) => (g.stage[i] ?? 0) >= 1 && hash32(state.seed, i, state.year) % 100 < C.mosaicShare * 100);
   if (picked.length === 0) return fail(state, 'invalid', 'Nothing here would carry a cool burn yet: the bush needs more growth');
   const s = cloneState(state);
   const idx = seasonIndexOf(s);
@@ -224,9 +243,9 @@ export function burn(state: GameState, x: number, y: number): { state: GameState
   s.pendingLandKt += picked.length * 0.2;
   s.country.burns.push({ year: s.year, tiles: picked.length, patch: anchor });
   s.country.boosts.push({ until: idx + 8, tiles: picked });
-  addPartnership(s, COUNTRY.gains.burn, 'Led a cool burn together');
+  addPartnership(s, C.gains.burn, 'Led a cool burn together');
   bump(s, 'burned');
-  say(s, COUNTRY.lines.burnDone(picked.length).text, 'joy', 'burn');
+  say(s, C.lines.burnDone(picked.length).text, 'joy', 'burn');
   s.version = state.version + 1;
   // Bump chunk versions for the changed tiles.
   for (const i of picked) {
@@ -240,9 +259,10 @@ export function burn(state: GameState, x: number, y: number): { state: GameState
 
 /** flags.culturalBurning: 0 until the knowledge is shared, 0.3 once it is, up to 1 with an active burning programme. */
 export function refreshBurningFlag(s: GameState): void {
+  const C = countryFor(s.scenarioId);
   if (!s.country.unlocked.culturalBurning) { s.flags.culturalBurning = 0; return; }
   const recent = s.country.burns.filter((b) => b.year > s.year - 4).reduce((n, b) => n + b.tiles, 0);
-  const target = Math.max(1, s.country.comanaged.length * COUNTRY.mosaicShare);
+  const target = Math.max(1, s.country.comanaged.length * C.mosaicShare);
   s.flags.culturalBurning = Math.round(clamp(0.3 + 0.7 * (recent / target), 0.3, 1) * 100) / 100;
 }
 
@@ -281,26 +301,27 @@ export function countryStep(s: GameState, idx: number): void {
 /** Year end: slow trust growth, unlock thresholds, the burning flag. */
 export function countryYear(s: GameState): void {
   if (!countryActive(s)) return;
+  const C = countryFor(s.scenarioId);
   const c = s.country;
   if (c.lastGrowthYear !== s.year) {
     c.lastGrowthYear = s.year;
     const warm = (c.consulted.length > 0 ? 1 : 0) + (c.comanaged.length > 0 ? 1 : 0) + (c.burns.some((b) => b.year > s.year - 3) ? 1 : 0);
-    if (warm > 0 && c.disturbed.length <= c.consulted.length + 1) addPartnership(s, COUNTRY.gains.yearly * warm);
+    if (warm > 0 && c.disturbed.length <= c.consulted.length + 1) addPartnership(s, C.gains.yearly * warm);
   }
   const p = c.partnership;
-  if (!c.unlocked.dualNames && p >= COUNTRY.thresholds.dualNames) {
+  if (!c.unlocked.dualNames && p >= C.thresholds.dualNames) {
     c.unlocked.dualNames = true;
     s.flags.dualNames = 1;
-    say(s, COUNTRY.lines.unlockDualNames.text, 'warm', 'unlock.dualNames');
+    say(s, C.lines.unlockDualNames.text, 'warm', 'unlock.dualNames');
   }
-  if (!c.unlocked.culturalBurning && p >= COUNTRY.thresholds.culturalBurning) {
+  if (!c.unlocked.culturalBurning && p >= C.thresholds.culturalBurning) {
     c.unlocked.culturalBurning = true;
-    say(s, COUNTRY.lines.unlockBurning.text, 'warm', 'unlock.culturalBurning');
+    say(s, C.lines.unlockBurning.text, 'warm', 'unlock.culturalBurning');
   }
-  if (!c.unlocked.fishing && p >= COUNTRY.thresholds.fishing) {
+  if (!c.unlocked.fishing && p >= C.thresholds.fishing) {
     c.unlocked.fishing = true;
     s.flags.fishingProtocol = 1;
-    say(s, COUNTRY.lines.unlockFishing.text, 'joy', 'unlock.fishing');
+    say(s, C.lines.unlockFishing.text, 'joy', 'unlock.fishing');
   }
   refreshBurningFlag(s);
 }
@@ -308,5 +329,5 @@ export function countryYear(s: GameState): void {
 /** Dual names the town signs show once unlocked (originals stay placeholders until the community supplies them). */
 export function dualNames(s: GameState): { id: string; english: string; original: string }[] {
   if (!s.country.unlocked.dualNames) return [];
-  return COUNTRY.places.map((p) => ({ id: p.id, english: p.english, original: p.original.text }));
+  return countryFor(s.scenarioId).places.map((p) => ({ id: p.id, english: p.english, original: p.original.text }));
 }

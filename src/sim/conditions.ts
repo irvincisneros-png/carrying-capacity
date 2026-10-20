@@ -5,6 +5,7 @@
 import { BUILDINGS } from './buildings';
 import { estuaryHealth, meanHealth, meanReefHealth } from './metrics';
 import { measureTiles, economySnapshot } from './economy';
+import { MECH_METRIC_KEYS, mechMetric } from './mechanics';
 import { realCO2, realTemp } from './realData';
 import { seasonIndexOf } from './season';
 import { TileKind } from './types';
@@ -125,7 +126,7 @@ export const STATIC_METRICS: readonly string[] = [
   'year', 'tempC', 'co2', 'realCo2', 'realTempC', 'estuary', 'society', 'economy', 'environment', 'population', 'bushPct',
   'healthPct', 'reefPct', 'employment', 'unmetPct', 'renewablePct', 'emissionsKt', 'peakKt', 'emissionsPct', 'airQuality',
   'partnership', 'wildlifeAlive', 'legacyPct', 'drought', 'heatwave', 'heavyJobs', 'heavyJobsPct', 'cleanJobs', 'meanMood',
-  'research', 'evidence', 'decisions', 'cumulativeKt',
+  'research', 'evidence', 'decisions', 'cumulativeKt', ...MECH_METRIC_KEYS,
 ];
 export const METRIC_PREFIXES: readonly string[] = [
   'pop', 'streak', 'mood', 'flag', 'count', 'acts', 'recent', 'beat', 'chose', 'asked', 'research',
@@ -207,7 +208,7 @@ export function metric(state: GameState, key: MetricKey): number {
     case 'evidence': return state.dilemmas.decisions.filter((d) => d.evidenceBacked).length;
     case 'decisions': return state.dilemmas.decisions.length;
     case 'cumulativeKt': return state.cumulativeKt;
-    default: return 0;
+    default: return mechMetric(state, key) ?? 0;
   }
 }
 
@@ -271,8 +272,29 @@ export function storyVars(state: GameState): Record<string, string> {
     frogs: sp('frogs'),
     foxes: sp('flying-fox'),
     shorebirds: sp('shorebirds'),
+    cod: sp('murray-cod'),
+    parrots: sp('superb-parrot'),
+    bellfrogs: sp('southern-bell-frog'),
+    reefTurtles: sp('reef-turtle'),
+    dugongs: sp('dugong'),
+    reefFish: sp('reef-fish'),
+    kingfishers: sp('mangrove-kingfisher'),
+    bilbies: sp('bilby'),
+    wallabies: sp('rock-wallaby'),
+    budgies: sp('budgerigar'),
+    owls: sp('powerful-owl'),
     species: i0(speciesAlive(state)),
     partner: i0(state.country.partnership),
+    river: i0(mechMetric(state, 'riverHealth') ?? 0),
+    farm: i0(mechMetric(state, 'farmViability') ?? 0),
+    tourism: i0(mechMetric(state, 'tourism') ?? 0),
+    slr: i0(mechMetric(state, 'seaRiseCm') ?? 0),
+    homesLost: i0(mechMetric(state, 'homesLost') ?? 0),
+    aquifer: i0(mechMetric(state, 'aquifer') ?? 0),
+    rehab: i0(mechMetric(state, 'rehabPct') ?? 0),
+    deaths: i0(mechMetric(state, 'heatDeaths') ?? 0),
+    canopy: i0(mechMetric(state, 'canopyPct') ?? 0),
+    transit: i0(mechMetric(state, 'transitPct') ?? 0),
     heavyJobs: i0(heavyJobs(state)),
     cleanJobs: i0(cleanJobs(state)),
     legacy: i0(legacyPct(state)),

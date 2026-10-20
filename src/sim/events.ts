@@ -1,12 +1,13 @@
 import { EVENT_TEXT } from '../content/act2';
 import { BUILDINGS } from './buildings';
 import { estuaryPollution, hasReef } from './metrics';
+import { MECH_EVENTS } from './mechanics/events';
 import { burnFrom, stageFromHealth } from './restoration';
 import type { RestoreCtx } from './restoration';
 import { seasonRng } from './season';
 import { getScenario } from './scenarios';
 import { SEASON_NAMES, TileKind } from './types';
-import type { EventType, GameState, GridReport, Season, SimEvent } from './types';
+import type { EventType, GameState, GridReport, ScenarioId, Season, SimEvent } from './types';
 import type { Rng } from './rng';
 
 export const EVENT_LOG_CAP = 800;
@@ -40,6 +41,22 @@ export interface EventDef {
   stage: 'pre' | 'post';
   chance(c: EventCtx): number;
   fire(c: EventCtx, rng: Rng): FiredEvent | null;
+  /** Only these scenarios roll this event (default: all). */
+  scenarios?: readonly ScenarioId[];
+  /** These scenarios never roll it (they have their own version). */
+  excludeScenarios?: readonly ScenarioId[];
+}
+
+/** Does this event apply to the scenario at all? */
+export function eventApplies(def: EventDef, scenario: ScenarioId): boolean {
+  if (def.scenarios && !def.scenarios.includes(scenario)) return false;
+  if (def.excludeScenarios && def.excludeScenarios.includes(scenario)) return false;
+  return true;
+}
+
+/** Scenario multiplier on one event type's chance (Act2Def.eventMult), 1 by default. */
+export function eventTypeMult(state: GameState, type: EventType): number {
+  return getScenario(state.scenarioId).act2.eventMult?.[type] ?? 1;
 }
 
 const warm = (k: number, t: number): number => 1 + k * Math.max(0, t);
@@ -75,7 +92,7 @@ export function fireDanger(c: EventCtx): number {
   return clamp(base * warm(1.1, c.warming) * c.mult * sc.act2.fireProneness * fuel * dry * hot * burning * prep, 0, 0.9);
 }
 
-export const EVENTS: readonly EventDef[] = [
+const BASE_EVENTS: readonly EventDef[] = [
   {
     type: 'heatwave', name: 'Heatwave', stage: 'pre',
     chance: (c) => {
@@ -155,7 +172,7 @@ export const EVENTS: readonly EventDef[] = [
     },
   },
   {
-    type: 'flood', name: 'Flood / storm surge', stage: 'post',
+    type: 'flood', name: 'Flood / storm surge', stage: 'post', excludeScenarios: ['reef-island'],
     chance: (c) => {
       const base = [0.03, 0.04, 0.01, 0.01][c.season] ?? 0;
       return clamp(base * warm(0.6, c.warming) * c.mult, 0, 0.9);
@@ -277,6 +294,8 @@ export const EVENTS: readonly EventDef[] = [
   },
 ];
 
+export const EVENTS: readonly EventDef[] = [...BASE_EVENTS, ...MECH_EVENTS];
+
 /** Estuary pollution times a heat factor: summer, heatwaves and a warmer world all raise it. */
 export const FISH_KILL_THRESHOLD = 1.2;
 export function fishKillIndex(c: EventCtx): number {
@@ -297,7 +316,7 @@ export function eventChances(state: GameState, grid: GridReport | null = state.a
   const idx = (state.year - getScenario(state.scenarioId).startYear) * 4 + state.a2.season;
   const rctx: RestoreCtx = { shallow: new Uint8Array(0), nearWater: new Uint8Array(0), nursery: new Uint8Array(0) };
   const c = makeCtx(state, idx, grid, rctx);
-  return EVENTS.map((e) => ({ type: e.type, p: e.chance(c) }));
+  return EVENTS.filter((e) => eventApplies(e, state.scenarioId)).map((e) => ({ type: e.type, p: Math.min(1, e.chance(c) * eventTypeMult(state, e.type)) }));
 }
 
 export function emit(state: GameState, e: Omit<SimEvent, 'id'>): SimEvent {
@@ -313,10 +332,10 @@ export function emit(state: GameState, e: Omit<SimEvent, 'id'>): SimEvent {
 export function rollEvents(c: EventCtx, stage: 'pre' | 'post'): SimEvent[] {
   const out: SimEvent[] = [];
   EVENTS.forEach((def, di) => {
-    if (def.stage !== stage) return;
+    if (def.stage !== stage || !eventApplies(def, c.state.scenarioId)) return;
     const rng = seasonRng(c.state.seed, c.idx, 100 + di);
     const roll = rng.next();
-    if (roll >= def.chance(c)) return;
+    if (roll >= def.chance(c) * eventTypeMult(c.state, def.type)) return;
     const fired = def.fire(c, rng);
     if (!fired) return;
     c.state.a2.lastEventIdx[def.type] = c.idx;

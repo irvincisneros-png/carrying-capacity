@@ -1,8 +1,34 @@
+import { GREEN_VALLEY } from '../content/scenarios/green-valley';
+import { NET_ZERO_CITY } from '../content/scenarios/net-zero-city';
+import { RED_DIRT } from '../content/scenarios/red-dirt';
+import { REEF_ISLAND } from '../content/scenarios/reef-island';
+import { RIVER_TOWN } from '../content/scenarios/river-town';
 import type { ObjectiveDef } from './objectives';
 import type { BuildingId, EventType, ScenarioId } from './types';
 
 export type Difficulty = 'tutorial' | 'easy' | 'medium' | 'hard' | 'expert';
 export type TerrainKind = 'coast' | 'valley' | 'river' | 'island' | 'outback' | 'city';
+
+/** Look of the place, so the renderer can pick a palette (the sim never reads it). */
+export type Biome = 'temperate' | 'valley' | 'inland-river' | 'tropical' | 'arid' | 'urban';
+
+/** Scenario mechanics modules (see sim/mechanics). Data-driven: a scenario lists the ones it uses. */
+export type MechanicsId = 'tutorial' | 'river' | 'reef' | 'outback' | 'city' | 'heat';
+
+/** A player-adjustable lever (water allocation, reef culling, ...). Set with { type: 'policy', id, value }. */
+export interface PolicyDef {
+  id: string;
+  label: string;
+  blurb: string;
+  min: number;
+  max: number;
+  step: number;
+  default: number;
+  /** Shown beside the control, e.g. '%' or 'level'. */
+  unit?: string;
+  /** Money per year at a given value (negative income). */
+  costPerYear?: readonly number[] | number;
+}
 
 export interface TerrainParams {
   kind: TerrainKind;
@@ -24,6 +50,9 @@ export interface BuildingOverride {
   unlock?: number;
   cost?: number;
   disabled?: boolean;
+  /** Scenario wording for the build menu (e.g. Red Dirt calls the coal mine an open-cut mine). */
+  name?: string;
+  blurb?: string;
 }
 
 export interface ScenarioModifiers {
@@ -66,6 +95,20 @@ export interface Act2Def {
   rainfall: number;
   turningPoint: TurningPointDef;
   objectives: readonly ObjectiveDef[];
+  /** Per-event-type multiplier on the chance of that event (on top of modifiers.eventSeverity). */
+  eventMult?: Partial<Record<EventType, number>>;
+  /** Multiplier on solar output (Red Dirt gets the strongest sun in the game). */
+  solarCf?: number;
+  /** Multiplier on wind output. */
+  windCf?: number;
+  /** Reef Island: how much warming the local coral tolerates before it bleaches, and how much a coral nursery helps. */
+  reef?: { tolerance: number; nurseryBoost: number };
+  /** Heat health: deaths per 1000 people per unit of heatwave severity, with no shade, cooling centres or power cuts. */
+  heat?: { deathsPer1000: number };
+  /** Year the circular economy tier opens (default 2050, or earlier once the town runs on clean power). */
+  circularYear?: number;
+  /** Yearly emissions (kt) at or below which the scenario counts as net zero. */
+  netZeroKt?: number;
   todo?: string;
 }
 
@@ -87,6 +130,15 @@ export interface ScenarioDef {
   act2: Act2Def;
   /** Set when the data is a placeholder awaiting its own terrain generator / balance pass. */
   todo?: string;
+  biome?: Biome;
+  /** Mechanics modules this scenario uses. */
+  mechanics?: readonly MechanicsId[];
+  /** Player levers. */
+  policies?: readonly PolicyDef[];
+  /** 'city': createGame places a finished city and starts directly in Act 2 (no Act 1). */
+  prebuilt?: 'city';
+  /** Estimated minutes of real play, for the scenario-select card. */
+  playMinutes?: readonly [number, number];
 }
 
 const COAST: TerrainParams = {
@@ -156,126 +208,11 @@ export const SCENARIOS: Readonly<Record<ScenarioId, ScenarioDef>> = {
       },
     }),
   },
-  'green-valley': {
-    id: 'green-valley',
-    name: 'Green Valley',
-    difficulty: 'tutorial',
-    blurb: 'A small valley to learn the ropes: guided build, then clean, then restore.',
-    mapW: 16,
-    mapH: 16,
-    seed: 7,
-    terrain: { ...COAST, kind: 'valley', seaFrac: 0.2, bushCover: 0.7, reefRadius: 1 },
-    startYear: 1850,
-    endYear: 1950,
-    startBudget: 150,
-    availability: { steelworks: { disabled: true }, coalpower: { unlock: 1920 } },
-    modifiers: { ...DEFAULT_MODS, budgetMult: 1.5, hintLevel: 3, eventSeverity: 0 },
-    act2: act2Defaults({
-      startYear: 1950, endYear: 2000, warmingCap: 3,
-      turningPoint: {
-        crisis: 'fish-kill', title: 'Tutorial crisis', residentId: 'tutorial',
-        text: 'Placeholder tutorial crisis.', scientistNote: 'Placeholder.',
-      },
-      todo: 'Tutorial Act 2 needs a guided script and its own timeline.',
-    }),
-    todo: 'Needs its own valley terrain generator and guided-step script (reuses coast generator for now).',
-  },
-  'river-town': {
-    id: 'river-town',
-    name: 'River Town',
-    difficulty: 'medium',
-    blurb: 'A Murray-Darling inland town: water, drought, irrigation and salinity.',
-    mapW: 32,
-    mapH: 32,
-    seed: 1901,
-    terrain: { ...COAST, kind: 'river', seaFrac: 0.08, bushCover: 0.5, reefRadius: 0 },
-    startYear: 1850,
-    endYear: 2020,
-    startBudget: 90,
-    availability: { port: { disabled: true }, outfall: { unlock: 1900 } },
-    modifiers: { ...DEFAULT_MODS, eventSeverity: 1.3, hintLevel: 1 },
-    act2: act2Defaults({
-      rainfall: 0.8, fireProneness: 1.2,
-      turningPoint: {
-        crisis: 'drought', title: 'The river runs thin', residentId: 'dot-harris',
-        text: 'Placeholder: the river stops flowing past the farm.', scientistNote: 'Placeholder.',
-      },
-      todo: 'Needs River Town objectives (river health, water security).',
-    }),
-    todo: 'Needs inland river terrain (no sea), water-cycle mechanics and salinity.',
-  },
-  'reef-island': {
-    id: 'reef-island',
-    name: 'Reef Island',
-    difficulty: 'hard',
-    blurb: 'A tropical island beside a reef: sea-level rise, bleaching and a tourism economy.',
-    mapW: 32,
-    mapH: 32,
-    seed: 2007,
-    terrain: { ...COAST, kind: 'island', seaFrac: 0.4, escarpmentFrac: 0.05, reefRadius: 5 },
-    startYear: 1850,
-    endYear: 2020,
-    startBudget: 80,
-    availability: { coalmine: { disabled: true } },
-    modifiers: { ...DEFAULT_MODS, eventSeverity: 1.5, climateSensitivityMult: 1.15, hintLevel: 0 },
-    act2: act2Defaults({
-      warmingCap: 2.4,
-      turningPoint: {
-        crisis: 'marine-heatwave', title: 'The reef turns white', residentId: 'reef-guide',
-        text: 'Placeholder: the reef bleaches.', scientistNote: 'Placeholder.',
-      },
-      todo: 'Needs Reef Island objectives (reef health, no homes lost to sea).',
-    }),
-    todo: 'Needs island terrain (sea on all sides), tourism economy and sea-level model.',
-  },
-  'red-dirt': {
-    id: 'red-dirt',
-    name: 'Red Dirt',
-    difficulty: 'hard',
-    blurb: 'An outback mining town: solar and storage, scarce water, heatwaves, mine rehab.',
-    mapW: 32,
-    mapH: 32,
-    seed: 1893,
-    terrain: { ...COAST, kind: 'outback', seaFrac: 0.02, bushCover: 0.25, escarpmentFrac: 0.2, reefRadius: 0 },
-    startYear: 1850,
-    endYear: 2020,
-    startBudget: 80,
-    availability: { port: { disabled: true }, outfall: { disabled: true } },
-    modifiers: { ...DEFAULT_MODS, eventSeverity: 1.5, climateSensitivityMult: 1.1, remediationYears: 30, hintLevel: 0 },
-    act2: act2Defaults({
-      rainfall: 0.6, fireProneness: 1.3, weedPressure: 1.3, features: { tidal: false },
-      turningPoint: {
-        crisis: 'heatwave', title: 'The week the town stopped', residentId: 'mine-worker',
-        text: 'Placeholder: a heatwave overloads the grid.', scientistNote: 'Placeholder.',
-      },
-      todo: 'Needs Red Dirt objectives (net zero 2060, mine rehab).',
-    }),
-    todo: 'Needs arid inland terrain generator, scarce water and heatwave events.',
-  },
-  'net-zero-city': {
-    id: 'net-zero-city',
-    name: 'Net Zero City',
-    difficulty: 'expert',
-    blurb: 'A big coastal city starting in 2025 with a tight budget and a short runway to net zero.',
-    mapW: 48,
-    mapH: 48,
-    seed: 2025,
-    terrain: { ...COAST, kind: 'city', bushCover: 0.2 },
-    startYear: 2025,
-    endYear: 2035,
-    startBudget: 60,
-    availability: {},
-    modifiers: { ...DEFAULT_MODS, budgetMult: 0.7, eventSeverity: 2, climateSensitivityMult: 1.2, remediationYears: 10, hintLevel: 0 },
-    act2: act2Defaults({
-      startYear: 2035, features: { tidal: true }, warmingCap: 2.2,
-      turningPoint: {
-        crisis: 'heatwave', title: 'Forty-seven degrees', residentId: 'city-resident',
-        text: 'Placeholder: a heatwave hits the city.', scientistNote: 'Placeholder.',
-      },
-      todo: 'Needs a pre-built city start state and net-zero-by-2050 objectives.',
-    }),
-    todo: 'Needs a pre-built city start state, Act 2 building set and 2025-2100 timeline.',
-  },
+  'green-valley': GREEN_VALLEY,
+  'river-town': RIVER_TOWN,
+  'reef-island': REEF_ISLAND,
+  'red-dirt': RED_DIRT,
+  'net-zero-city': NET_ZERO_CITY,
 };
 
 export const SCENARIO_IDS: readonly ScenarioId[] = [

@@ -1,4 +1,5 @@
 import { BUILDINGS } from './buildings';
+import { getScenario } from './scenarios';
 import { seasonIndexOf, seasonWeather } from './season';
 import type { Weather } from './season';
 import type { EnergySource, GameState, GridBlock, GridReport, Season } from './types';
@@ -106,17 +107,17 @@ const VARIABLE: readonly EnergySource[] = [
 ];
 
 function variableOutput(
-  src: EnergySource, cap: number, season: Season, block: 0 | 1, w: Weather, drought: boolean,
+  src: EnergySource, cap: number, season: Season, block: 0 | 1, w: Weather, drought: boolean, solarK = 1, windK = 1,
 ): number {
   switch (src) {
     case 'solar-farm':
-      return block === 0 ? cap * CF.solarDay[season] * w.cloud : 0;
+      return block === 0 ? cap * CF.solarDay[season] * w.cloud * solarK : 0;
     case 'rooftop-solar':
-      return block === 0 ? cap * CF.solarDay[season] * w.cloud * 0.95 : 0;
+      return block === 0 ? cap * CF.solarDay[season] * w.cloud * 0.95 * solarK : 0;
     case 'wind':
-      return cap * (block === 0 ? CF.windDay[season] : CF.windNight[season]) * w.wind;
+      return cap * (block === 0 ? CF.windDay[season] : CF.windNight[season]) * w.wind * windK;
     case 'offshore-wind':
-      return cap * CF.offshore[season] * (0.5 + 0.5 * w.wind);
+      return cap * CF.offshore[season] * (0.5 + 0.5 * w.wind) * windK;
     case 'hydro':
       return cap * CF.hydro[season] * (drought ? 0.55 : 1) * (0.8 + 0.2 * w.rain);
     case 'tidal':
@@ -148,6 +149,9 @@ export function balanceGrid(state: GameState, seasonIndex = seasonIndexOf(state)
   const w = seasonWeather(state.seed, seasonIndex);
   const drought = hasActive(state, 'drought', seasonIndex);
   const cap = installedCapacity(state);
+  const act2 = getScenario(state.scenarioId).act2;
+  const solarK = act2.solarCf ?? 1;
+  const windK = act2.windCf ?? 1;
 
   const power = (cap.battery ?? 0) + (cap['pumped-hydro'] ?? 0);
   let effNum = 0;
@@ -177,7 +181,7 @@ export function balanceGrid(state: GameState, seasonIndex = seasonIndexOf(state)
     for (const src of VARIABLE) {
       const c = cap[src] ?? 0;
       if (c <= 0) continue;
-      const o = variableOutput(src, c, season, bl, w, drought);
+      const o = variableOutput(src, c, season, bl, w, drought, solarK, windK);
       avail[src] = o;
       V += o;
     }

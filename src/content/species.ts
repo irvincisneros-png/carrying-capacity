@@ -1,4 +1,8 @@
 import type { ScenarioId } from '../sim/types';
+import { NET_ZERO_CITY_SPECIES } from './speciesExtra/net-zero-city';
+import { RED_DIRT_SPECIES } from './speciesExtra/red-dirt';
+import { REEF_ISLAND_SPECIES } from './speciesExtra/reef-island';
+import { RIVER_TOWN_SPECIES } from './speciesExtra/river-town';
 
 /** What a species needs, evaluated every year against the map (see sim/wildlife.ts). */
 export type HabitatSpec =
@@ -8,8 +12,20 @@ export type HabitatSpec =
   | { kind: 'she-oak'; minTiles: number; perTile: number; coastDist: number; hollowPatch: number }
   /** Seagrass to graze, clean water, and a dark, clean beach to nest on each summer. */
   | { kind: 'nesting-beach'; minSeagrass: number; minDarkFrac: number; darkDist: number; maxWater: number; perTile: number }
-  /** Clean river with vegetated banks. */
-  | { kind: 'clean-river'; maxWater: number; minRiparian: number; perTile: number }
+  /** Clean river with vegetated banks. With `minFlow`, a river kept flowing (River Town's environmental flow) replaces "no drought". */
+  | { kind: 'clean-river'; maxWater: number; minRiparian: number; perTile: number; minFlow?: number }
+  /** A healthy river (River Town's river health score), with a fishway at the weir if there is one. */
+  | { kind: 'river-health'; minHealth: number; perPoint: number; needsPassage: boolean }
+  /** Billabongs that have filled with floodwater and stay clean. */
+  | { kind: 'billabong'; minWet: number; maxWater: number; perTile: number }
+  /** Shallow seagrass meadows with clean water. */
+  | { kind: 'seagrass-meadow'; minTiles: number; maxWater: number; perTile: number }
+  /** A living reef: mean coral health above a floor. */
+  | { kind: 'reef-cover'; minHealth: number; perPoint: number }
+  /** Mature mangrove on the estuary tiles. */
+  | { kind: 'mangrove'; minTiles: number; maxWater: number; perTile: number }
+  /** A waterhole with water in it and shrubs around it (Red Dirt). */
+  | { kind: 'waterhole'; minLevel: number; minAquifer: number; minShrub: number; perShrub: number }
   /** Still, clean wetlands. */
   | { kind: 'wetland'; minWetlands: number; maxWater: number; perWetland: number }
   /** A large, healthy woodland roost near water. */
@@ -48,6 +64,8 @@ export interface SpeciesDef {
   families: readonly FamilyDef[];
   /** Population level that counts as thriving (and, for the turtle, a nesting streak). */
   thrive: { pop: number; nestStreak?: number };
+  /** Nesting-season lines for turtles ({eggs}, {hatch} and {n} are filled in). Default: the Coal Coast turtle's. */
+  nest?: { first: string; again: string; streak: string; missed: string };
   text: {
     blurb: string;
     /** Plain-language needs shown in the habitat tooltip. */
@@ -63,14 +81,17 @@ export interface SpeciesDef {
 }
 
 const COAST: readonly ScenarioId[] = ['coal-coast'];
+const COAST_VALLEY: readonly ScenarioId[] = ['coal-coast', 'green-valley'];
+const COAST_RIVER: readonly ScenarioId[] = ['coal-coast', 'river-town'];
+const COAST_CITY: readonly ScenarioId[] = ['coal-coast', 'net-zero-city'];
 
-export const SPECIES: readonly SpeciesDef[] = [
+const BASE_SPECIES: readonly SpeciesDef[] = [
   {
     id: 'koala',
     name: 'Koala',
     scientific: 'Phascolarctos cinereus',
     icon: 'koala',
-    scenarios: COAST,
+    scenarios: COAST_VALLEY,
     habitat: { kind: 'woodland-patch', minPatch: 14, perTile: 0.3, minHealth: 0.7, roadBuffer: true, maxAir: 1.5 },
     startPop: 6,
     founders: 4,
@@ -183,8 +204,8 @@ export const SPECIES: readonly SpeciesDef[] = [
     name: 'Platypus',
     scientific: 'Ornithorhynchus anatinus',
     icon: 'platypus',
-    scenarios: COAST,
-    habitat: { kind: 'clean-river', maxWater: 0.6, minRiparian: 8, perTile: 0.35 },
+    scenarios: COAST_RIVER,
+    habitat: { kind: 'clean-river', maxWater: 0.6, minRiparian: 8, perTile: 0.35, minFlow: 0.65 },
     startPop: 0,
     founders: 2,
     arriveAfter: 5,
@@ -219,7 +240,7 @@ export const SPECIES: readonly SpeciesDef[] = [
     name: 'Green and golden bell frog',
     scientific: 'Litoria aurea',
     icon: 'frog',
-    scenarios: COAST,
+    scenarios: COAST_VALLEY,
     habitat: { kind: 'wetland', minWetlands: 1, maxWater: 0.8, perWetland: 22 },
     startPop: 0,
     founders: 12,
@@ -255,7 +276,7 @@ export const SPECIES: readonly SpeciesDef[] = [
     name: 'Grey-headed flying-fox',
     scientific: 'Pteropus poliocephalus',
     icon: 'flying-fox',
-    scenarios: COAST,
+    scenarios: COAST_CITY,
     habitat: { kind: 'roost', minPatch: 12, waterDist: 5, perTile: 14 },
     startPop: 60,
     founders: 60,
@@ -292,7 +313,7 @@ export const SPECIES: readonly SpeciesDef[] = [
     name: 'Migratory shorebirds',
     scientific: 'Numenius madagascariensis and Limosa lapponica',
     icon: 'shorebird',
-    scenarios: COAST,
+    scenarios: COAST_CITY,
     habitat: { kind: 'mudflat', minTiles: 3, minEstuary: 40, perTile: 12, quietDist: 1 },
     startPop: 20,
     founders: 10,
@@ -325,6 +346,10 @@ export const SPECIES: readonly SpeciesDef[] = [
   },
 ];
 
+export const SPECIES: readonly SpeciesDef[] = [
+  ...BASE_SPECIES, ...RIVER_TOWN_SPECIES, ...REEF_ISLAND_SPECIES, ...RED_DIRT_SPECIES, ...NET_ZERO_CITY_SPECIES,
+];
+
 export const SPECIES_BY_ID: Readonly<Record<string, SpeciesDef>> = Object.fromEntries(SPECIES.map((s) => [s.id, s]));
 
 export function speciesFor(scenario: ScenarioId): SpeciesDef[] {
@@ -334,4 +359,7 @@ export function speciesFor(scenario: ScenarioId): SpeciesDef[] {
 /** Species that must all be thriving for a scenario's wildlife bonus star. */
 export const BONUS_SPECIES: Readonly<Partial<Record<ScenarioId, readonly string[]>>> = {
   'coal-coast': ['koala', 'green-turtle'],
+  'green-valley': ['frogs'],
+  'river-town': ['platypus'],
+  'reef-island': ['reef-turtle'],
 };

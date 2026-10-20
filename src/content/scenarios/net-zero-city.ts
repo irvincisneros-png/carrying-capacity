@@ -1,0 +1,50 @@
+import type { ScenarioDef } from '../../sim/scenarios';
+import { NET_ZERO_CITY_TURNING } from '../turning/net-zero-city';
+
+/** Net Zero City (expert): a big coastal city that starts in 2025 with no time to waste and not much money. */
+export const NET_ZERO_CITY: ScenarioDef = {
+  id: 'net-zero-city',
+  name: 'Net Zero City',
+  difficulty: 'expert',
+  blurb: 'A big coastal city that starts in 2025: net zero by 2050, a tight budget, and heatwaves that hurt the ones who can least afford it.',
+  biome: 'urban',
+  mechanics: ['city', 'heat'],
+  prebuilt: 'city',
+  playMinutes: [80, 120],
+  mapW: 48,
+  mapH: 48,
+  seed: 2025,
+  terrain: { kind: 'city', seaFrac: 0.16, escarpmentFrac: 0.1, bushCover: 0.2, riverRowFrac: 0.25, reefRadius: 0, coastWobble: 0.1 },
+  startYear: 2025,
+  endYear: 2025,
+  startBudget: 120,
+  availability: {
+    seawall: { disabled: true },
+    resort: { disabled: true },
+    reservoir: { disabled: true },
+    dripfarm: { disabled: true },
+    fishway: { disabled: true },
+    coralnursery: { disabled: true },
+  },
+  modifiers: { budgetMult: 0.7, eventSeverity: 1.5, climateSensitivityMult: 1.2, remediationYears: 10, hintLevel: 0 },
+  act2: {
+    startYear: 2025,
+    endYear: 2100,
+    warmingCap: 2.2,
+    meterFailYears: 3,
+    features: { tidal: true },
+    weedPressure: 1,
+    fireProneness: 0.8,
+    rainfall: 1,
+    heat: { deathsPer1000: 0.25 },
+    netZeroKt: 40,
+    circularYear: 2035,
+    turningPoint: NET_ZERO_CITY_TURNING,
+    objectives: [
+      { id: 'netzero', label: 'Net zero by 2050 and holding', metric: 'netZeroYear', op: '<=', target: 2050 },
+      { id: 'society', label: 'Society 60 or more, every year', metric: 'societyMin', op: '>=', target: 60 },
+      { id: 'heat', label: 'Heat deaths kept to 30 or fewer over the whole game', metric: 'heatDeaths', op: '<=', target: 30 },
+      { id: 'budget', label: 'Under budget: spend 900 or less on construction by 2050', metric: 'capitalSpent', op: '<=', target: 900, byYear: 2050, bonus: true },
+    ],
+  },
+};

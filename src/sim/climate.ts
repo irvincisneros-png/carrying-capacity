@@ -63,9 +63,9 @@ export function climateAt(
   return { m, co2, tempC: tempFor(co2, sensitivityMult) };
 }
 
-/** Reef health 0..1: falls with warming (bleaching) and local water pollution. */
-export function reefHealth(tempC: number, reefWaterPollution: number): number {
-  const heat = Math.max(0, tempC) / 1.5; // ~1.5 C of warming: widespread bleaching
+/** Reef health 0..1: falls with warming (bleaching) beyond what the local coral tolerates, and with local water pollution. */
+export function reefHealth(tempC: number, reefWaterPollution: number, tolerance = 0): number {
+  const heat = Math.max(0, tempC - tolerance) / 1.5; // ~1.5 C of warming: widespread bleaching
   const dirt = reefWaterPollution / 3;
   return Math.min(1, Math.max(0, 1 - 0.7 * heat - 0.4 * dirt));
 }

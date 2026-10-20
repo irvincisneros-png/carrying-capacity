@@ -16,6 +16,10 @@ export const TileKind = {
   Rock: 6,
   /** Sea tile with coral reef (counts as sea for placement). */
   Reef: 7,
+  /** Still fresh water: billabong, swamp or outback waterhole. Not buildable. Appended for the inland scenarios. */
+  Wetland: 8,
+  /** Open-cut mine void (Red Dirt). Not buildable until it is reshaped, topsoiled and seeded (see the rehab action). */
+  Pit: 9,
 } as const;
 export type TileKindValue = (typeof TileKind)[keyof typeof TileKind];
 
@@ -28,6 +32,8 @@ export const TILE_KIND_NAMES: Record<TileKindValue, string> = {
   5: 'bush',
   6: 'rock',
   7: 'reef',
+  8: 'wetland',
+  9: 'pit',
 };
 
 export type BuildingId =
@@ -70,7 +76,19 @@ export type BuildingId =
   | 'solarlandfill'
   | 'batteryhub'
   | 'communityhub'
-  | 'recycler';
+  | 'recycler'
+  // Scenario catalogue (River Town, Reef Island, Red Dirt, Net Zero City)
+  | 'reservoir'
+  | 'dripfarm'
+  | 'fishway'
+  | 'seawall'
+  | 'resort'
+  | 'coralnursery'
+  | 'bore'
+  | 'coolingcentre'
+  | 'transitline'
+  | 'greensuburb'
+  | 'parkland';
 
 export type EmissionCategory = 'power' | 'industry' | 'transport' | 'land' | 'waste';
 export const EMISSION_CATEGORIES: readonly EmissionCategory[] = [
@@ -129,6 +147,12 @@ export interface TileGrid {
    * Fixed by the terrain; consulting the community about a cluster is what makes building there respectful.
    */
   significant: Uint8Array;
+  /**
+   * Scenario-defined zone per tile (0 = none). Red Dirt: 1 = mine site awaiting reshaping, 100..249 = seeded in year
+   * 2000 + (value - 100) and being monitored, 250 = signed off by the Traditional Owners. Net Zero City: 1 = CBD,
+   * 2 = suburb, 3 = industry, 4 = port. River Town: 1 = irrigated farmland.
+   */
+  zone: Uint8Array;
 }
 
 /** Edge length (tiles) of the chunks tracked by TileGrid.chunkVersion. */
@@ -191,7 +215,11 @@ export type EventType =
   | 'flood'
   | 'marine-heatwave'
   | 'fish-kill'
-  | 'blackout';
+  | 'blackout'
+  // Scenario events
+  | 'algal-bloom'
+  | 'crown-of-thorns'
+  | 'storm-surge';
 
 /** A thing that happened. Appended to GameState.events (queue) and GameState.eventLog (history). */
 export interface SimEvent {
@@ -410,7 +438,11 @@ export type Action =
   /** Buy a satellite overlay (needs a ground station). */
   | { type: 'subscribe'; overlay: SatelliteOverlay }
   /** Act on a satellite early warning (cut runoff before the marine heatwave arrives). */
-  | { type: 'mitigate' };
+  | { type: 'mitigate' }
+  /** Set a scenario policy lever (water allocation, reef culling, water restrictions). See ScenarioDef.policies. */
+  | { type: 'policy'; id: string; value: number }
+  /** Red Dirt: take the next rehabilitation step on the connected mine-site patch containing this tile. */
+  | { type: 'rehab'; x: number; y: number };
 
 export type ActionFailCode =
   | 'game-over'

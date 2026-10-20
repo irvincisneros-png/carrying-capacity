@@ -10,6 +10,8 @@ import { burn, comanage, consult, countryStep, countryYear, initCountry, notePla
 import { circularYear, dispose, emptyCircular, initCircular, onDemolished, onReplaced, research } from './circular';
 import { emptySatellites, mitigate, subscribe } from './satellites';
 import { meanMood } from './conditions';
+import { mechBegin, mechPlaced, mechSeason, mechYear } from './mechanics';
+import { applyPolicy, policyCostPerYear, rehabStep } from './scenarioActions';
 import type { Action, ActionResult, GameState, PlacedBuilding, ScenarioId, SimEvent } from './types';
 
 /** The fresh layer state for a new game. */
@@ -72,6 +74,7 @@ export function beginAct2(s: GameState): void {
   s.residents.applied = 0;
   initCircular(s);
   initWildlife(s);
+  mechBegin(s);
   countryYear(s);
   feedSociety(s);
   checkBeats(s);
@@ -81,6 +84,7 @@ export function beginAct2(s: GameState): void {
 export function layersSeason(s: GameState, emitted: readonly SimEvent[], seasonIndex: number): void {
   reactToEvents(s, emitted);
   for (const e of emitted) if (e.type === 'heatwave') noteHeat(s, e.severity);
+  mechSeason(s, emitted, seasonIndex);
   countryStep(s, seasonIndex);
   if (s.a2.season === 0) wildlifeSummer(s);
   stepMoods(s, 0.1);
@@ -89,6 +93,9 @@ export function layersSeason(s: GameState, emitted: readonly SimEvent[], seasonI
 
 /** Year end, after the calendar and climate have moved on and before the meters are recorded. */
 export function layersYearEnd(s: GameState): void {
+  mechYear(s);
+  const policyCost = policyCostPerYear(s);
+  if (policyCost > 0) s.budget = Math.max(0, s.budget - policyCost);
   countryYear(s);
   wildlifeYear(s);
   circularYear(s);
@@ -107,6 +114,7 @@ export function layersYearEnd(s: GameState): void {
 /** After a successful 'place': counts the action, applies Country consequences, notes replaced legacy sites. */
 export function onPlaced(s: GameState, b: PlacedBuilding, replaced: PlacedBuilding | undefined): void {
   noteAction(s, `built.${b.type}`);
+  mechPlaced(s, b);
   notePlacement(s, b);
   if (replaced) onReplaced(s, replaced, b.type);
 }
@@ -130,5 +138,7 @@ export function applyLayerAction(
     case 'research': return research(state, action.id);
     case 'subscribe': return subscribe(state, action.overlay);
     case 'mitigate': return mitigate(state);
+    case 'policy': return applyPolicy(state, action.id, action.value);
+    case 'rehab': return rehabStep(state, action.x, action.y);
   }
 }

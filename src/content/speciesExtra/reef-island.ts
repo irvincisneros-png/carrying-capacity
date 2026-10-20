@@ -1,0 +1,155 @@
+/** Reef Island wildlife: nesting green turtles (the bonus), dugongs, reef fish and mangrove kingfishers. */
+import type { SpeciesDef } from '../species';
+
+export const REEF_ISLAND_SPECIES: readonly SpeciesDef[] = [
+  {
+    id: 'reef-turtle',
+    name: 'Green turtle',
+    scientific: 'Chelonia mydas',
+    icon: 'turtle',
+    scenarios: ['reef-island'],
+    habitat: { kind: 'nesting-beach', minSeagrass: 14, minDarkFrac: 0.35, darkDist: 3, maxWater: 0.6, perTile: 0.12 },
+    startPop: 2,
+    founders: 2,
+    arriveAfter: 3,
+    growth: 0.08,
+    decline: 0.2,
+    families: [
+      {
+        id: 'big-tilly', name: 'Big Tilly', minPop: 1,
+        arrive: 'Big Tilly is back in the lagoon, grazing the seagrass. The kids named her years ago, and she is the size of a kitchen table.',
+        lost: 'Nobody has seen Big Tilly this year. The seagrass is untouched.',
+      },
+      {
+        id: 'tilly-youngsters', name: "Tilly's youngsters", minPop: 5,
+        arrive: "Young turtles from Tilly's nests are feeding in the lagoon, still small enough to hold in two hands.",
+        lost: "Tilly's youngsters have left the lagoon.",
+      },
+    ],
+    thrive: { pop: 4, nestStreak: 6 },
+    nest: {
+      first: 'Big Tilly came ashore in the dark and laid {eggs} eggs in the warm sand above the tide line. Rangers marked the nest and the whole island held its breath.',
+      again: 'Big Tilly nested again this summer: {eggs} eggs on the dark end of the beach. That is {n} summers in a row.',
+      streak: 'Big Tilly has nested {n} summers in a row, every single season: {eggs} eggs, with about {hatch} hatchlings expected to scramble to the sea.',
+      missed: 'Big Tilly did not come ashore this summer. {why}',
+    },
+    text: {
+      blurb: 'Grazes the seagrass, and nests on dark, clean beaches every summer.',
+      needs: ['Healthy seagrass in the lagoon', 'Clean water', 'A beach that is dark at night, with no seawall or lights behind it'],
+      arrive: 'A green turtle has arrived in the lagoon and is grazing the seagrass: {n} arrived.',
+      lost: 'The last green turtle has left the lagoon. Without seagrass to eat, it cannot stay.',
+      thrive: 'Big Tilly has nested six summers in a row, and young turtles are feeding in the lagoon.',
+      help: 'Green turtles need healthy seagrass, clean water, and a beach that is dark at night. Keep lights and seawalls away from the sand.',
+    },
+    evidence:
+      'Female green turtles come back to nest on the beach where they hatched, and they nest every two to eight years, several times in a season. Hatchlings find the sea by heading for the brightest horizon, so lights behind a beach lead them the wrong way, and a hard seawall stops females reaching the dry sand. Sand temperature sets the sex of the hatchlings: warmer sand makes more females. On the northern Great Barrier Reef, studies have found that the great majority of young green turtles are now female, which is a warning about heat. Turtles also have deep cultural meaning for many Torres Strait Islander and Aboriginal communities.',
+  },
+  {
+    id: 'dugong',
+    name: 'Dugong',
+    scientific: 'Dugong dugon',
+    icon: 'dugong',
+    scenarios: ['reef-island'],
+    habitat: { kind: 'seagrass-meadow', minTiles: 24, maxWater: 0.5, perTile: 0.2 },
+    startPop: 3,
+    founders: 3,
+    arriveAfter: 4,
+    growth: 0.06,
+    decline: 0.15,
+    families: [
+      {
+        id: 'seagrass-herd', name: 'The lagoon herd', minPop: 3,
+        arrive: 'The lagoon herd is back: three dugongs grazing the seagrass at dusk, leaving long trails in the meadow.',
+        lost: 'The lagoon herd has gone. The seagrass trails have grown over.',
+      },
+      {
+        id: 'calf-pair', name: 'The mother and calf', minPop: 6,
+        arrive: 'A dugong mother and her calf have been seen in the lagoon. Calves stay with their mothers for a year or more.',
+        lost: 'The mother and calf have not been seen this season.',
+      },
+    ],
+    thrive: { pop: 12 },
+    text: {
+      blurb: 'Shy sea mammals that graze seagrass meadows. They breed very slowly.',
+      needs: ['A large, healthy seagrass meadow', 'Clear water with little runoff'],
+      arrive: 'Dugongs have found the seagrass again: {n} arrived.',
+      lost: 'The last dugong has left the lagoon. Without seagrass, there is nothing to eat.',
+      thrive: 'About {n} dugongs graze the seagrass meadows. Boats slow down when they see the telltale ripples.',
+      help: 'Dugongs need a big, healthy seagrass meadow and clear water. Cut the runoff and sewage reaching the lagoon.',
+    },
+    evidence:
+      'Dugongs eat seagrass, almost nothing else, so they follow the meadows. Their numbers grow slowly because a female may have only one calf every three to seven years, and a dugong can live for about seventy years. After floods and cyclones smothered seagrass in parts of Queensland, many dugongs starved. The Torres Strait holds one of the largest dugong populations in the world, and Torres Strait Islander communities manage hunting together with scientists and rangers.',
+  },
+  {
+    id: 'reef-fish',
+    name: 'Coral trout and reef fish',
+    scientific: 'Plectropomus leopardus',
+    icon: 'fish',
+    scenarios: ['reef-island'],
+    habitat: { kind: 'reef-cover', minHealth: 0.22, perPoint: 2.4 },
+    startPop: 60,
+    founders: 40,
+    arriveAfter: 2,
+    growth: 0.12,
+    decline: 0.2,
+    families: [
+      {
+        id: 'bommie-trout', name: 'The bommie trout', minPop: 40,
+        arrive: 'Coral trout are back on the bommie, flashing red-spotted in the clear water.',
+        lost: 'The coral trout have left the bommie.',
+      },
+      {
+        id: 'lagoon-shoals', name: 'The lagoon shoals', minPop: 90,
+        arrive: 'Shoals of reef fish fill the lagoon again, parrotfish, damselfish and wrasse in every colour.',
+        lost: 'The lagoon shoals have thinned to almost nothing.',
+      },
+    ],
+    thrive: { pop: 100 },
+    text: {
+      blurb: 'The fish that live in and around the coral. They follow the health of the reef.',
+      needs: ['Living coral with healthy cover', 'Clean water'],
+      arrive: 'Reef fish are back on the coral: about {n} arrived.',
+      lost: 'The reef fish have gone from the reef.',
+      thrive: 'About {n} reef fish shelter in the coral, enough that divers see trout on every dive.',
+      help: 'Reef fish need living coral. Cut the heat, control crown-of-thorns starfish and keep runoff out of the water.',
+    },
+    evidence:
+      'Many reef fish depend on live coral for food and shelter, and when bleaching kills coral, the fish that live in it decline, sometimes within a year. Parrotfish and other grazers keep seaweed from smothering young coral, so a reef with plenty of fish recovers faster. Well-managed no-take zones can have much larger and older fish than fished areas.',
+  },
+  {
+    id: 'mangrove-kingfisher',
+    name: 'Collared kingfisher',
+    scientific: 'Todiramphus chloris',
+    icon: 'kingfisher',
+    scenarios: ['reef-island'],
+    habitat: { kind: 'mangrove', minTiles: 6, maxWater: 0.7, perTile: 0.8 },
+    startPop: 4,
+    founders: 4,
+    arriveAfter: 3,
+    growth: 0.12,
+    decline: 0.2,
+    families: [
+      {
+        id: 'inlet-pair', name: 'The inlet pair', minPop: 2,
+        arrive: 'A pair of kingfishers is back in the inlet, perched on a mangrove root and watching the mud for crabs.',
+        lost: 'The inlet kingfishers have gone.',
+      },
+      {
+        id: 'mangrove-colony', name: 'The mangrove colony', minPop: 6,
+        arrive: 'A third and fourth pair have joined: the mangrove colony is calling across the whole inlet at dawn.',
+        lost: 'The mangrove colony has thinned out and gone quiet.',
+      },
+    ],
+    thrive: { pop: 8 },
+    text: {
+      blurb: 'A blue-green bird that nests in mangrove hollows and hunts crabs and fish in the mud.',
+      needs: ['Mature mangroves', 'Clean water around them'],
+      arrive: 'Kingfishers have come back to the mangroves: {n} arrived.',
+      lost: 'The last kingfisher has left the mangroves.',
+      thrive: 'About {n} kingfishers nest in the mangroves, rattling out their calls across the inlet.',
+      help: 'Kingfishers need mature mangroves with clean water. Keep sewage and runoff out of the inlet.',
+    },
+    evidence:
+      'Mangroves are nurseries for fish and prawns, stabilise the shore with their roots, and store a lot of carbon in their mud. They are also a natural buffer: a belt of mangroves can reduce the height of storm waves before they reach the land. Clearing mangroves for resorts and marinas has removed them from many tropical coasts.',
+  },
+];

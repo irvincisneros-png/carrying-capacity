@@ -242,12 +242,30 @@ export function stepSuccession(state: GameState, ctx: RestoreCtx, seasonIndex: n
   }
 }
 
+/** Coral nurseries lift the health coral can reach on reef tiles within 4 tiles (up to two nurseries' worth). */
+function nurseryBoost(state: GameState, per: number): Float32Array {
+  const g = state.grid;
+  const out = new Float32Array(g.kind.length);
+  for (const b of state.buildings) {
+    if (b.type !== 'coralnursery') continue;
+    for (let y = Math.max(0, b.y - 4); y <= Math.min(g.h - 1, b.y + b.h + 3); y++) {
+      for (let x = Math.max(0, b.x - 4); x <= Math.min(g.w - 1, b.x + b.w + 3); x++) {
+        const i = y * g.w + x;
+        out[i] = Math.min(per * 2, (out[i] ?? 0) + per);
+      }
+    }
+  }
+  return out;
+}
+
 /** Reef: coral health relaxes towards what temperature and local water quality allow; losses are quicker than recovery. */
 export function stepReef(state: GameState): void {
   const g = state.grid;
+  const reef = getScenario(state.scenarioId).act2.reef;
+  const boost = reef ? nurseryBoost(state, reef.nurseryBoost) : null;
   for (let i = 0; i < g.kind.length; i++) {
     if (g.kind[i] !== TileKind.Reef) continue;
-    const target = reefHealth(state.tempC, g.waterPollution[i] ?? 0);
+    const target = Math.min(1, reefHealth(state.tempC, g.waterPollution[i] ?? 0, reef?.tolerance ?? 0) + (boost ? (boost[i] ?? 0) : 0));
     const h = g.health[i] ?? 0;
     const nh = h > target ? h - Math.min(h - target, 0.015) : h + Math.min(target - h, 0.02);
     g.health[i] = nh;

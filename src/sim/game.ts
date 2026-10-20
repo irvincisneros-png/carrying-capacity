@@ -1,8 +1,12 @@
 import { getFactForDecade } from '../content/facts';
 import { BUILDINGS, footprintFor, isBuildingId } from './buildings';
 import { climateAt, referenceCumulative } from './climate';
-import { computeDemand, computeMeters, decadeIncome, economySnapshot, growPopulation } from './economy';
-import { enterTurningPoint } from './act2';
+import {
+  ACT2_INCOME_MULT, BASE_GRANT, computeDemand, computeMeters, decadeIncome, economySnapshot, growPopulation, INCOME_PER_JOB,
+} from './economy';
+import { enterTurningPoint, startAct2 } from './act2';
+import { buildCity } from './prebuilt';
+import { mechIncome } from './mechanics';
 import { applyLayerAction, emptyLayers, layersDecadeMoods, layersDecadeStory, onDemolishedBuilding, onPlaced } from './layers';
 import { updatePollution } from './pollution';
 import { bumpRect } from './restoration';
@@ -75,7 +79,24 @@ export function createGame(scenarioId: GameState['scenarioId'], seed?: number): 
   const meters = computeMeters(base);
   base.meters = meters;
   base.history.push(record(base, emptyEmissions(), 0));
+  if (sc.prebuilt) return startPrebuilt(base);
   return base;
+}
+
+/** Scenarios with a finished starting town (Net Zero City): place it and begin straight in Act 2, with the crisis card ready. */
+function startPrebuilt(base: GameState): GameState {
+  const sc = getScenario(base.scenarioId);
+  buildCity(base);
+  let bush = 0;
+  for (let i = 0; i < base.grid.kind.length; i++) if (base.grid.kind[i] === TileKind.Bush) bush++;
+  base.initialBushTiles = bush;
+  base.population = Math.round(economySnapshot(base, 0).housing * 0.92);
+  const snap = economySnapshot(base);
+  base.lastIncome = Math.round(((snap.filledJobs * INCOME_PER_JOB + BASE_GRANT) * sc.modifiers.budgetMult / 10) * ACT2_INCOME_MULT);
+  base.meters = computeMeters(base);
+  base.history[0] = record(base, emptyEmissions(), 0);
+  enterTurningPoint(base);
+  return startAct2(base);
 }
 
 function record(s: GameState, emissions: EmissionsBySource, total: number): HistoryRecord {
@@ -219,7 +240,7 @@ export function advanceDecade(state: GameState): { state: GameState; report: Dec
   // 3. Economy: population then income.
   next.population = growPopulation(state.population, economySnapshot(state).housing);
   const snap = economySnapshot(next);
-  next.lastIncome = decadeIncome(snap, sc.modifiers.budgetMult);
+  next.lastIncome = decadeIncome(snap, sc.modifiers.budgetMult) + Math.round(mechIncome(next) * DECADE_YEARS);
   next.budget += next.lastIncome;
 
   // 4. Climate for the new year.

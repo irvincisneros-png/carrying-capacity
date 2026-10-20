@@ -84,3 +84,33 @@ export const COUNTRY = {
     { id: 'beach', english: 'the main beach', original: L('[original name to be supplied by the community]') },
   ],
 } as const;
+
+export interface CountryLines {
+  comanage: CountryLine; comanageSmall: CountryLine; burnTooSoon: CountryLine; burnNeedsCoMgmt: CountryLine; burnWrongSeason: CountryLine;
+  burnLocked: CountryLine; burnDone: (tiles: number) => CountryLine; burnQuote: CountryLine; unlockDualNames: CountryLine;
+  unlockBurning: CountryLine; unlockFishing: CountryLine; trustGrows: CountryLine; seasonalTeaching: CountryLine;
+}
+
+/** The shape of the Country content (numbers shared by every scenario, text that can be replaced per scenario). */
+export interface CountryContent {
+  baseline: number;
+  thresholds: { dualNames: number; culturalBurning: number; fishing: number };
+  costs: { consult: number; comanage: number; burn: number };
+  gains: { consult: number; consultProtect: number; comanageFirst: number; comanageLater: number; burn: number; yearly: number };
+  penalty: { act1: number; act2: number; repeat: number; ignoredAdvice: number };
+  mosaicShare: number;
+  sites: Record<number, SiteContent>;
+  lines: CountryLines;
+  places: readonly { id: string; english: string; original: CountryLine }[];
+}
+
+/** Per-scenario replacements for the places, lines and significant sites. Every line stays flagged needsConsultation. */
+export interface CountryOverride {
+  sites?: Record<number, SiteContent>;
+  places?: readonly { id: string; english: string; original: CountryLine }[];
+  lines?: Partial<CountryLines>;
+  /** What the Country page calls the community (placeholder until the real community is consulted). */
+  communityName?: CountryLine;
+}
+
+export { L as countryLine };

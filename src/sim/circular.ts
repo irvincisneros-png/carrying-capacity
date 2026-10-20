@@ -9,6 +9,7 @@ import { RESEARCH_BY_ID } from '../content/research';
 import { BUILDINGS } from './buildings';
 import { estuaryHealth } from './metrics';
 import { availability } from './rules';
+import { getScenario } from './scenarios';
 import { bumpRect, stageFromHealth } from './restoration';
 import { cloneState } from './state';
 import { emitStory } from './story';
@@ -16,7 +17,7 @@ import { TileKind } from './types';
 import type { CircularItem, CircularState } from './layerTypes';
 import type { Action, ActionFailCode, ActionResult, BuildingId, GameState, PlacedBuilding } from './types';
 import { renewablePct } from './conditions';
-import { noteAction } from './residents';
+import { noteAction, scienceVoiceOf } from './residents';
 
 export const CIRCULAR_UNLOCK_YEAR = 2050;
 export const RECYCLE_REFUND = 0.5;
@@ -351,10 +352,15 @@ export function isCleanTier(s: GameState): boolean {
   return renewablePct(s) >= 80 && estuaryHealth(s) >= 60;
 }
 
+function voiceMeta(s: GameState): { speakerId?: string; speaker?: string; portrait?: string } {
+  const v = scienceVoiceOf(s.scenarioId);
+  return v ? { speakerId: v.id, speaker: v.name, portrait: v.portrait } : {};
+}
+
 /** Year end: opens the tier when 2050 arrives or the Clean objectives are met. */
 export function circularYear(s: GameState): void {
   if (!s.circular.unlocked) {
-    const reason = s.year >= CIRCULAR_UNLOCK_YEAR ? 'year' : isCleanTier(s) ? 'clean' : null;
+    const reason = s.year >= (getScenario(s.scenarioId).act2.circularYear ?? CIRCULAR_UNLOCK_YEAR) ? 'year' : isCleanTier(s) ? 'clean' : null;
     if (reason) {
       s.circular.unlocked = true;
       s.circular.unlockedYear = s.year;
@@ -364,7 +370,7 @@ export function circularYear(s: GameState): void {
       emitStory(s, reason === 'clean'
         ? `The town runs on clean power and the estuary is recovering. Now comes the next step: what to do with the old industrial sites. ${waiting} are waiting. Repurpose is best, recycling is next, landfill is last.`
         : `It is ${s.year}. The old industrial sites can no longer be ignored: ${waiting} are waiting. The waste hierarchy says repurpose first, then recycle, and landfill only as a last resort.`,
-      { channel: 'circular', ref: 'tier.unlocked', tone: 'neutral', speakerId: 'priya-shah', speaker: 'Priya Shah', portrait: 'priya-shah' }, 0.5);
+      { channel: 'circular', ref: 'tier.unlocked', tone: 'neutral', ...voiceMeta(s) }, 0.5);
     }
   }
   publishCircularMetric(s);

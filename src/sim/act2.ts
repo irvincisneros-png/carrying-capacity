@@ -4,6 +4,7 @@ import { ACT2_INCOME_MULT, ACT2_POP_GROWTH, computeMeters, economySnapshot, INCO
 import { balanceGrid } from './energy';
 import { emit, makeCtx, rollEvents } from './events';
 import { estuaryHealth, meanHealth, meanReefHealth } from './metrics';
+import { mechEmissionFactor, mechIncome } from './mechanics';
 import { objectiveStatus } from './objectives';
 import { applyRemediation, applyWetlands, REMEDIATION_IDLE, updatePollutionSeason } from './pollution';
 import { realTemp } from './realData';
@@ -139,7 +140,7 @@ export function processSeason(s: GameState, rctx: RestoreCtx, quiet: boolean, di
     const def = BUILDINGS[b.type];
     if (def.category === 'power' || def.co2 <= 0) continue;
     if (def.remediation?.method === 'excavate' && !a2.activeRemediation.includes(b.uid)) continue;
-    a2.yearEm[def.category] += def.co2 / 40;
+    a2.yearEm[def.category] += (def.co2 / 40) * mechEmissionFactor(s, b);
   }
 
   if (!quiet) emitted.push(...rollEvents(makeCtx(s, idx, gr.report, rctx), 'post'));
@@ -181,7 +182,7 @@ function yearEnd(s: GameState, quiet: boolean): void {
   const snap = economySnapshot(s);
   const income = ((snap.filledJobs * INCOME_PER_JOB + BASE_GRANT) * sc.modifiers.budgetMult / 10) * ACT2_INCOME_MULT * (1 - 0.8 * unmet);
   const incomeAdj = typeof s.flags['income.adj'] === 'number' ? s.flags['income.adj'] : 0;
-  s.lastIncome = Math.round(income + incomeAdj);
+  s.lastIncome = Math.round(income + incomeAdj + mechIncome(s));
   s.budget += s.lastIncome;
 
   // Climate: emissions -> CO2 -> equilibrium temperature; actual temperature lags (committed warming).

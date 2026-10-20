@@ -18,6 +18,14 @@ export const EVENT_TEXT = {
     `Bushfire: ${hot ? 'a hot, fast fire' : 'a lower-intensity fire'} burned ${tiles} tiles of bush${homes > 0 ? ` and threatened ${homes} home${homes > 1 ? 's' : ''}` : ''}. ${hot ? 'Hot fires leave bare ground - regrowth starts again from nothing.' : 'The bush will recover faster from a cooler burn.'}`,
   fishKill: (tiles: number): string =>
     `Fish kill: warm, polluted water ran short of oxygen and thousands of fish died in the estuary (${tiles} tiles affected). The fishers have lost their catch.`,
+  algalBloom: (sev: number): string =>
+    `Blue-green algae bloom: warm, slow, nutrient-rich water turned the river green${sev > 1 ? ' from bank to bank' : ''}. Some blooms release toxins, so swimming and stock watering are banned and the town's water treatment is working overtime. Fish are dying where the oxygen has run out.`,
+  crownOfThorns: (pctLost: number): string =>
+    `Crown-of-thorns outbreak: starfish that eat coral have multiplied on the reef, helped by nutrient-rich runoff from the land. About ${pctLost}% of the coral health has gone, and more will follow unless divers cull the starfish.`,
+  stormSurge: (heightM: number, damage: number, homesLost: number, saved: number): string =>
+    `Storm surge: a cyclone pushed the sea about ${heightM.toFixed(1)} m above the usual high-tide line. Repairs cost ${damage}.` +
+    (homesLost > 0 ? ` ${homesLost} low-lying home${homesLost > 1 ? 's were' : ' was'} flooded beyond repair.` : ' No homes were lost.') +
+    (saved > 0 ? ` Seawalls and mangroves kept ${saved} home${saved > 1 ? 's' : ''} dry.` : ''),
   blackout: (seasonName: string, unmetPct: number): string =>
     `Blackout: in ${seasonName} the grid fell ${unmetPct}% short of demand. Homes and factories went dark during the peak.`,
 } as const;
@@ -30,6 +38,9 @@ export const EVENT_NAMES: Readonly<Record<EventType, string>> = {
   'marine-heatwave': 'Marine heatwave',
   'fish-kill': 'Fish kill',
   blackout: 'Blackout',
+  'algal-bloom': 'Blue-green algae bloom',
+  'crown-of-thorns': 'Crown-of-thorns outbreak',
+  'storm-surge': 'Storm surge',
 };
 
 /** Names for succession stages by tile family. Index = stage 0..3. */

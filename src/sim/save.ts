@@ -36,6 +36,7 @@ interface SerialGrid {
   weed: number[];
   chunkVersion: number[];
   significant: number[];
+  zone?: number[];
 }
 type SerialState = Omit<GameState, 'grid'> & { grid: SerialGrid };
 
@@ -55,6 +56,7 @@ export function serialize(state: GameState): string {
     weed: Array.from(g.weed),
     chunkVersion: Array.from(g.chunkVersion),
     significant: Array.from(g.significant),
+    zone: Array.from(g.zone),
   };
   const out: SerialState = { ...state, grid };
   return JSON.stringify(out);
@@ -137,7 +139,8 @@ export function deserialize(text: string | null): GameState | null {
       if (!finArr(g.health, n) || !finArr(g.stage, n) || !finArr(g.weed, n) || !finArr(g.chunkVersion, nChunks)) return null;
     }
     if (ver === SAVE_VERSION && !finArr(g.significant, n)) return null;
-    if (g.kind.some((k) => !Number.isInteger(k) || k < 0 || k > 7)) return null;
+    if (g.zone !== undefined && !finArr(g.zone, n)) return null;
+    if (g.kind.some((k) => !Number.isInteger(k) || k < 0 || k > 9)) return null;
     if (!fin(raw.seed) || !fin(raw.year) || !fin(raw.budget) || !fin(raw.population) || !fin(raw.lastIncome)) return null;
     if (!fin(raw.nextUid) || !fin(raw.pendingLandKt) || !fin(raw.cumulativeKt) || !fin(raw.co2) || !fin(raw.tempC)) return null;
     if (!fin(raw.multiplier) || !fin(raw.initialBushTiles) || !fin(raw.version)) return null;
@@ -192,6 +195,7 @@ export function deserialize(text: string | null): GameState | null {
       weed: ver >= 2 ? Uint8Array.from(g.weed as number[]) : new Uint8Array(n),
       chunkVersion: ver >= 2 ? Uint32Array.from(g.chunkVersion as number[]) : new Uint32Array(nChunks),
       significant: ver === SAVE_VERSION ? Uint8Array.from(g.significant as number[]) : new Uint8Array(n),
+      zone: g.zone !== undefined ? Uint8Array.from(g.zone as number[]) : new Uint8Array(n),
     };
     if (ver !== SAVE_VERSION) markSignificant(grid);
 

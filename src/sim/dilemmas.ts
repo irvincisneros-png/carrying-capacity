@@ -8,7 +8,7 @@ import { condMet, renderText, storyVars } from './conditions';
 import type { Cond } from './conditions';
 import { applyEffects, effectImpact } from './effects';
 import type { Effects } from './effects';
-import { noteAction } from './residents';
+import { noteAction, scienceVoiceOf } from './residents';
 import { hash32 } from './season';
 import { getScenario } from './scenarios';
 import { cloneState } from './state';
@@ -166,7 +166,8 @@ export function choose(state: GameState, dilemmaId: string, optionId: string): {
   applyEffects(s, o.effects);
   if (o.evidenceBacked) {
     s.dilemmas.adjust += EVIDENCE_REWARD.society;
-    const priya = s.residents.list['priya-shah'];
+    const voice = scienceVoiceOf(s.scenarioId);
+    const priya = voice ? s.residents.list[voice.id] : undefined;
     if (priya) priya.mood = Math.min(100, priya.mood + EVIDENCE_REWARD.mood);
   }
   s.dilemmas.decisions.push({

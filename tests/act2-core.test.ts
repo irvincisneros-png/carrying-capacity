@@ -233,7 +233,7 @@ describe('event system', () => {
     for (let i = 0; i < 30; i++) s.grid.stage[i] = 3, s.grid.health[i] = 0.9;
     s.tempC = 3;
     const out = tick(s, 50).state;
-    expect(out.eventLog).toHaveLength(0);
+    expect(out.eventLog.filter((e) => e.type !== 'story')).toHaveLength(0);
   });
 });
 

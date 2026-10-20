@@ -12,7 +12,8 @@ describe('scenario definitions', () => {
       expect(sc.id).toBe(id);
       expect(sc.name.length).toBeGreaterThan(2);
       expect(sc.mapW).toBeGreaterThanOrEqual(16);
-      expect(sc.endYear).toBeGreaterThan(sc.startYear);
+      expect(sc.endYear).toBeGreaterThanOrEqual(sc.startYear);
+      if (!sc.prebuilt) expect(sc.endYear).toBeGreaterThan(sc.startYear);
       expect((sc.endYear - sc.startYear) % 10).toBe(0);
       expect(sc.startBudget).toBeGreaterThan(0);
       expect(sc.terrain.bushCover).toBeGreaterThan(0);
@@ -21,16 +22,19 @@ describe('scenario definitions', () => {
       }
     }
   });
-  it('coal-coast is the full 32x32 default; green-valley is the 16x16 tutorial; others are flagged TODO', () => {
+  it('coal-coast is the full 32x32 default; green-valley is the 16x16 tutorial; every scenario is finished', () => {
     const c = getScenario('coal-coast');
     expect([c.mapW, c.mapH, c.startYear, c.endYear, c.startBudget, c.difficulty]).toEqual([32, 32, 1850, 2020, 100, 'easy']);
-    expect(c.todo).toBeUndefined();
     const g = getScenario('green-valley');
     expect([g.mapW, g.mapH, g.difficulty]).toEqual([16, 16, 'tutorial']);
-    for (const id of ['green-valley', 'river-town', 'reef-island', 'red-dirt', 'net-zero-city'] as const) {
-      expect(SCENARIOS[id].todo).toBeTruthy();
+    for (const id of SCENARIO_IDS) {
+      expect(SCENARIOS[id].todo, id).toBeUndefined();
+      expect(SCENARIOS[id].act2.todo, id).toBeUndefined();
     }
     expect(getScenario('net-zero-city').startYear).toBe(2025);
+    expect(getScenario('net-zero-city').prebuilt).toBe('city');
+    expect([getScenario('net-zero-city').mapW, getScenario('net-zero-city').mapH]).toEqual([48, 48]);
+    expect(SCENARIO_IDS.map((id) => SCENARIOS[id].difficulty)).toEqual(['easy', 'tutorial', 'medium', 'hard', 'hard', 'expert']);
   });
   it('isScenarioId guards', () => {
     expect(isScenarioId('coal-coast')).toBe(true);
@@ -41,6 +45,13 @@ describe('scenario definitions', () => {
       let s = createGame(id);
       const sc = getScenario(id);
       expect(s.year).toBe(sc.startYear);
+      if (sc.prebuilt) {
+        // Net Zero City starts in Act 2 with a finished city.
+        expect(s.phase).toBe('act2');
+        expect(s.buildings.length).toBeGreaterThan(200);
+        expect(s.turningPoint?.title).toBe(sc.act2.turningPoint.title);
+        continue;
+      }
       expect(s.budget).toBe(Math.round(sc.startBudget * sc.modifiers.budgetMult));
       let guard = 0;
       while (s.status === 'playing' && guard++ < 40) s = advanceDecade(s).state;

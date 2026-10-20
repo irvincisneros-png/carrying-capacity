@@ -1,3 +1,4 @@
+import { mechMetric } from './mechanics';
 import { estuaryHealth, meanReefHealth } from './metrics';
 import { getScenario } from './scenarios';
 import type { GameState, ObjectiveResult } from './types';
@@ -10,7 +11,23 @@ export type MetricId =
   | 'environment'
   | 'reefHealth'
   | 'act1Repurposed'
-  | 'wildlifeThriving';
+  | 'wildlifeThriving'
+  // Scenario mechanics (see sim/mechanics): River Town, Reef Island, Red Dirt, Net Zero City
+  | 'riverHealth'
+  | 'farmViability'
+  | 'townWaterFailures'
+  | 'tourism'
+  | 'homesLost'
+  | 'rehabPct'
+  | 'aquifer'
+  | 'waterFailures'
+  | 'heatDeaths'
+  | 'netZeroYear'
+  | 'societyMin'
+  | 'capitalSpent'
+  | 'renewableShare'
+  | 'canopyPct'
+  | 'speciesBack';
 
 /** Data-driven objective. Scenarios list these; objectiveStatus() judges them. */
 export interface ObjectiveDef {
@@ -38,7 +55,11 @@ export function metricValue(state: GameState, metric: MetricId): number | null {
     case 'economy': return state.meters.economy;
     case 'environment': return state.meters.environment;
     case 'reefHealth': return Math.round(meanReefHealth(state) * 1000) / 10;
+    case 'speciesBack': return Object.values(state.wildlife.species).filter((x) => x.pop > 0 && x.startPop === 0).length;
+    case 'renewableShare': return Math.round((state.a2.lastGrid?.renewableShare ?? 0) * 1000) / 10;
     default: {
+      const own = mechMetric(state, metric);
+      if (own !== null) return own;
       const v = state.flags[`metric.${metric}`];
       return typeof v === 'number' ? v : null;
     }

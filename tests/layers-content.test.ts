@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   BUILDINGS, CAST, COUNTRY, DILEMMAS, isKnownMetric, LEGACY_TYPES, RESEARCH, RESEARCH_BY_ID, renderText, REPURPOSE, SPECIES,
-  SPECIES_BY_ID, storyVars, wordCount,
+  SPECIES_BY_ID, speciesFor, storyVars, wordCount,
 } from '../src/sim';
 import type { Cond, MetricTest } from '../src/sim';
 import { SPECIES as SPECIES_DATA } from '../src/content/species';
@@ -185,7 +185,7 @@ describe('dilemma cards (content integrity)', () => {
 
 describe('species, research and repurposing (content integrity)', () => {
   it('has the seven Coal Coast species with habitat specs, named families and an evidence blurb', () => {
-    expect(SPECIES.map((s) => s.id)).toEqual(['koala', 'black-cockatoo', 'green-turtle', 'platypus', 'frogs', 'flying-fox', 'shorebirds']);
+    expect(speciesFor('coal-coast').map((s) => s.id)).toEqual(['koala', 'black-cockatoo', 'green-turtle', 'platypus', 'frogs', 'flying-fox', 'shorebirds']);
     for (const s of SPECIES_DATA) {
       expect(s.families.length).toBeGreaterThanOrEqual(2);
       for (let i = 1; i < s.families.length; i++) expect(s.families[i]?.minPop).toBeGreaterThan(s.families[i - 1]?.minPop ?? 0);

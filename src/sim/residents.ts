@@ -66,7 +66,7 @@ export interface EndingDef {
 
 export interface HomeHint {
   /** Where on the map this person lives, for the speech bubble and portrait pin. */
-  near: 'estuary' | 'beach' | 'river' | 'escarpment' | 'bush' | 'town' | 'farmland';
+  near: 'estuary' | 'beach' | 'river' | 'escarpment' | 'bush' | 'town' | 'farmland' | 'wetland' | 'mine';
   description: string;
 }
 
@@ -89,12 +89,26 @@ export interface ResidentDef {
   beats: readonly StoryBeat[];
   endings: readonly EndingDef[];
   needsConsultation?: boolean;
+  /** The local Aboriginal / Torres Strait Islander Elder: Caring for Country speaks through this person. */
+  elder?: boolean;
+  /** The science voice: explains the player's graphs and approves evidence-backed choices. */
+  science?: boolean;
 }
 
 const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v));
 
 export function castFor(scenario: ScenarioId): readonly ResidentDef[] {
   return CAST[scenario] ?? [];
+}
+
+/** The scenario's Elder (Caring for Country), if it has one. */
+export function elderOf(scenario: ScenarioId): ResidentDef | undefined {
+  return castFor(scenario).find((r) => r.elder === true);
+}
+
+/** The scenario's science voice. */
+export function scienceVoiceOf(scenario: ScenarioId): ResidentDef | undefined {
+  return castFor(scenario).find((r) => r.science === true);
 }
 
 export function residentDef(scenario: ScenarioId, id: string): ResidentDef | undefined {
@@ -281,6 +295,8 @@ export function residentHome(s: GameState, def: ResidentDef): { x: number; y: nu
       case 'river': return k === TileKind.River;
       case 'escarpment': return k === TileKind.Rock;
       case 'bush': return k === TileKind.Bush;
+      case 'wetland': return k === TileKind.Wetland;
+      case 'mine': return k === TileKind.Pit;
       case 'farmland':
       case 'town': return k === TileKind.Land;
     }

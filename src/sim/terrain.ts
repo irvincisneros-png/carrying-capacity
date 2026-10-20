@@ -1,60 +1,32 @@
 import { makeNoise2D, mulberry32 } from './rng';
 import type { ScenarioDef } from './scenarios';
-import { CHUNK_SIZE, TileKind } from './types';
+import { TileKind } from './types';
 import type { TileGrid } from './types';
+import { createGrid } from './grid';
+import { generateCity } from './gen/city';
+import { generateIsland } from './gen/island';
+import { generateOutback } from './gen/outback';
+import { generateRiver } from './gen/river';
+import { generateValley } from './gen/valley';
 
-export function createGrid(w: number, h: number): TileGrid {
-  const n = w * h;
-  return {
-    w,
-    h,
-    kind: new Uint8Array(n),
-    elevation: new Uint8Array(n),
-    building: new Uint16Array(n),
-    airPollution: new Float32Array(n),
-    waterPollution: new Float32Array(n),
-    soilContamination: new Float32Array(n),
-    health: new Float32Array(n),
-    stage: new Uint8Array(n),
-    weed: new Uint8Array(n),
-    chunkVersion: new Uint32Array(chunkCount(w, h)),
-    significant: new Uint8Array(n),
-  };
-}
-
-/** Number of chunks wide / tall / total for a map. */
-export const chunksWide = (w: number): number => Math.ceil(w / CHUNK_SIZE);
-export const chunkCount = (w: number, h: number): number => chunksWide(w) * Math.ceil(h / CHUNK_SIZE);
-export const chunkOf = (g: { w: number }, x: number, y: number): number =>
-  Math.floor(y / CHUNK_SIZE) * chunksWide(g.w) + Math.floor(x / CHUNK_SIZE);
-
-export function cloneGrid(g: TileGrid): TileGrid {
-  return {
-    w: g.w,
-    h: g.h,
-    kind: g.kind.slice(),
-    elevation: g.elevation.slice(),
-    building: g.building.slice(),
-    airPollution: g.airPollution.slice(),
-    waterPollution: g.waterPollution.slice(),
-    soilContamination: g.soilContamination.slice(),
-    health: g.health.slice(),
-    stage: g.stage.slice(),
-    weed: g.weed.slice(),
-    chunkVersion: g.chunkVersion.slice(),
-    significant: g.significant.slice(),
-  };
-}
-
-export const idx = (g: { w: number }, x: number, y: number): number => y * g.w + x;
-export const inBounds = (g: { w: number; h: number }, x: number, y: number): boolean =>
-  x >= 0 && y >= 0 && x < g.w && y < g.h;
+export { createGrid, chunksWide, chunkCount, chunkOf, cloneGrid, idx, inBounds } from './grid';
 
 /**
- * Seeded terrain generation. Deterministic for (scenario params, seed).
- * TODO: valley / river / island / outback / city kinds currently reuse the coast generator.
+ * Seeded terrain generation. Deterministic for (scenario params, seed). The terrain kind picks the generator:
+ * coast (Coal Coast), valley (Green Valley), river (River Town), island (Reef Island), outback (Red Dirt), city (Net Zero City).
  */
 export function generateTerrain(scenario: ScenarioDef, seed: number): TileGrid {
+  switch (scenario.terrain.kind) {
+    case 'valley': return generateValley(scenario, seed);
+    case 'river': return generateRiver(scenario, seed);
+    case 'island': return generateIsland(scenario, seed);
+    case 'outback': return generateOutback(scenario, seed);
+    case 'city': return generateCity(scenario, seed);
+    default: return generateCoast(scenario, seed);
+  }
+}
+
+function generateCoast(scenario: ScenarioDef, seed: number): TileGrid {
   const { mapW: w, mapH: h, terrain: p } = scenario;
   const rng = mulberry32(seed);
   const nCoast = makeNoise2D(rng);

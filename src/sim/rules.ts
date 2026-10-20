@@ -19,6 +19,9 @@ export interface Availability {
   unlock: number;
   cost: number;
   disabled: boolean;
+  /** Scenario wording for the build menu (falls back to the building's own name and blurb). */
+  name: string;
+  blurb: string;
 }
 
 /** Building availability for a scenario (applies overrides). */
@@ -29,6 +32,8 @@ export function availability(scenarioId: GameState['scenarioId'], id: BuildingId
     unlock: o?.unlock ?? def.unlock,
     cost: o?.cost ?? def.cost,
     disabled: o?.disabled ?? false,
+    name: o?.name ?? def.name,
+    blurb: o?.blurb ?? def.blurb,
   };
 }
 
