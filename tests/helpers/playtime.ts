@@ -11,7 +11,9 @@
  *   - each sitting of placing buildings (one type in one year) is about 15 seconds, and each extra building in it 3 more;
  *   - every other action (a lever, a consultation, a repurposing, a rehab step) is about 15 seconds;
  *   - every dilemma card or story question answered is about 55 seconds (reading, the evidence button, deciding);
- *   - every story event read in Town Voices is about 5 seconds.
+ *   - every story event read in Town Voices is about 5 seconds;
+ *   - a map bigger than the original 1024 tiles takes longer to read and to pan round before each round of placing: half a minute
+ *     per Act 2 decade for every extra 1024 tiles (the enlarged maps are 1.6x to 1.9x the old area, so about 2 to 3 minutes).
  */
 import { getScenario, objectiveStatus } from '../../src/sim';
 import type { GameState } from '../../src/sim';
@@ -70,8 +72,9 @@ export function estimatePlayTime(s: GameState): PlayTime {
   const decisions = s.dilemmas.decisions.filter((d) => d.optionId !== 'ignored').length + Object.values(s.residents.choices).filter((c) => c !== 'ignored').length;
   const stories = s.eventLog.filter((e) => e.type === 'story' && e.story?.channel !== 'research').length;
   const years = sc.act2.endYear - sc.act2.startYear;
+  const extraMap = Math.max(0, s.grid.w * s.grid.h / 1024 - 1) * (years / 10) * 0.5;
   const act1 = decades * 1.6 + (decades > 0 ? 3 : 0);
   const act2 = years * (7.5 / 60) + (sittings * 15) / 60 + ((placed.length - sittings) * 3) / 60 + (otherActions * 15) / 60
-    + (decisions * 55) / 60 + (stories * 5) / 60 + 3 + 5;
+    + (decisions * 55) / 60 + (stories * 5) / 60 + extraMap + 3 + 5;
   return { act1, act2, decisions, placements: placed.length, sittings, otherActions, minutes: act1 + act2 };
 }

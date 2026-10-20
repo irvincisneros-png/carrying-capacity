@@ -9,7 +9,7 @@ export const GREEN_VALLEY: ScenarioDef = {
   blurb: 'A small valley to learn the ropes: build a town, switch it to clean power, heal the land and welcome an animal home.',
   biome: 'valley',
   mechanics: ['tutorial'],
-  playMinutes: [20, 30],
+  playMinutes: [25, 35],
   mapW: 20,
   mapH: 20,
   pollutionRefTiles: 256,

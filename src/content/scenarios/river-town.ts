@@ -9,7 +9,7 @@ export const RIVER_TOWN: ScenarioDef = {
   blurb: 'A Murray-Darling inland town: share the river between the taps, the farms and the fish, through droughts, salt and algae.',
   biome: 'inland-river',
   mechanics: ['river'],
-  playMinutes: [75, 110],
+  playMinutes: [80, 110],
   mapW: 40,
   mapH: 40,
   pollutionRefTiles: 1024,

@@ -9,7 +9,7 @@ export const RED_DIRT: ScenarioDef = {
   blurb: 'An outback mining town: go solar, make the water last, and restore the mine site under an agreed plan developed with its Traditional Owners.',
   biome: 'arid',
   mechanics: ['outback', 'heat'],
-  playMinutes: [75, 110],
+  playMinutes: [80, 110],
   mapW: 40,
   mapH: 40,
   pollutionRefTiles: 1024,

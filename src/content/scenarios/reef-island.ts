@@ -9,7 +9,7 @@ export const REEF_ISLAND: ScenarioDef = {
   blurb: 'A tropical island beside a reef: keep the coral alive, the homes dry and the tourists coming as the sea rises and warms.',
   biome: 'tropical',
   mechanics: ['reef'],
-  playMinutes: [70, 105],
+  playMinutes: [75, 105],
   mapW: 44,
   mapH: 44,
   pollutionRefTiles: 1024,

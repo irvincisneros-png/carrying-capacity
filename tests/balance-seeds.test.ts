@@ -9,13 +9,14 @@ import { EVENT_SEEDS } from './helpers/seeds';
 /**
  * Multi-seed balance bands for the scenarios with an Act 1. Each scripted player runs on the real map with four
  * different weather / event seeds, so a goal that only passes on one lucky sequence of floods, heatwaves and
- * outbreaks shows up here. Recorded results (2026-10, round-2 balance):
- *   Coal Coast  thoughtful 4/4 three stars, estuary (10-year mean) 82-96; idle 0/4.
+ * outbreaks shows up here. Recorded results (2026-10, after the maps were enlarged to 40x40 / 40x40 / 44x44):
+ *   Coal Coast  thoughtful 4/4 three stars, estuary (10-year mean) 91-96; idle 0/4.
  *   River Town  thoughtful (switches the drought plan on at the first drought warning) 4/4 wins, river (10-year
- *               mean) 63-93, farms 61-75; the same player ignoring the warning loses seed 47 (river 56, farms 39);
+ *               mean) 62-95, farms 61-73; the same player ignoring the warning loses seed 47 (farms 48);
  *               idle 0/4.
- *   Reef Island thoughtful 4/4 wins, coral (5-year mean) 51-67; the same plan without the local reef work
- *               (no starfish control, nurseries, wetlands, satellites or turtle lighting) 39-52, 1/4 wins; idle 0/4.
+ *   Reef Island thoughtful 4/4 wins, coral (5-year mean) 52-67 (seed 11 is the tight one); the same plan without the
+ *               local reef work (no starfish control, nurseries, wetlands, satellites or turtle lighting) loses on
+ *               most seeds; idle 0/4.
  */
 type Run = { act1: GameState; end: GameState };
 const won = (s: GameState): boolean => buildReportCard(s).goalMet;

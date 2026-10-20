@@ -75,6 +75,19 @@ then `docs/GAMEPLAY.md` (the design) and `docs/reviews/qa-playthrough.md` (three
    `tests/scenario-play.test.ts` and, if it has an Act 1, to `tests/balance-seeds.test.ts`. The thoughtful run must
    win on every seed, the idle run must not.
 
+## Map sizes (enlarged 2026-10-21)
+
+Green Valley 20x20 (was 16), Coal Coast, River Town and Red Dirt 40x40 (were 32), Reef Island 44x44 (was 32, island about
+2.2x the land with hills, an inland valley and real inland bush), Net Zero City 48x48 (unchanged). All terrain
+generators size their features from the map (`s = min(w, h) / original`), so a scenario can be resized by changing
+`mapW` / `mapH`. Things that were tied to the map area: `pollutionRefTiles` on the scenario (the Environment meter and
+River Town's river-pollution mean are normalised to the original area so a bigger map does not dilute the same town's
+pollution), the Red Dirt pit (about 89 tiles), the Reef Island reef (about 320 tiles) and its Act 2 cap / transition
+fund, and the scripted players' restoration counts (`tests/helpers/mapscale.ts`). The scripted towns are limited by
+money, not space, so Act 1 and the energy build-out are unchanged; the extra land is extra restoration, habitat and
+room to spread. Saves are version 4 and keep the size they were made with (3 and older still load). Tile counts for the
+renderer: 400 (valley), 1600 (coal, river, red), 1936 (reef), 2304 (city, still the largest).
+
 ## Known issues
 
 - **Content consultation** (above) is still outstanding now that the game is public.

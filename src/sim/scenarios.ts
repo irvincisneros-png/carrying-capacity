@@ -235,7 +235,7 @@ export const SCENARIOS: Readonly<Record<ScenarioId, ScenarioDef>> = {
     name: 'Coal Coast',
     difficulty: 'easy',
     blurb: 'Grow an Illawarra-style coastal town from 1850 to the present day.',
-    playMinutes: [70, 100],
+    playMinutes: [100, 125],
     mapW: 40,
     mapH: 40,
     pollutionRefTiles: 32 * 32,
