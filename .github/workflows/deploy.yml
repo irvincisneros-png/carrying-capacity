@@ -1,8 +1,8 @@
 name: Deploy to GitHub Pages
 
 on:
-  # push: (disabled until the owner approves going public)
-  #   branches: [main]
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
