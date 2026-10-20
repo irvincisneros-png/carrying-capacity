@@ -15,6 +15,7 @@ import { Clock, EnergyPanel, ObjectivesPanel, hazIcon } from './act2';
 import { clear, degC, fmt1, h, svg } from './dom';
 import { showDilemma, SpeciesPanel, Voices } from './empathy';
 import { beatChoice, dilemmaCard, reportCard, speciesList, storyLine } from './adapters';
+import { hideDraft, installDraftBanner, NEUTRAL_COMMUNITY } from './draft';
 import { CountryPanel, ResearchPanel, SatellitePanel, showDisposal, siteName } from './layers';
 import { PolicyPanel, Readouts, TutorialOverlay } from './scenario';
 import { loadProgressSafe } from './screens';
@@ -83,6 +84,7 @@ export class App {
 
   constructor(root: HTMLElement) {
     this.renderer = new GameRenderer(root);
+    installDraftBanner();
     // backdrop world for the title screen: the saved game if any, else Coal Coast
     let initial: GameState;
     const sum = GameController.savedSummary();
@@ -366,6 +368,7 @@ export class App {
   }
 
   private log(e: SimEvent): void {
+    if (e.type === 'story' && hideDraft() && (e as unknown as { story?: { needsConsultation?: boolean } }).story?.needsConsultation) return;
     const item = h('div', { class: 'log-item' }, svg(hazIcon(e.type)), h('div', null, h('small', null, `${e.year} · ${['summer', 'autumn', 'winter', 'spring'][e.season] ?? ''}`), degC(e.text)));
     this.logList.prepend(item);
     while (this.logList.children.length > 150) this.logList.lastElementChild?.remove();
@@ -661,7 +664,7 @@ export class App {
       const k = s.grid.kind[hv.ty * s.grid.w + hv.tx];
       const ok = (k === TileKind.Bush || k === TileKind.Land) && !buildingAt(s, hv.tx, hv.ty);
       this.renderer.showCursor('inspect', hv.tx, hv.ty, 0, ok, { x: hv.tx, y: hv.ty, w: 1, h: 1 });
-      this.tip.show(px, py, t === 'comanage' ? '<b>Co-manage this bush</b> · $15k<br>Shared care with the Traditional Owners' : '<b>Cool burn</b> · $12k<br>Co-managed bush, autumn or winter', ok ? 'ok' : 'bad');
+      this.tip.show(px, py, t === 'comanage' ? (hideDraft() ? `<b>Co-manage this bush</b> · $15k<br>${NEUTRAL_COMMUNITY}` : '<b>Co-manage this bush</b> · $15k<br>Shared care with the Traditional Owners') : (hideDraft() ? `<b>Planned burn</b> · $12k<br>${NEUTRAL_COMMUNITY}` : '<b>Cool burn</b> · $12k<br>Co-managed bush, autumn or winter'), ok ? 'ok' : 'bad');
       return;
     }
     if (t === 'clear') {
@@ -808,8 +811,9 @@ export class App {
     const site = g.significant?.[i] ?? 0;
     if (site > 0 && SIM.countryActive(s)) {
       const asked = s.country.consulted.includes(site);
-      rows.push(h('div', { class: 'fact', style: 'margin-top:8px' }, h('p', null, h('b', null, siteName(site)), h('br'),
-        asked ? 'You have talked with the community about this place.' : `${SIM.elderOf(s.scenarioId)?.name ?? 'The local Elder'} has asked to be consulted before anything is built here.`)));
+      const pub = hideDraft();
+      rows.push(h('div', { class: 'fact', style: 'margin-top:8px' }, h('p', null, h('b', null, pub ? 'A place to ask the community about' : siteName(site)), h('br'),
+        asked ? 'You have talked with the community about this place.' : pub ? `${NEUTRAL_COMMUNITY}. Consult before anything is built here.` : `${SIM.elderOf(s.scenarioId)?.name ?? 'The local Elder'} has asked to be consulted before anything is built here.`)));
       if (!asked) rows.push(h('button', { class: 'btn small green', style: 'margin-top:6px', onclick: () => {
         const r = this.game.dispatch({ type: 'consult', x: tx, y: ty });
         if (r.ok) { sfx('good'); this.renderer.sparkle(tx, ty, 1, 1, true); this.inspectEl.classList.add('hidden'); }

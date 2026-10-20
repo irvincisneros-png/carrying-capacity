@@ -315,7 +315,7 @@ const HOW_TO: Partial<Record<string, string>> = {
   homesLost: 'Watch "Homes at risk" (top right): inspect homes by the shore and rebuild them on raised ground before a big cyclone. Mangroves soften surges.',
   tourism: 'Visitors come for a healthy reef and beaches. Resorts earn more when the reef is well.',
   netZeroYear: 'Emissions must fall to the net-zero line and stay there: clean power first, then close or clean up the biggest emitters (mines, factories, cars). The Graphs (G) show where emissions come from.',
-  rehabPct: 'Close the mine, then use Rehab mine on the pit: reshape, topsoil, then seed with the Traditional Owners. Seeded ground grows from a native plant nursery right beside it (its crews also pull weeds); each patch is signed off after 5 years of good growth.',
+  rehabPct: 'Close the mine, then use Rehab mine on the pit: reshape, topsoil, then seed the pit. Seeded ground grows from a native plant nursery right beside it (its crews also pull weeds); each patch is signed off after 5 years of good growth.',
   aquifer: 'Open-cut mines drink the most groundwater: close them as early as you can. Water restrictions (Town policies) trim town use, and a town water storage catches the wet.',
   waterFailures: 'Keep the town supplied in dry years: bores, storage and water policies.',
   heatDeaths: 'Cooling centres, street trees, retrofitted homes and a reliable grid protect people in heatwaves.',

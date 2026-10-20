@@ -3,6 +3,8 @@
 // break the client: anything missing simply falls back to the generic text in the SimEvent.
 import * as SIM from '../sim';
 import { TileKind, type GameState, type SimEvent } from '../sim/types';
+import { presentReportCard } from '../sim/presentation';
+import { hideDraft, isHiddenCharacter, NEUTRAL_COMMUNITY, scrubNames } from './draft';
 import type { DilemmaCard, DilemmaImpact, ReportCard, Speaker, SpeciesStatus, StoryLine } from './types';
 
 type AnyFn = (...a: unknown[]) => unknown;
@@ -57,7 +59,7 @@ export function homeTile(s: GameState, id: string | undefined): { x: number; y: 
   return { x: i % g.w, y: Math.floor(i / g.w) };
 }
 
-interface Meta { channel?: string; speakerId?: string; speaker?: string; ref?: string; tone?: string; choice?: { prompt?: string; options?: { id: string; label: string }[] } }
+interface Meta { needsConsultation?: boolean; channel?: string; speakerId?: string; speaker?: string; ref?: string; tone?: string; choice?: { prompt?: string; options?: { id: string; label: string }[] } }
 const metaOf = (e: SimEvent): Meta | null => {
   const m = (e as unknown as { story?: unknown }).story;
   return isObj(m) ? (m as Meta) : null;
@@ -69,6 +71,8 @@ export function storyLine(s: GameState, e: SimEvent): StoryLine | null {
   if (e.type !== 'story') return null;
   const m = metaOf(e);
   if (m?.channel === 'dilemma' && m.choice) return null;
+  // Draft Aboriginal / Torres Strait Islander content (Elder beats, Country lines) is not shown on the public build.
+  if (m?.needsConsultation && hideDraft()) return null;
   const sp = speaker(s, m?.speakerId, m?.speaker);
   const at = e.at ?? homeTile(s, m?.speakerId);
   return { id: e.id, speaker: m?.speakerId ? sp : { id: m?.channel ?? 'town', name: channelName(m?.channel) }, text: e.text, mood: TONE_MOOD[m?.tone ?? ''] ?? 'ok', at, year: e.year };
@@ -90,6 +94,9 @@ function channelName(c: string | undefined): string {
 export function beatChoice(s: GameState, e: SimEvent): DilemmaCard | null {
   const m = metaOf(e);
   if (!m || m.channel === 'dilemma' || !m.choice?.options?.length || !m.ref) return null;
+  if (m.needsConsultation && hideDraft()) {
+    return { id: m.ref, title: 'Working with the local community', text: NEUTRAL_COMMUNITY, options: m.choice.options.map((o) => ({ id: o.id, label: scrubNames(o.label), impacts: [] })) };
+  }
   return {
     id: m.ref,
     title: m.choice.prompt ?? 'What do you do?',
@@ -148,8 +155,9 @@ export function dilemmaCard(s: GameState, e: SimEvent): DilemmaCard | null {
     }
     return id ? id.charAt(0).toUpperCase() + id.slice(1) : String(t.type ?? '');
   };
+  const gate = !!m.needsConsultation && hideDraft();
   const opts: Record<string, unknown>[] = def && Array.isArray(def.options) ? (def.options as Record<string, unknown>[]) : (m.choice?.options ?? []).map((o) => ({ ...o }));
-  return {
+  const card: DilemmaCard = {
     id: m.ref,
     // The offer carries the text as told this time (a card that comes round again says so).
     title: String(m.choice?.prompt ?? def?.title ?? 'A decision for the town'),
@@ -164,6 +172,21 @@ export function dilemmaCard(s: GameState, e: SimEvent): DilemmaCard | null {
       ) };
     }),
   };
+  return hideDraft() ? gateCard(card, gate) : card;
+}
+
+const CULTURAL_WORDS = /country|elder|aunty|uncle|traditional|cultural|aboriginal|torres|custodian|community/i;
+
+/** Public build: no named Elder, no draft text. Flagged cards keep their options (the game still works) under neutral wording. */
+function gateCard(card: DilemmaCard, flagged: boolean): DilemmaCard {
+  const options = card.options.map((o) => ({
+    ...o,
+    label: scrubNames(o.label),
+    impacts: o.impacts.filter((i) => scrubNames(i.who) === i.who).map((i) => ({ ...i, note: i.note ? scrubNames(i.note) : i.note })),
+  }));
+  const speaker = card.speaker && isHiddenCharacter(card.speaker.name) ? undefined : card.speaker;
+  if (!flagged) return { ...card, speaker, options };
+  return { ...card, title: CULTURAL_WORDS.test(card.title) ? 'Working with the local community' : card.title, text: NEUTRAL_COMMUNITY, speaker: undefined, evidence: undefined, options };
 }
 
 export function speciesList(s: GameState): SpeciesStatus[] {
@@ -188,7 +211,7 @@ export function speciesList(s: GameState): SpeciesStatus[] {
 
 export function reportCard(s: GameState): ReportCard | undefined {
   try {
-    const rc = fn('buildReportCard')?.(s);
+    const rc = presentReportCard(s, hideDraft()) as unknown;
     if (!isObj(rc)) return undefined;
     const objs = Array.isArray(rc.objectives) ? (rc.objectives as Record<string, unknown>[]) : [];
     const items = objs.map((o) => ({

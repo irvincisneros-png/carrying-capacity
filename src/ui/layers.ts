@@ -6,12 +6,12 @@ import {
   disposalChoice, legacyPercent, type DisposalPlan, type GameState, type SatelliteOverlay,
 } from '../sim';
 import { BUILDINGS } from '../sim/buildings';
+import { draftBadge, hideDraft, NEUTRAL_COMMUNITY } from './draft';
 import { clear, h, svg } from './dom';
 import { bIcon, UI_ICONS } from './icons';
 import { openModal } from './modal';
 import { sfx } from '../audio/sfx';
 
-const DRAFT = h('span', { class: 'badge tutorial', title: 'Placeholder text: to be reviewed with the local Aboriginal community before release' }, 'draft');
 
 function drawer(title: string, icon: string): { el: HTMLElement; body: HTMLElement } {
   const body = h('div');
@@ -47,28 +47,29 @@ export class CountryPanel {
     const th = COUNTRY.thresholds;
     const unlock = (label: string, at: number, on: boolean): HTMLElement =>
       h('div', { class: 'obj' }, svg(on ? UI_ICONS.check : UI_ICONS.lock), h('div', { style: 'flex:1' }, h('div', { class: 'lab' }, label), h('div', { class: 'val' }, on ? 'Offered by the community' : `Grows with trust (${at}+)`)));
+    const pub = hideDraft();
     this.body.append(
-      h('p', { style: 'font-size:13px' }, 'Partnership with the local Aboriginal community grows through respect: asking before building on places that matter, and sharing care of the bush. It can never be bought. ', DRAFT.cloneNode(true)),
+      h('p', { style: 'font-size:13px' }, pub ? `${NEUTRAL_COMMUNITY}. Asking before building on places that matter, and sharing care of the bush, builds the partnership. It can never be bought.` : ['Partnership with the local Aboriginal community grows through respect: asking before building on places that matter, and sharing care of the bush. It can never be bought. ', draftBadge()]),
       h('div', { class: 'graph-title' }, 'Partnership', h('span', null, `${Math.round(c.partnership)}/100`)),
       h('div', { class: 'meter-bar' }, h('i', { style: `width:${c.partnership}%;background:linear-gradient(90deg,#c9a26a,#8a5a3a)` })),
-      unlock('Dual place names on town signs', th.dualNames, c.unlocked.dualNames),
-      unlock('Cultural (cool) burning on co-managed bush', th.culturalBurning, c.unlocked.culturalBurning),
-      unlock('Seasonal fishing protocols', th.fishing, c.unlocked.fishing),
+      ...(pub ? [] : [unlock('Dual place names on town signs', th.dualNames, c.unlocked.dualNames)]),
+      unlock(pub ? 'Planned burns on co-managed bush' : 'Cultural (cool) burning on co-managed bush', th.culturalBurning, c.unlocked.culturalBurning),
+      ...(pub ? [] : [unlock('Seasonal fishing protocols', th.fishing, c.unlocked.fishing)]),
       h('div', { class: 'stat-grid' },
         h('div', { class: 'stat' }, h('small', null, 'Places consulted'), h('b', null, String(c.consulted.length))),
         h('div', { class: 'stat' }, h('small', null, 'Bush co-managed'), h('b', null, `${c.comanaged.length} tiles`)),
-        h('div', { class: 'stat' }, h('small', null, 'Cool burns'), h('b', null, String(c.burns.length)))),
+        h('div', { class: 'stat' }, h('small', null, pub ? 'Planned burns' : 'Cool burns'), h('b', null, String(c.burns.length)))),
       h('div', { class: 'modal-actions', style: 'justify-content:flex-start' },
         h('button', { class: 'btn small green', disabled: s.phase !== 'act2', onclick: () => { this.el.classList.remove('open'); this.onTool('comanage'); } }, svg(UI_ICONS.sprout), 'Co-manage bush'),
-        h('button', { class: 'btn small', disabled: !c.unlocked.culturalBurning || s.phase !== 'act2', title: 'Autumn or winter only', onclick: () => { this.el.classList.remove('open'); this.onTool('burn'); } }, svg(UI_ICONS.fire), 'Cool burn')),
-      h('p', { class: 'muted', style: 'font-size:12px' }, 'Ochre stone rings on the map mark places the community has asked to be consulted about. Inspect one to talk with them first.'),
+        h('button', { class: 'btn small', disabled: !c.unlocked.culturalBurning || s.phase !== 'act2', title: 'Autumn or winter only', onclick: () => { this.el.classList.remove('open'); this.onTool('burn'); } }, svg(UI_ICONS.fire), pub ? 'Planned burn' : 'Cool burn')),
+      h('p', { class: 'muted', style: 'font-size:12px' }, pub ? 'Stone rings on the map mark places to consult the community about. Inspect one to talk with them first.' : 'Ochre stone rings on the map mark places the community has asked to be consulted about. Inspect one to talk with them first.'),
     );
-    const names = dualNames(s);
+    const names = pub ? [] : dualNames(s);
     if (names.length) {
       this.body.appendChild(h('h3', { style: 'margin-top:10px;font-size:15px' }, 'Place names'));
       for (const n of names) this.body.appendChild(h('div', { class: 'kv' }, h('span', null, n.english), h('b', null, n.original)));
     }
-    if (c.log.length) {
+    if (c.log.length && !pub) {
       this.body.appendChild(h('h3', { style: 'margin-top:10px;font-size:15px' }, 'What has happened'));
       for (const l of c.log.slice(-10).reverse()) this.body.appendChild(h('div', { class: 'log-item' }, h('div', null, h('small', null, `${l.year} · ${l.delta > 0 ? '+' : ''}${l.delta}`), l.text)));
     }

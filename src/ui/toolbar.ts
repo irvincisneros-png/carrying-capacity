@@ -5,6 +5,7 @@ import { availability } from '../sim/rules';
 import { getScenario } from '../sim/scenarios';
 import { cutPerBuild } from '../sim/outlook';
 import type { BuildingId, GameState } from '../sim/types';
+import { hideDraft, NEUTRAL_COMMUNITY } from './draft';
 import { clear, h, svg } from './dom';
 import { bIcon, UI_ICONS } from './icons';
 import type { Tip } from './modal';
@@ -111,10 +112,10 @@ export class Toolbar {
       };
       util('inspect', 'Inspect', UI_ICONS.info, 'Click a tile to see what is there. Shortcut: <kbd>I</kbd>');
       util('demolish', 'Demolish', UI_ICONS.demolish, 'Knock a building down (refunds 25%). Shortcut: <kbd>X</kbd>');
-      if (s.phase === 'act2' && (getScenario(s.scenarioId).mechanics ?? []).includes('outback')) util('rehab', 'Rehab mine', UI_ICONS.sprout, 'Rehabilitate the old mine pit in three steps: reshape, topsoil, seed with the Traditional Owners.');
+      if (s.phase === 'act2' && (getScenario(s.scenarioId).mechanics ?? []).includes('outback')) util('rehab', 'Rehab mine', UI_ICONS.sprout, 'Rehabilitate the old mine pit in three steps: reshape, topsoil, seed the pit' + (hideDraft() ? ' (with the local community).' : ' with the Traditional Owners.'));
       if (s.phase === 'act2' && s.circular?.unlocked) util('dispose', 'Old sites', UI_ICONS.demolish, 'Choose a future for an old Act 1 building: repurpose, recycle or landfill. Shortcut: <kbd>O</kbd>');
-      if (s.phase === 'act2' && this.countryOn?.(s)) util('comanage', 'Co-manage', UI_ICONS.sprout, 'Return a patch of bushland to shared care with the Traditional Owners.');
-      if (s.phase === 'act2' && s.country?.unlocked.culturalBurning) util('burn', 'Cool burn', UI_ICONS.fire, 'A small, cool mosaic burn on co-managed bush (autumn or winter). Cuts wildfire risk and helps regrowth.');
+      if (s.phase === 'act2' && this.countryOn?.(s)) util('comanage', 'Co-manage', UI_ICONS.sprout, hideDraft() ? NEUTRAL_COMMUNITY + '.' : 'Return a patch of bushland to shared care with the Traditional Owners.');
+      if (s.phase === 'act2' && s.country?.unlocked.culturalBurning) util('burn', hideDraft() ? 'Planned burn' : 'Cool burn', UI_ICONS.fire, hideDraft() ? NEUTRAL_COMMUNITY + '.' : 'A small, cool mosaic burn on co-managed bush (autumn or winter). Cuts wildfire risk and helps regrowth.');
       if (s.phase === 'act1') util('clear', 'Clear bush', UI_ICONS.axe, 'Clear bushland for building ($1 per tile, releases CO₂). Placing a building on bush clears it automatically.');
     }
     // per-frame-cheap refresh of costs / locks
