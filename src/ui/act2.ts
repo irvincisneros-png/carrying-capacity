@@ -251,6 +251,8 @@ const HOW_TO: Partial<Record<string, string>> = {
   aquifer: 'Open-cut mines drink the most groundwater: close them as early as you can. Water restrictions (Town policies) trim town use, and a town water storage catches the wet.',
   waterFailures: 'Keep the town supplied in dry years: bores, storage and water policies.',
   heatDeaths: 'Cooling centres, street trees, retrofitted homes and a reliable grid protect people in heatwaves.',
+  'net-zero-city:netZeroYear': 'Clean power first (rooftop solar, batteries, then offshore wind from 2040), then the rest: retrofit every brick suburb, turn the factories into recycling plants (Old sites) and move people onto transit. The Graphs (G) show which sector is left.',
+  'red-dirt:netZeroYear': 'Clean power first (the sun is strong here: solar farms and batteries), then close the open-cut mines and retire the coal plant. The Graphs (G) show which sector is left.',
   societyMin: 'Keep Society up every single year: avoid blackouts, protect people in heatwaves, keep jobs.',
   capitalSpent: 'Choose cheaper fixes first (retrofits, rooftop solar, parks) and avoid building twice.',
 };
@@ -297,7 +299,7 @@ export function objectiveRow(o: ObjectiveResult, s?: GameState): HTMLElement {
       detail = `${detail} · falling ${Math.round(-d)} a year${o.current > o.target ? `, below ${o.target} in about ${Math.round(yrs)} years` : ''}`;
     }
   }
-  const how = s && (o.status === 'at-risk' || o.status === 'missed' || atRiskHomes > 0 || sliding) && s.phase === 'act2' ? HOW_TO[o.metric] : undefined;
+  const how = s && (o.status === 'at-risk' || o.status === 'missed' || atRiskHomes > 0 || sliding) && s.phase === 'act2' ? HOW_TO[`${s.scenarioId}:${o.metric}`] ?? HOW_TO[o.metric] : undefined;
   return h('div', { class: `obj ${o.status} ${o.bonus ? 'bonus' : ''}` }, svg(icon),
     h('div', { style: 'flex:1;min-width:0' }, h('div', { class: 'lab' }, degC(o.label)), h('div', { class: 'val' }, `${label} · ${detail}`), h('div', { class: 'bar' }, h('i', { style: `width:${pct * 100}%` })), how ? h('div', { class: 'how' }, degC(how)) : null));
 }
