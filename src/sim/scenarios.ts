@@ -1,4 +1,5 @@
-import type { BuildingId, ScenarioId } from './types';
+import type { ObjectiveDef } from './objectives';
+import type { BuildingId, EventType, ScenarioId } from './types';
 
 export type Difficulty = 'tutorial' | 'easy' | 'medium' | 'hard' | 'expert';
 export type TerrainKind = 'coast' | 'valley' | 'river' | 'island' | 'outback' | 'city';
@@ -38,6 +39,36 @@ export interface ScenarioModifiers {
   hintLevel: number;
 }
 
+/** Pure data describing the crisis that opens Act 2 (rendered by the UI, spoken by the scientist). */
+export interface TurningPointDef {
+  crisis: EventType;
+  title: string;
+  text: string;
+  scientistNote: string;
+  residentId: string;
+}
+
+/** Everything the Act 2 simulation needs to know about a scenario. */
+export interface Act2Def {
+  /** Calendar year Act 2 hands control to the player (years between Act 1's end and this are fast-forwarded). */
+  startYear: number;
+  endYear: number;
+  /** Warming (C above pre-industrial) beyond which the town fails. */
+  warmingCap: number;
+  /** Consecutive years a meter may sit at 0 before the town fails. */
+  meterFailYears: number;
+  features: { tidal: boolean };
+  /** 0 none .. 2 heavy: how fast weeds invade untended bare / pioneer edges. */
+  weedPressure: number;
+  /** Multiplier on bushfire ignition chance. */
+  fireProneness: number;
+  /** Multiplier on seasonal rainfall (< 1 drier). */
+  rainfall: number;
+  turningPoint: TurningPointDef;
+  objectives: readonly ObjectiveDef[];
+  todo?: string;
+}
+
 export interface ScenarioDef {
   id: ScenarioId;
   name: string;
@@ -53,6 +84,7 @@ export interface ScenarioDef {
   startBudget: number;
   availability: Partial<Record<BuildingId, BuildingOverride>>;
   modifiers: ScenarioModifiers;
+  act2: Act2Def;
   /** Set when the data is a placeholder awaiting its own terrain generator / balance pass. */
   todo?: string;
 }
@@ -66,6 +98,30 @@ const COAST: TerrainParams = {
   reefRadius: 3,
   coastWobble: 0.16,
 };
+
+const COAL_COAST_OBJECTIVES: readonly ObjectiveDef[] = [
+  { id: 'warming', label: 'Hold warming to 1.8 C or less by 2100', metric: 'warming', op: '<=', target: 1.8 },
+  { id: 'estuary', label: 'Bring the estuary back to good water health (60+)', metric: 'estuaryHealth', op: '>=', target: 60 },
+  { id: 'society', label: 'Keep the town together: Society 50 or more', metric: 'society', op: '>=', target: 50 },
+  {
+    id: 'repurpose', label: 'Repurpose or recycle every Act 1 building', metric: 'act1Repurposed', op: '>=', target: 100,
+    pendingTier: 'circular',
+  },
+  { id: 'wildlife', label: 'Koalas and turtles thriving', metric: 'wildlifeThriving', op: '>=', target: 1, bonus: true, pendingTier: 'wildlife' },
+];
+
+const act2Defaults = (over: Partial<Act2Def> & Pick<Act2Def, 'turningPoint'>): Act2Def => ({
+  startYear: 2025,
+  endYear: 2100,
+  warmingCap: 2.6,
+  meterFailYears: 3,
+  features: { tidal: false },
+  weedPressure: 1,
+  fireProneness: 1,
+  rainfall: 1,
+  objectives: COAL_COAST_OBJECTIVES,
+  ...over,
+});
 
 const DEFAULT_MODS: ScenarioModifiers = {
   budgetMult: 1,
@@ -90,6 +146,15 @@ export const SCENARIOS: Readonly<Record<ScenarioId, ScenarioDef>> = {
     startBudget: 100,
     availability: {},
     modifiers: { ...DEFAULT_MODS },
+    act2: act2Defaults({
+      turningPoint: {
+        crisis: 'fish-kill',
+        title: 'The estuary goes quiet',
+        text: 'One February morning Lena Tran finds the estuary silver with dead fish. Two hundred years of runoff, sewage and soil from the town have finally tipped it over in the heat.',
+        scientistNote: 'Dr Priya Shah puts your graphs on the table: CO2 and the town\'s emissions have climbed together, and the water that used to flush the estuary clean is now carrying the town\'s waste into it. Warming will make every summer harder from here.',
+        residentId: 'lena-tran',
+      },
+    }),
   },
   'green-valley': {
     id: 'green-valley',
@@ -105,6 +170,14 @@ export const SCENARIOS: Readonly<Record<ScenarioId, ScenarioDef>> = {
     startBudget: 150,
     availability: { steelworks: { disabled: true }, coalpower: { unlock: 1920 } },
     modifiers: { ...DEFAULT_MODS, budgetMult: 1.5, hintLevel: 3, eventSeverity: 0 },
+    act2: act2Defaults({
+      startYear: 1950, endYear: 2000, warmingCap: 3,
+      turningPoint: {
+        crisis: 'fish-kill', title: 'Tutorial crisis', residentId: 'tutorial',
+        text: 'Placeholder tutorial crisis.', scientistNote: 'Placeholder.',
+      },
+      todo: 'Tutorial Act 2 needs a guided script and its own timeline.',
+    }),
     todo: 'Needs its own valley terrain generator and guided-step script (reuses coast generator for now).',
   },
   'river-town': {
@@ -121,6 +194,14 @@ export const SCENARIOS: Readonly<Record<ScenarioId, ScenarioDef>> = {
     startBudget: 90,
     availability: { port: { disabled: true }, outfall: { unlock: 1900 } },
     modifiers: { ...DEFAULT_MODS, eventSeverity: 1.3, hintLevel: 1 },
+    act2: act2Defaults({
+      rainfall: 0.8, fireProneness: 1.2,
+      turningPoint: {
+        crisis: 'drought', title: 'The river runs thin', residentId: 'dot-harris',
+        text: 'Placeholder: the river stops flowing past the farm.', scientistNote: 'Placeholder.',
+      },
+      todo: 'Needs River Town objectives (river health, water security).',
+    }),
     todo: 'Needs inland river terrain (no sea), water-cycle mechanics and salinity.',
   },
   'reef-island': {
@@ -137,6 +218,14 @@ export const SCENARIOS: Readonly<Record<ScenarioId, ScenarioDef>> = {
     startBudget: 80,
     availability: { coalmine: { disabled: true } },
     modifiers: { ...DEFAULT_MODS, eventSeverity: 1.5, climateSensitivityMult: 1.15, hintLevel: 0 },
+    act2: act2Defaults({
+      warmingCap: 2.4,
+      turningPoint: {
+        crisis: 'marine-heatwave', title: 'The reef turns white', residentId: 'reef-guide',
+        text: 'Placeholder: the reef bleaches.', scientistNote: 'Placeholder.',
+      },
+      todo: 'Needs Reef Island objectives (reef health, no homes lost to sea).',
+    }),
     todo: 'Needs island terrain (sea on all sides), tourism economy and sea-level model.',
   },
   'red-dirt': {
@@ -153,6 +242,14 @@ export const SCENARIOS: Readonly<Record<ScenarioId, ScenarioDef>> = {
     startBudget: 80,
     availability: { port: { disabled: true }, outfall: { disabled: true } },
     modifiers: { ...DEFAULT_MODS, eventSeverity: 1.5, climateSensitivityMult: 1.1, remediationYears: 30, hintLevel: 0 },
+    act2: act2Defaults({
+      rainfall: 0.6, fireProneness: 1.3, weedPressure: 1.3, features: { tidal: false },
+      turningPoint: {
+        crisis: 'heatwave', title: 'The week the town stopped', residentId: 'mine-worker',
+        text: 'Placeholder: a heatwave overloads the grid.', scientistNote: 'Placeholder.',
+      },
+      todo: 'Needs Red Dirt objectives (net zero 2060, mine rehab).',
+    }),
     todo: 'Needs arid inland terrain generator, scarce water and heatwave events.',
   },
   'net-zero-city': {
@@ -169,6 +266,14 @@ export const SCENARIOS: Readonly<Record<ScenarioId, ScenarioDef>> = {
     startBudget: 60,
     availability: {},
     modifiers: { ...DEFAULT_MODS, budgetMult: 0.7, eventSeverity: 2, climateSensitivityMult: 1.2, remediationYears: 10, hintLevel: 0 },
+    act2: act2Defaults({
+      startYear: 2035, features: { tidal: true }, warmingCap: 2.2,
+      turningPoint: {
+        crisis: 'heatwave', title: 'Forty-seven degrees', residentId: 'city-resident',
+        text: 'Placeholder: a heatwave hits the city.', scientistNote: 'Placeholder.',
+      },
+      todo: 'Needs a pre-built city start state and net-zero-by-2050 objectives.',
+    }),
     todo: 'Needs a pre-built city start state, Act 2 building set and 2025-2100 timeline.',
   },
 };

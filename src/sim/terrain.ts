@@ -1,6 +1,6 @@
 import { makeNoise2D, mulberry32 } from './rng';
 import type { ScenarioDef } from './scenarios';
-import { TileKind } from './types';
+import { CHUNK_SIZE, TileKind } from './types';
 import type { TileGrid } from './types';
 
 export function createGrid(w: number, h: number): TileGrid {
@@ -14,8 +14,18 @@ export function createGrid(w: number, h: number): TileGrid {
     airPollution: new Float32Array(n),
     waterPollution: new Float32Array(n),
     soilContamination: new Float32Array(n),
+    health: new Float32Array(n),
+    stage: new Uint8Array(n),
+    weed: new Uint8Array(n),
+    chunkVersion: new Uint32Array(chunkCount(w, h)),
   };
 }
+
+/** Number of chunks wide / tall / total for a map. */
+export const chunksWide = (w: number): number => Math.ceil(w / CHUNK_SIZE);
+export const chunkCount = (w: number, h: number): number => chunksWide(w) * Math.ceil(h / CHUNK_SIZE);
+export const chunkOf = (g: { w: number }, x: number, y: number): number =>
+  Math.floor(y / CHUNK_SIZE) * chunksWide(g.w) + Math.floor(x / CHUNK_SIZE);
 
 export function cloneGrid(g: TileGrid): TileGrid {
   return {
@@ -27,6 +37,10 @@ export function cloneGrid(g: TileGrid): TileGrid {
     airPollution: g.airPollution.slice(),
     waterPollution: g.waterPollution.slice(),
     soilContamination: g.soilContamination.slice(),
+    health: g.health.slice(),
+    stage: g.stage.slice(),
+    weed: g.weed.slice(),
+    chunkVersion: g.chunkVersion.slice(),
   };
 }
 

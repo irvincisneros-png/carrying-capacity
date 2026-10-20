@@ -10,6 +10,11 @@ export const CLEAR_COST = 1;
 export const CLEAR_KT_PER_TILE = 3;
 export const DEMOLISH_REFUND = 0.25;
 
+/** Actions are accepted while Act 1 is being played or during Act 2. */
+export function isPlayable(state: GameState): boolean {
+  return (state.phase === 'act1' && state.status === 'playing') || state.phase === 'act2';
+}
+
 export interface Availability {
   unlock: number;
   cost: number;
@@ -91,7 +96,20 @@ export function canPlace(
   const av = availability(state.scenarioId, buildingId);
   const { w, h } = footprintFor(def, rotation);
   const fp = { x, y, w, h };
-  if (state.status !== 'playing') return fail('game-over', 'This act is finished', fp, av.cost);
+  if (!isPlayable(state)) return fail('game-over', 'This act is finished', fp, av.cost);
+  const phase = state.phase === 'act2' ? 'act2' : 'act1';
+  if (def.phases && !def.phases.includes(phase)) {
+    return fail(
+      'locked',
+      phase === 'act2'
+        ? `${def.name} is part of the old industrial economy - the town is moving on from it`
+        : `${def.name} isn't available until the transition begins`,
+      fp, av.cost,
+    );
+  }
+  if (def.requiresFeature && !getScenario(state.scenarioId).act2.features[def.requiresFeature]) {
+    return fail('locked', `${def.name} needs a strong ${def.requiresFeature} resource, which this place doesn't have`, fp, av.cost);
+  }
   if (av.disabled) return fail('locked', `${def.name} isn't available in this scenario`, fp, av.cost);
   if (state.year < av.unlock) return fail('locked', `${def.name} unlocks in ${av.unlock}`, fp, av.cost);
 
@@ -104,10 +122,28 @@ export function canPlace(
   for (let yy = y; yy < y + h; yy++) {
     for (let xx = x; xx < x + w; xx++) {
       const i = yy * g.w + xx;
-      if ((g.building[i] ?? 0) !== 0) return fail('occupied', 'Something is already built here', fp, av.cost);
       const k = (g.kind[i] ?? 0) as TileKindValue;
+      if ((g.building[i] ?? 0) !== 0) {
+        const existing = def.replaces ? buildingAt(state, xx, yy) : undefined;
+        if (!(existing && existing.type === def.replaces && existing.x === x && existing.y === y && existing.w === w && existing.h === h)) {
+          return fail(
+            def.replaces ? 'needs-nearby-building' : 'occupied',
+            def.replaces ? `${def.name} must be built on top of an existing ${BUILDINGS[def.replaces].name}` : 'Something is already built here',
+            fp, av.cost,
+          );
+        }
+        continue;
+      }
+      if (def.replaces) {
+        return fail('needs-nearby-building', `${def.name} must be built on top of an existing ${BUILDINGS[def.replaces].name}`, fp, av.cost);
+      }
       if (!def.placement.on.includes(k)) return fail('bad-terrain', terrainReason(def, k), fp, av.cost);
-      if (k === TileKind.Bush) bush++;
+      if (k === TileKind.Bush) {
+        if (phase === 'act2') {
+          return fail('bad-terrain', 'This bushland has grown back - protect it and build on cleared land instead', fp, av.cost);
+        }
+        bush++;
+      }
     }
   }
 
@@ -129,10 +165,13 @@ export function canPlace(
     if (!found) return fail('needs-nearby-terrain', nt.reason, fp, av.cost, bush);
   }
 
+  const siting = checkSiting(state, def, x, y, w, h);
+  if (siting) return fail('bad-siting', siting, fp, av.cost, bush);
+
   const nb = def.placement.nearBuilding;
   if (nb) {
     const ok = state.buildings.some(
-      (b) => b.type === nb.building && rectDistance(x, y, w, h, b.x, b.y, b.w, b.h) <= nb.dist,
+      (b) => (b.type === nb.building || nb.or?.includes(b.type) === true) && rectDistance(x, y, w, h, b.x, b.y, b.w, b.h) <= nb.dist,
     );
     if (!ok) return fail('needs-nearby-building', nb.reason, fp, av.cost, bush);
   }
@@ -141,6 +180,38 @@ export function canPlace(
     return fail('no-funds', `Not enough money: ${def.name} costs ${av.cost}`, fp, av.cost, bush);
   }
   return { ok: true, cost: av.cost, footprint: fp, bushCleared: bush };
+}
+
+/** Elevation, exposure, drop and cable rules. Returns a human-readable reason, or null if the site is fine. */
+function checkSiting(state: GameState, def: BuildingDef, x: number, y: number, w: number, h: number): string | null {
+  const p = def.placement;
+  const g = state.grid;
+  let maxElev = 0;
+  for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) maxElev = Math.max(maxElev, g.elevation[yy * g.w + xx] ?? 0);
+  const scan = (dist: number, test: (kind: number, elev: number) => boolean): boolean => {
+    for (let yy = Math.max(0, y - dist); yy <= Math.min(g.h - 1, y + h - 1 + dist); yy++) {
+      for (let xx = Math.max(0, x - dist); xx <= Math.min(g.w - 1, x + w - 1 + dist); xx++) {
+        const i = yy * g.w + xx;
+        if (test(g.kind[i] ?? 0, g.elevation[i] ?? 0)) return true;
+      }
+    }
+    return false;
+  };
+  if (p.minElevation && maxElev < p.minElevation.value) return p.minElevation.reason;
+  if (p.exposed) {
+    const ridge = maxElev >= p.exposed.minElevation;
+    const headland = scan(p.exposed.seaWithin, (k) => k === TileKind.Sea || k === TileKind.Reef);
+    if (!ridge && !headland) return p.exposed.reason;
+  }
+  if (p.drop) {
+    const d = p.drop;
+    if (!scan(d.dist, (k, e) => d.kinds.includes(k as TileKindValue) && maxElev - e >= d.minDrop)) return d.reason;
+  }
+  if (p.cableTo) {
+    const c = p.cableTo;
+    if (!scan(c.dist, (k) => c.kinds.includes(k as TileKindValue))) return c.reason;
+  }
+  return null;
 }
 
 export function buildingAt(state: GameState, x: number, y: number): PlacedBuilding | undefined {

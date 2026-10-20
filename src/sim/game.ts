@@ -2,21 +2,25 @@ import { getFactForDecade } from '../content/facts';
 import { BUILDINGS, footprintFor, isBuildingId } from './buildings';
 import { climateAt, referenceCumulative } from './climate';
 import { computeDemand, computeMeters, decadeIncome, economySnapshot, growPopulation } from './economy';
+import { enterTurningPoint } from './act2';
 import { updatePollution } from './pollution';
+import { bumpRect } from './restoration';
+import { cloneState, emptyAct2, emptyEmissions } from './state';
 import { realCO2, realTemp } from './realData';
-import { buildingAt, canPlace, CLEAR_COST, CLEAR_KT_PER_TILE, DEMOLISH_REFUND, availability } from './rules';
+import { buildingAt, canPlace, CLEAR_COST, CLEAR_KT_PER_TILE, DEMOLISH_REFUND, availability, isPlayable } from './rules';
 import { mulberry32 } from './rng';
 import { getScenario, isScenarioId } from './scenarios';
-import { cloneGrid, generateTerrain, inBounds } from './terrain';
+import { generateTerrain, inBounds } from './terrain';
 import { EMISSION_CATEGORIES, TileKind } from './types';
 import type {
   Action, ActionResult, BuildingId, DecadeReport, EmissionsBySource, GameState, HistoryRecord, Meters, Rotation,
 } from './types';
 
-export const SAVE_VERSION = 1;
+/** v2 adds Act 2 (phase, a2, flags, events, restoration grids). v1 saves are migrated in save.ts. */
+export const SAVE_VERSION = 2;
 export const DECADE_YEARS = 10;
 
-export const emptyEmissions = (): EmissionsBySource => ({ power: 0, industry: 0, transport: 0, land: 0, waste: 0 });
+export { cloneState, emptyEmissions };
 
 /** Parse a `?seed=` style value; returns undefined if not a usable non-negative integer. */
 export function parseSeed(v: string | null | undefined): number | undefined {
@@ -56,6 +60,12 @@ export function createGame(scenarioId: GameState['scenarioId'], seed?: number): 
     history: [],
     initialBushTiles: bush,
     version: 0,
+    phase: 'act1',
+    a2: emptyAct2(sc.act2.startYear, clim.tempC),
+    flags: {},
+    events: [],
+    eventLog: [],
+    turningPoint: null,
   };
   const meters = computeMeters(base);
   base.meters = meters;
@@ -79,17 +89,6 @@ function record(s: GameState, emissions: EmissionsBySource, total: number): Hist
   };
 }
 
-/** Structural copy: typed arrays copied, building records shared (treated as immutable). */
-export function cloneState(s: GameState): GameState {
-  return {
-    ...s,
-    grid: cloneGrid(s.grid),
-    buildings: s.buildings.slice(),
-    meters: { ...s.meters },
-    history: s.history.slice(),
-  };
-}
-
 function allocUid(s: GameState): number {
   const used = new Set(s.buildings.map((b) => b.uid));
   let uid = s.nextUid;
@@ -109,7 +108,7 @@ export function applyAction(state: GameState, action: Action): { state: GameStat
     state,
     result: { ok: false, code, reason } as ActionResult,
   });
-  if (state.status !== 'playing') return fail('game-over', 'This act is finished');
+  if (!isPlayable(state)) return fail('game-over', 'This act is finished');
 
   switch (action.type) {
     case 'place': {
@@ -120,16 +119,29 @@ export function applyAction(state: GameState, action: Action): { state: GameStat
       const next = cloneState(state);
       const def = BUILDINGS[action.building];
       const { w, h } = footprintFor(def, rot);
+      const g = next.grid;
+      if (def.replaces) {
+        const old = buildingAt(next, action.x, action.y);
+        if (old) {
+          for (let yy: number = old.y; yy < old.y + old.h; yy++) {
+            for (let xx: number = old.x; xx < old.x + old.w; xx++) g.building[yy * g.w + xx] = 0;
+          }
+          next.buildings = next.buildings.filter((o) => o.uid !== old.uid);
+        }
+      }
       const uid = allocUid(next);
       next.buildings.push({ uid, type: action.building, x: action.x, y: action.y, rotation: rot, w, h, builtYear: state.year });
-      const g = next.grid;
       for (let yy: number = action.y; yy < action.y + h; yy++) {
         for (let xx: number = action.x; xx < action.x + w; xx++) {
           const i = yy * g.w + xx;
           g.building[i] = uid;
+          g.health[i] = 0;
+          g.stage[i] = 0;
+          g.weed[i] = 0;
           if (g.kind[i] === TileKind.Bush) g.kind[i] = TileKind.Land;
         }
       }
+      bumpRect(g, action.x, action.y, w, h);
       next.pendingLandKt += chk.bushCleared * CLEAR_KT_PER_TILE;
       next.budget -= chk.cost;
       next.meters = computeMeters(next);
@@ -144,6 +156,7 @@ export function applyAction(state: GameState, action: Action): { state: GameStat
       for (let yy: number = b.y; yy < b.y + b.h; yy++) {
         for (let xx: number = b.x; xx < b.x + b.w; xx++) g.building[yy * g.w + xx] = 0;
       }
+      bumpRect(g, b.x, b.y, b.w, b.h);
       next.buildings = next.buildings.filter((o) => o.uid !== b.uid);
       const refund = Math.floor(availability(state.scenarioId, b.type).cost * DEMOLISH_REFUND);
       next.budget += refund;
@@ -152,6 +165,7 @@ export function applyAction(state: GameState, action: Action): { state: GameStat
       return { state: next, result: { ok: true, refund } };
     }
     case 'clear': {
+      if (state.phase === 'act2') return fail('locked', 'Bushland is protected now - restore it, do not clear it');
       if (!inBounds(state.grid, action.x, action.y)) return fail('out-of-bounds', "That isn't on the map");
       const i = action.y * state.grid.w + action.x;
       if (state.grid.kind[i] !== TileKind.Bush) return fail('not-bush', 'Only bushland can be cleared');
@@ -175,7 +189,7 @@ export function projectedEmissions(state: GameState): EmissionsBySource {
 }
 
 export function advanceDecade(state: GameState): { state: GameState; report: DecadeReport | null } {
-  if (state.status !== 'playing') return { state, report: null };
+  if (state.phase !== 'act1' || state.status !== 'playing') return { state, report: null };
   const sc = getScenario(state.scenarioId);
   const next = cloneState(state);
   const prevMeters: Meters = { ...state.meters };
@@ -203,11 +217,13 @@ export function advanceDecade(state: GameState): { state: GameState; report: Dec
   next.co2 = clim.co2;
   next.tempC = clim.tempC;
 
-  if (next.year >= sc.endYear) next.status = 'act1-complete';
-
   // 5. Meters, history.
   next.meters = computeMeters(next);
   next.history.push(record(next, em, total));
+  if (next.year >= sc.endYear) {
+    next.status = 'act1-complete';
+    enterTurningPoint(next);
+  }
   next.version = state.version + 1;
 
   const demand = computeDemand(next);

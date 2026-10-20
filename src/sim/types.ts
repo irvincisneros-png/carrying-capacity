@@ -37,7 +37,23 @@ export type BuildingId =
   | 'suburb'
   | 'carpark'
   | 'landfill'
-  | 'outfall';
+  | 'outfall'
+  // Act 2 catalogue: energy
+  | 'gaspower'
+  | 'rooftopsolar'
+  | 'solarfarm'
+  | 'windfarm'
+  | 'offshorewind'
+  | 'hydro'
+  | 'pumpedhydro'
+  | 'battery'
+  | 'tidal'
+  // Act 2 catalogue: clean-up and restoration
+  | 'phytoremediation'
+  | 'excavation'
+  | 'wetland'
+  | 'sewagetreatment'
+  | 'nursery';
 
 export type EmissionCategory = 'power' | 'industry' | 'transport' | 'land' | 'waste';
 export const EMISSION_CATEGORIES: readonly EmissionCategory[] = [
@@ -77,7 +93,24 @@ export interface TileGrid {
   airPollution: Float32Array;
   waterPollution: Float32Array;
   soilContamination: Float32Array;
+  /**
+   * Act 2: vegetation / coral health 0..1 per tile. Land, beach, estuary and shallow sea tiles hold
+   * restoration progress; Reef tiles hold coral health. Zero under buildings.
+   */
+  health: Float32Array;
+  /** Act 2: succession stage 0 bare, 1 pioneer, 2 shrub/heath, 3 woodland (names depend on tile kind). */
+  stage: Uint8Array;
+  /** Act 2: 1 where weeds have invaded a bare / pioneer tile. */
+  weed: Uint8Array;
+  /**
+   * Act 2: one counter per 8x8 chunk (row-major, ceil(w/8) wide). Incremented whenever anything the renderer
+   * draws from health / stage / weed / kind / building changes inside the chunk.
+   */
+  chunkVersion: Uint32Array;
 }
+
+/** Edge length (tiles) of the chunks tracked by TileGrid.chunkVersion. */
+export const CHUNK_SIZE = 8;
 
 export interface PlacedBuilding {
   uid: number;
@@ -108,7 +141,179 @@ export interface HistoryRecord {
   budget: number;
 }
 
-export type GameStatus = 'playing' | 'act1-complete';
+export type GameStatus = 'playing' | 'act1-complete' | 'act2-complete' | 'failed';
+
+/** Game phase. act1 -> turning-point -> act2 -> epilogue, or failed from act2. */
+export type Phase = 'act1' | 'turning-point' | 'act2' | 'epilogue' | 'failed';
+
+/** Seasons in Southern Hemisphere order within a calendar year. */
+export type Season = 0 | 1 | 2 | 3;
+export const SEASON_NAMES: readonly string[] = ['summer', 'autumn', 'winter', 'spring'];
+
+export type EnergySource =
+  | 'coal'
+  | 'gas'
+  | 'rooftop-solar'
+  | 'solar-farm'
+  | 'wind'
+  | 'offshore-wind'
+  | 'hydro'
+  | 'pumped-hydro'
+  | 'battery'
+  | 'tidal';
+
+export type EventType =
+  | 'heatwave'
+  | 'bushfire'
+  | 'drought'
+  | 'flood'
+  | 'marine-heatwave'
+  | 'fish-kill'
+  | 'blackout';
+
+/** A thing that happened. Appended to GameState.events (queue) and GameState.eventLog (history). */
+export interface SimEvent {
+  id: number;
+  type: EventType | 'story';
+  year: number;
+  season: Season;
+  /** Absolute season counter since the scenario's start year. */
+  seasonIndex: number;
+  /** 0..~1.5 relative size. */
+  severity: number;
+  /** Human-readable, suitable for the log and for residents' reactions. */
+  text: string;
+  /** Epicentre in tile coordinates, if the event has one. */
+  at?: { x: number; y: number };
+  /** Numeric details (tilesAffected, unmetPct, ...). */
+  data?: Record<string, number>;
+}
+
+export interface ActiveEvent {
+  type: EventType;
+  /** Absolute season index at which it ends (exclusive). */
+  endsAt: number;
+  severity: number;
+}
+
+export interface GridBlock {
+  demand: number;
+  supply: number;
+  unmet: number;
+  /** Output by source, in power units. */
+  bySource: Partial<Record<EnergySource, number>>;
+  charged: number;
+  discharged: number;
+  curtailed: number;
+}
+
+/** Result of balancing the grid for one season (two blocks: day and night). */
+export interface GridReport {
+  year: number;
+  season: Season;
+  seasonIndex: number;
+  /** Average demand (power units) by sector after seasonal and block multipliers. */
+  demand: { homes: number; industry: number; transport: number };
+  day: GridBlock;
+  night: GridBlock;
+  demandTotal: number;
+  /** Fraction of the season's energy demand that went unmet (0..1). */
+  unmetFrac: number;
+  /** Installed capacity by source (power units). */
+  capacity: Partial<Record<EnergySource, number>>;
+  /** Average output by source over the season. */
+  generation: Partial<Record<EnergySource, number>>;
+  emissionsKt: number;
+  renewableShare: number;
+  storageLevel: number;
+  blackout: boolean;
+}
+
+export interface TurningPoint {
+  crisis: EventType;
+  title: string;
+  text: string;
+  /** Short note the scientist character reads out over the player's graphs. */
+  scientistNote: string;
+  /** Which resident is personally affected (matches the empathy-layer resident id; placeholder until residents exist). */
+  residentId: string;
+  /** Snapshot of the player's Act 1 outcome, for the graphs on the card. */
+  stats: { year: number; co2: number; tempC: number; realTempC: number; cumulativeKt: number; estuaryHealth: number; bushRemaining: number; meters: Meters };
+}
+
+export type FailReason = 'meter-collapse' | 'warming-cap';
+
+export interface YearRecord {
+  year: number;
+  co2: number;
+  tempC: number;
+  eqTempC: number;
+  emissionsKt: EmissionsBySource;
+  totalKt: number;
+  meters: Meters;
+  budget: number;
+  population: number;
+  unmetFrac: number;
+  renewableShare: number;
+  estuaryHealth: number;
+  meanHealth: number;
+  reefHealth: number;
+}
+
+export interface ObjectiveResult {
+  id: string;
+  label: string;
+  bonus: boolean;
+  metric: string;
+  op: '<=' | '>=';
+  target: number;
+  current: number | null;
+  /** met / missed are final (year reached); on-track / at-risk are provisional; pending depends on a later tier. */
+  status: 'met' | 'missed' | 'on-track' | 'at-risk' | 'pending';
+  pendingTier?: string;
+}
+
+export interface Outcome {
+  year: number;
+  success: boolean;
+  objectives: ObjectiveResult[];
+  /** Required objectives that could not be judged yet (later tiers). */
+  pendingRequired: string[];
+}
+
+export interface Act2State {
+  startYear: number;
+  /** Next season to simulate within `year`. */
+  season: Season;
+  /** Progress (micro-seasons, 0..999999) towards the next season; keeps tick() frame-rate independent. */
+  clockMicro: number;
+  /** Equilibrium temperature for current CO2; tempC relaxes towards it. */
+  eqTempC: number;
+  /** Energy held in storage (power units x one block). */
+  storageLevel: number;
+  /** Transient Society penalty from events and blackouts (decays each season). */
+  stress: number;
+  stressSum: number;
+  yearEm: EmissionsBySource;
+  yearUnmetSum: number;
+  yearSeasons: number;
+  lastUnmetFrac: number;
+  /** Consecutive years each meter has been at 0. */
+  zeroYears: Meters;
+  /** Added to Society (residents / dilemmas can nudge it). Clamped to -60..+20. */
+  societyAdjust: number;
+  active: ActiveEvent[];
+  lastEventIdx: Partial<Record<EventType, number>>;
+  nextEventId: number;
+  lastGrid: GridReport | null;
+  /** building uid -> utilisation 0..1 of dispatchable plants last season. */
+  utilisation: Record<string, number>;
+  /** Excavation / remediation sites that did work last season (uids). */
+  activeRemediation: number[];
+  yearly: YearRecord[];
+  outcome: Outcome | null;
+  failure: { reason: FailReason; text: string; year: number } | null;
+}
 
 export interface GameState {
   saveVersion: number;
@@ -134,6 +339,16 @@ export interface GameState {
   initialBushTiles: number;
   /** Increments on every state change; renderers compare it to detect dirtiness. */
   version: number;
+  phase: Phase;
+  /** Act 2 simulation state (inert defaults before Act 2). */
+  a2: Act2State;
+  /** Open-ended flags other systems (residents, Country, satellites, circular) can set / read. */
+  flags: Record<string, boolean | number>;
+  /** Unconsumed events, oldest first. Consumers call consumeEvents(). Capped. */
+  events: SimEvent[];
+  /** Permanent human-readable log, oldest first. Capped. */
+  eventLog: SimEvent[];
+  turningPoint: TurningPoint | null;
 }
 
 export type Action =
@@ -152,7 +367,8 @@ export type ActionFailCode =
   | 'needs-nearby-building'
   | 'no-funds'
   | 'nothing-here'
-  | 'not-bush';
+  | 'not-bush'
+  | 'bad-siting';
 
 export interface ActionResult {
   ok: boolean;

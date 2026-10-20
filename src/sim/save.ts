@@ -3,7 +3,13 @@ import { SAVE_VERSION, createGame } from './game';
 import { isScenarioId } from './scenarios';
 import { getScenario } from './scenarios';
 import { EMISSION_CATEGORIES } from './types';
-import type { GameState, HistoryRecord, Meters, PlacedBuilding, ScenarioId, TileGrid } from './types';
+import { chunkCount } from './terrain';
+import { enterTurningPoint } from './act2';
+import { emptyAct2 } from './state';
+import type {
+  Act2State, GameState, GameStatus, HistoryRecord, Meters, Phase, PlacedBuilding, ScenarioId, SimEvent, TileGrid,
+  TurningPoint,
+} from './types';
 
 export const SAVE_KEY = 'cc.save.v1';
 
@@ -22,6 +28,10 @@ interface SerialGrid {
   airPollution: number[];
   waterPollution: number[];
   soilContamination: number[];
+  health: number[];
+  stage: number[];
+  weed: number[];
+  chunkVersion: number[];
 }
 type SerialState = Omit<GameState, 'grid'> & { grid: SerialGrid };
 
@@ -36,6 +46,10 @@ export function serialize(state: GameState): string {
     airPollution: Array.from(g.airPollution),
     waterPollution: Array.from(g.waterPollution),
     soilContamination: Array.from(g.soilContamination),
+    health: Array.from(g.health),
+    stage: Array.from(g.stage),
+    weed: Array.from(g.weed),
+    chunkVersion: Array.from(g.chunkVersion),
   };
   const out: SerialState = { ...state, grid };
   return JSON.stringify(out);
@@ -46,15 +60,45 @@ const fin = (v: unknown): v is number => typeof v === 'number' && Number.isFinit
 const finArr = (v: unknown, n: number): v is number[] => Array.isArray(v) && v.length === n && v.every(fin);
 const meters = (v: unknown): v is Meters =>
   isObj(v) && fin(v.economy) && fin(v.society) && fin(v.environment);
+const PHASES: readonly string[] = ['act1', 'turning-point', 'act2', 'epilogue', 'failed'];
+const STATUSES: readonly string[] = ['playing', 'act1-complete', 'act2-complete', 'failed'];
 
-/** Returns null for anything that is not a valid current-version save. */
+function validEvent(e: unknown): boolean {
+  return (
+    isObj(e) && fin(e.id) && fin(e.year) && fin(e.season) && fin(e.seasonIndex) && fin(e.severity) &&
+    typeof e.text === 'string' && typeof e.type === 'string'
+  );
+}
+
+function validA2(a: unknown): a is Act2State {
+  if (!isObj(a)) return false;
+  const nums = ['startYear', 'season', 'clockMicro', 'eqTempC', 'storageLevel', 'stress', 'stressSum', 'yearUnmetSum', 'yearSeasons', 'lastUnmetFrac', 'societyAdjust', 'nextEventId'];
+  if (!nums.every((k) => fin(a[k]))) return false;
+  if (![0, 1, 2, 3].includes(a.season as number)) return false;
+  if (!isObj(a.yearEm) || !EMISSION_CATEGORIES.every((c) => fin((a.yearEm as Record<string, unknown>)[c]))) return false;
+  if (!meters(a.zeroYears)) return false;
+  if (!Array.isArray(a.active) || !a.active.every((e) => isObj(e) && typeof e.type === 'string' && fin(e.endsAt) && fin(e.severity))) return false;
+  if (!isObj(a.lastEventIdx) || !Object.values(a.lastEventIdx).every(fin)) return false;
+  if (!isObj(a.utilisation) || !Object.values(a.utilisation).every(fin)) return false;
+  if (!Array.isArray(a.activeRemediation) || !a.activeRemediation.every(fin)) return false;
+  if (!Array.isArray(a.yearly) || !a.yearly.every((y) => isObj(y) && fin(y.year) && fin(y.tempC) && fin(y.co2) && meters(y.meters))) return false;
+  if (a.lastGrid !== null && !(isObj(a.lastGrid) && fin(a.lastGrid.unmetFrac) && fin(a.lastGrid.seasonIndex))) return false;
+  if (a.outcome !== null && !(isObj(a.outcome) && typeof a.outcome.success === 'boolean' && Array.isArray(a.outcome.objectives))) return false;
+  if (a.failure !== null && !(isObj(a.failure) && typeof a.failure.text === 'string' && fin(a.failure.year))) return false;
+  return true;
+}
+
+/**
+ * Returns null for anything that is not a valid save. Version 1 saves (Act 1 only) are migrated: the new Act 2
+ * layers start empty, a finished Act 1 becomes the turning point.
+ */
 export function deserialize(text: string | null): GameState | null {
   if (!text) return null;
   try {
     const raw: unknown = JSON.parse(text);
     if (!isObj(raw)) return null;
-    // Future: migrate older saveVersion values here. Unknown/newer versions are rejected.
-    if (raw.saveVersion !== SAVE_VERSION) return null;
+    const ver = raw.saveVersion;
+    if (ver !== 1 && ver !== SAVE_VERSION) return null;
     if (typeof raw.scenarioId !== 'string' || !isScenarioId(raw.scenarioId)) return null;
     const scenarioId: ScenarioId = raw.scenarioId;
     const sc = getScenario(scenarioId);
@@ -63,15 +107,34 @@ export function deserialize(text: string | null): GameState | null {
     const n = sc.mapW * sc.mapH;
     if (!finArr(g.kind, n) || !finArr(g.elevation, n) || !finArr(g.building, n)) return null;
     if (!finArr(g.airPollution, n) || !finArr(g.waterPollution, n) || !finArr(g.soilContamination, n)) return null;
+    const nChunks = chunkCount(sc.mapW, sc.mapH);
+    if (ver === SAVE_VERSION) {
+      if (!finArr(g.health, n) || !finArr(g.stage, n) || !finArr(g.weed, n) || !finArr(g.chunkVersion, nChunks)) return null;
+    }
     if (g.kind.some((k) => !Number.isInteger(k) || k < 0 || k > 7)) return null;
     if (!fin(raw.seed) || !fin(raw.year) || !fin(raw.budget) || !fin(raw.population) || !fin(raw.lastIncome)) return null;
     if (!fin(raw.nextUid) || !fin(raw.pendingLandKt) || !fin(raw.cumulativeKt) || !fin(raw.co2) || !fin(raw.tempC)) return null;
     if (!fin(raw.multiplier) || !fin(raw.initialBushTiles) || !fin(raw.version)) return null;
-    if (raw.status !== 'playing' && raw.status !== 'act1-complete') return null;
+    if (typeof raw.status !== 'string' || !STATUSES.includes(raw.status)) return null;
     if (!meters(raw.meters)) return null;
-    if (raw.year < sc.startYear || raw.year > sc.endYear || (raw.year - sc.startYear) % 10 !== 0) return null;
+
+    let phase: Phase;
+    if (ver === 1) {
+      if (raw.status !== 'playing' && raw.status !== 'act1-complete') return null;
+      phase = raw.status === 'act1-complete' ? 'turning-point' : 'act1';
+    } else {
+      if (typeof raw.phase !== 'string' || !PHASES.includes(raw.phase)) return null;
+      phase = raw.phase as Phase;
+    }
+    const act1Phase = phase === 'act1' || phase === 'turning-point';
+    if (raw.year < sc.startYear) return null;
+    if (act1Phase) {
+      if (raw.year > sc.endYear || (raw.year - sc.startYear) % 10 !== 0) return null;
+    } else if (raw.year < sc.endYear || raw.year > sc.act2.endYear) {
+      return null;
+    }
     if (!Array.isArray(raw.buildings) || !Array.isArray(raw.history)) return null;
-    if (raw.history.length !== (raw.year - sc.startYear) / 10 + 1) return null;
+    if (raw.history.length !== (Math.min(raw.year, sc.endYear) - sc.startYear) / 10 + 1) return null;
 
     const uids = new Set<number>();
     for (const b of raw.buildings as unknown[]) {
@@ -98,13 +161,39 @@ export function deserialize(text: string | null): GameState | null {
       airPollution: Float32Array.from(g.airPollution),
       waterPollution: Float32Array.from(g.waterPollution),
       soilContamination: Float32Array.from(g.soilContamination),
+      health: ver === SAVE_VERSION ? Float32Array.from(g.health as number[]) : new Float32Array(n),
+      stage: ver === SAVE_VERSION ? Uint8Array.from(g.stage as number[]) : new Uint8Array(n),
+      weed: ver === SAVE_VERSION ? Uint8Array.from(g.weed as number[]) : new Uint8Array(n),
+      chunkVersion: ver === SAVE_VERSION ? Uint32Array.from(g.chunkVersion as number[]) : new Uint32Array(nChunks),
     };
+
+    let a2: Act2State = emptyAct2(sc.act2.startYear, raw.tempC);
+    let flags: Record<string, boolean | number> = {};
+    let events: SimEvent[] = [];
+    let eventLog: SimEvent[] = [];
+    let turningPoint: TurningPoint | null = null;
+    if (ver === SAVE_VERSION) {
+      if (!validA2(raw.a2)) return null;
+      a2 = raw.a2;
+      if (!isObj(raw.flags) || !Object.values(raw.flags).every((v) => typeof v === 'boolean' || fin(v))) return null;
+      flags = raw.flags as Record<string, boolean | number>;
+      if (!Array.isArray(raw.events) || !raw.events.every(validEvent)) return null;
+      if (!Array.isArray(raw.eventLog) || !raw.eventLog.every(validEvent)) return null;
+      events = raw.events as SimEvent[];
+      eventLog = raw.eventLog as SimEvent[];
+      if (raw.turningPoint !== null) {
+        const t = raw.turningPoint;
+        if (!isObj(t) || typeof t.title !== 'string' || typeof t.text !== 'string' || !isObj(t.stats)) return null;
+      }
+      turningPoint = raw.turningPoint as TurningPoint | null;
+      if (phase !== 'act1' && turningPoint === null) return null;
+    }
     const state: GameState = {
       saveVersion: SAVE_VERSION,
       scenarioId,
       seed: raw.seed,
       year: raw.year,
-      status: raw.status,
+      status: raw.status as GameStatus,
       budget: raw.budget,
       population: raw.population,
       lastIncome: raw.lastIncome,
@@ -120,7 +209,14 @@ export function deserialize(text: string | null): GameState | null {
       history: raw.history as HistoryRecord[],
       initialBushTiles: raw.initialBushTiles,
       version: raw.version,
+      phase,
+      a2,
+      flags,
+      events,
+      eventLog,
+      turningPoint,
     };
+    if (ver === 1 && phase === 'turning-point') enterTurningPoint(state);
     return state;
   } catch {
     return null;

@@ -1,0 +1,123 @@
+import { applyAction, balanceGrid, BUILDINGS, TileKind } from '../../src/sim';
+import type { BuildingId, GameState } from '../../src/sim';
+import { bestSpot, count, demolishAll, fieldSum, place, placeUpTo } from './act2play';
+
+/** Would the grid hold (<= 1.5% unmet in all four seasons) if this building were removed? */
+export function gridHoldsWithout(s: GameState, uid: number): boolean {
+  const b = s.buildings.find((o) => o.uid === uid);
+  if (!b) return true;
+  const r = applyAction(s, { type: 'demolish', x: b.x, y: b.y });
+  if (!r.result.ok) return false;
+  for (let k = 0; k < 4; k++) {
+    const probe: GameState = { ...r.state, a2: { ...r.state.a2, season: k as 0 | 1 | 2 | 3 } };
+    // Worst plausible weather: check three different weather draws.
+    for (const off of [0, 1, 2]) {
+      if (balanceGrid(probe, (probe.year - 1850) * 4 + k + off * 40).report.unmetFrac > 0.015) return false;
+    }
+  }
+  return true;
+}
+
+function toward(hub: { x: number; y: number }) {
+  return (x: number, y: number): number => -Math.hypot(x - hub.x, y - hub.y);
+}
+
+/** Open land tiles within `r` of the footprint that no nursery already covers. */
+function uncoveredLand(s: GameState, x: number, y: number, w: number, h: number, r: number): number {
+  const g = s.grid;
+  let n = 0;
+  for (let yy = Math.max(0, y - r); yy <= Math.min(g.h - 1, y + h - 1 + r); yy++) {
+    for (let xx = Math.max(0, x - r); xx <= Math.min(g.w - 1, x + w - 1 + r); xx++) {
+      const i = yy * g.w + xx;
+      if (g.kind[i] === TileKind.Land && (g.building[i] ?? 0) === 0 && (g.stage[i] ?? 0) <= 1 && (g.soilContamination[i] ?? 0) < 0.8) {
+        let covered = false;
+        for (const b of s.buildings) {
+          if (b.type !== 'nursery') continue;
+          const dx = Math.max(b.x - xx, xx - (b.x + b.w - 1), 0), dy = Math.max(b.y - yy, yy - (b.y + b.h - 1), 0);
+          if (Math.hypot(dx, dy) <= 5) { covered = true; break; }
+        }
+        if (!covered) n++;
+      }
+    }
+  }
+  return n;
+}
+
+export interface GoodPlayOpts {
+  /** Years of delay before the first action (for the "late action" comparisons). */
+  startDelay?: number;
+  nurseries?: number;
+}
+
+/** Scripted "good player" for coal-coast. Called once per year before the year is simulated. */
+export function goodPlayPlan(opts: GoodPlayOpts = {}): (s: GameState) => GameState {
+  return (state) => {
+    let s = state;
+    if (s.year < state.a2.startYear + (opts.startDelay ?? 0)) return s;
+    const hubTiles: number[] = [];
+    for (let i = 0; i < s.grid.kind.length; i++) if (s.grid.kind[i] === TileKind.Estuary) hubTiles.push(i);
+    const hub = { x: (hubTiles.reduce((a, i) => a + (i % s.grid.w), 0)) / Math.max(1, hubTiles.length), y: (hubTiles.reduce((a, i) => a + Math.floor(i / s.grid.w), 0)) / Math.max(1, hubTiles.length) };
+    const near = toward(hub);
+
+    // 1. Heavy industry that can go without the grid: close it straight away.
+    s = demolishAll(s, 'steelworks');
+    s = demolishAll(s, 'coalmine');
+    s = demolishAll(s, 'landfill');
+    s = demolishAll(s, 'carpark');
+    s = demolishAll(s, 'rail');
+
+    // 2. Cheap water fixes.
+    for (const b of s.buildings.filter((o) => o.type === 'outfall')) {
+      const p = place(s, 'sewagetreatment', { x: b.x, y: b.y, rotation: 0 });
+      if (p.ok) s = p.state;
+    }
+    s = placeUpTo(s, 'wetland', Math.max(0, 5 - count(s, 'wetland')), (x, y) => near(x, y));
+
+    // 3. Energy: build clean capacity, then retire coal and (later) gas when the grid holds without it.
+    const want: [BuildingId, number, number][] = [
+      ['windfarm', 8, 0],
+      ['solarfarm', 6, 0],
+      ['battery', 5, 0],
+      ['hydro', 1, 0],
+      ['gaspower', 1, 0],
+      ['pumpedhydro', 1, 2030],
+      ['offshorewind', 4, 2040],
+      ['rooftopsolar', 6, 0],
+    ];
+    for (const [id, n, from] of want) {
+      if (s.year < from) continue;
+      const score = id === 'windfarm' || id === 'offshorewind' ? () => 0 : near;
+      s = placeUpTo(s, id, Math.max(0, n - count(s, id)), score);
+    }
+    for (const b of s.buildings.filter((o) => o.type === 'coalpower')) {
+      if (gridHoldsWithout(s, b.uid)) {
+        s = applyAction(s, { type: 'demolish', x: b.x, y: b.y }).state;
+      }
+    }
+
+    // 4. Soil: dig out the worst hotspots first, plant the rest.
+    const soil = s.grid.soilContamination;
+    const hot = (x: number, y: number, w: number, h: number): number => fieldSum(s, soil, x, y, w, h, 3);
+    for (const id of ['excavation', 'phytoremediation'] as const) {
+      const have = count(s, id);
+      const goal = id === 'excavation' ? 2 : 4;
+      for (let i = have; i < goal; i++) {
+        const spot = bestSpot(s, id, hot);
+        if (!spot) break;
+        const covered = hot(spot.x, spot.y, 2, 2);
+        if (covered < 6) break; // nothing contaminated enough left
+        const p = place(s, id, spot);
+        if (!p.ok) break;
+        s = p.state;
+      }
+    }
+
+    // 5. Restoration: nurseries where they cover the most uncovered open land.
+    const cover = (x: number, y: number, w: number, h: number): number => uncoveredLand(s, x, y, w, h, 5);
+    const total = opts.nurseries ?? 10;
+    s = placeUpTo(s, 'nursery', Math.max(0, Math.min(3, total - count(s, 'nursery'))), cover);
+    return s;
+  };
+}
+
+export { BUILDINGS };

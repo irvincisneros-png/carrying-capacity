@@ -1,5 +1,6 @@
 import { BUILDINGS } from './buildings';
 import { reefHealth } from './climate';
+import { estuaryHealth, hasReef, meanHealth, meanReefHealth } from './metrics';
 import { getScenario } from './scenarios';
 import { TileKind } from './types';
 import type { GameState, Meters, PlacedBuilding } from './types';
@@ -139,7 +140,52 @@ export function measureTiles(state: GameState): MeterInputs {
   };
 }
 
+/** Act 2 multiplier on yearly income (relative to one tenth of an Act 1 decade's income). */
+export const ACT2_INCOME_MULT = 1.5;
+/** Yearly share of the housing gap that Act 2 population closes (matches 50% per decade). */
+export const ACT2_POP_GROWTH = 1 - Math.pow(1 - POP_GROWTH, 1 / 10);
+
+const ACT2_PHASES: readonly string[] = ['act2', 'epilogue', 'failed'];
+
+/** Act 2 Economy / Society / Environment, see GAMEPLAY.md. Economy and Society reuse the Act 1 shape. */
+function computeMetersAct2(state: GameState): Meters {
+  const T = TUNING;
+  const sc = getScenario(state.scenarioId);
+  const dy = sc.endYear - sc.startYear;
+  const snap = economySnapshot(state);
+  const m = measureTiles(state);
+  const jobsTarget = T.jobsTargetBase + T.jobsTargetPerYear * dy;
+  const popTarget = T.popTargetBase + T.popTargetPerYear * dy;
+  const scale = clamp01(snap.filledJobs / jobsTarget);
+  const fill = snap.jobs > 0 ? snap.filledJobs / snap.jobs : 0;
+  // lastIncome is per year in Act 2; Act 1's trend term was per decade.
+  const budgetTrend = clamp01(0.5 + (state.lastIncome * 10 / ACT2_INCOME_MULT - 20) / 200);
+  const power = 1 - clamp01(state.a2.lastUnmetFrac);
+  const economy = 100 * (T.econScale * scale + T.econFill * fill + T.econBudget * budgetTrend + T.econPower * power);
+
+  const housed = clamp01(snap.population / popTarget);
+  const employed = snap.population > 0 ? clamp01(snap.filledJobs / (snap.population * 0.5)) : 0;
+  const clean = 1 - clamp01(m.housingAir / T.housingAirBad);
+  const society =
+    100 * (T.socHoused * housed + T.socEmployed * employed + T.socAir * clean) -
+    state.a2.stressSum / Math.max(1, state.a2.yearSeasons) * ACT2_STRESS_WEIGHT +
+    Math.max(-60, Math.min(20, state.a2.societyAdjust));
+
+  const landScore = clamp01(meanHealth(state) / 0.6);
+  const pollutionScore = 1 - clamp01(m.meanPollution / T.pollutionBad);
+  const marine = hasReef(state)
+    ? 0.5 * estuaryHealth(state) / 100 + 0.5 * meanReefHealth(state)
+    : estuaryHealth(state) / 100;
+  const environment = 100 * (0.35 * landScore + 0.3 * pollutionScore + 0.35 * marine);
+  const r = (v: number): number => Math.round(Math.max(0, Math.min(100, v)) * 10) / 10;
+  return { economy: r(economy), society: r(society), environment: r(environment) };
+}
+
+/** How strongly the year's average stress (events, blackouts) drags Society. */
+export const ACT2_STRESS_WEIGHT = 1;
+
 export function computeMeters(state: GameState): Meters {
+  if (ACT2_PHASES.includes(state.phase)) return computeMetersAct2(state);
   const T = TUNING;
   const dy = Math.max(0, state.year - getScenario(state.scenarioId).startYear);
   const snap = economySnapshot(state);
