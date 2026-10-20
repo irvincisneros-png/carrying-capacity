@@ -1,5 +1,5 @@
 /**
- * Dilemma cards for Reef Island: 3 in Act 1 (about one every 20 years) and 9 in Act 2 (2 to 3 per in-game decade).
+ * Dilemma cards for Reef Island: 4 in Act 1 (about one every 20 years) and 9 in Act 2 (2 to 3 per in-game decade).
  * Several have no clean answer on purpose. Each option lists who it helps and hurts, for the perspective-taking
  * preview, and every card carries an accurate "what does the evidence say?" blurb.
  *
@@ -45,6 +45,31 @@ export const REEF_ISLAND_DILEMMAS: readonly DilemmaDef[] = [
         outcome: 'Carpenters jack up thirty houses on new stumps. The families stay put, and the dunes are left alone, so the beach stays as it is.',
         effects: { budget: -18, mood: { [TESS]: 2 } },
         preview: { helps: [T('Families stay dry in small floods'), R(TESS, 'Her street stays home')], hurts: [E('Only helps the houses that are raised')] },
+      },
+    ],
+  },
+  {
+    id: 'a1-war-airstrip', title: 'An airstrip for the war', phase: 'act1', years: [1935, 1955], speaker: SIONE, priority: 1,
+    setup: 'War has reached the Pacific. The air force wants a long airstrip and a fuel dump on the flat ground behind the beach, and will pay the island well for the land and the labour. Sione worries about fuel drums near the lagoon. Others say the money and the strip could change the island for good.',
+    evidence: 'Wartime bases across northern Australia and the Pacific left behind fuel drums, scrap metal and contaminated soil. Where nobody insisted on a clean-up, leaking drums polluted water and reefs for decades, and some sites are still being cleaned today. Many wartime airstrips later opened islands to tourism.',
+    options: [
+      {
+        id: 'cleanup', label: 'Agree, on condition they remove every drum and scrap heap when they leave', evidenceBacked: true,
+        outcome: 'The strip is built in a dry season and the island earns more than it has in years. When peace comes, barges carry the drums away. The first tourist plane lands on the old strip a few years later.',
+        effects: { budget: 30, society: 1, flags: { 'reef.airstrip': 1 }, mood: { [SIONE]: 3 } },
+        preview: { helps: [E('Wartime pay for land and labour'), R(SIONE, 'The lagoon is kept clear of fuel')], hurts: [T('Families give up land behind the beach')] },
+      },
+      {
+        id: 'nocondition', label: 'Agree, and take the extra pay for leaving the clean-up to the island',
+        outcome: 'The money is good. When the air force leaves, rusting drums sit in the scrub, and after every wet season a rainbow sheen drifts into the lagoon.',
+        effects: { budget: 45, flags: { 'reef.airstrip': 1 }, tiles: [{ op: 'water', scope: 'estuary', add: 0.12 }, { op: 'soil', scope: 'land', add: 0.05 }], mood: { [SIONE]: -6 } },
+        preview: { helps: [E('The most money now')], hurts: [R(SIONE, 'Fuel in the lagoon'), C('reef-fish', 'Oily water over the coral'), P('Leaking drums for decades')] },
+      },
+      {
+        id: 'depot', label: 'Offer the old copra shed as a small supply depot instead',
+        outcome: 'The air force builds its strip on a bigger island and keeps a small depot here. A little money comes in, and the flat ground stays as gardens.',
+        effects: { budget: 12, mood: { [SIONE]: 2 } },
+        preview: { helps: [R(SIONE, 'Nothing new near the lagoon'), T('Gardens stay')], hurts: [E('Much less money')] },
       },
     ],
   },
