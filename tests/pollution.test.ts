@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { advanceDecade, applyAction, POLLUTION_PERSISTENCE, TileKind } from '../src/sim';
+import { advanceDecade, AIR_HALF_LIFE_YEARS, applyAction, POLLUTION_PERSISTENCE, TileKind, updatePollutionSeason } from '../src/sim';
 import { paint, sandbox } from './helpers/fixtures';
 
 const at = (g: { w: number }, x: number, y: number): number => y * g.w + x;
@@ -73,5 +73,22 @@ describe('local pollution fields', () => {
     const snap = Array.from(s.grid.airPollution);
     advanceDecade(s);
     expect(Array.from(s.grid.airPollution)).toEqual(snap);
+  });
+});
+
+describe('Act 2 air clears within a few years of its source closing', () => {
+  it('holds the Act 1 steady state while the plant runs, then falls by 90% within 4 years of it closing (water lingers longer)', () => {
+    const s = sandbox(TileKind.Land, { year: 1920 });
+    const plant = { uid: 1, type: 'coalpower' as const, x: 15, y: 15, w: 2, h: 2, rotation: 0 as const, builtYear: 1920 };
+    const farm = { uid: 2, type: 'farm' as const, x: 5, y: 5, w: 2, h: 2, rotation: 0 as const, builtYear: 1920 };
+    const g = s.grid;
+    for (let k = 0; k < 200; k++) updatePollutionSeason(g, [plant, farm] as never, () => 1);
+    const air0 = g.airPollution[at(g, 15, 15)] ?? 0;
+    const water0 = g.waterPollution[at(g, 5, 5)] ?? 0;
+    expect(air0).toBeCloseTo(2 * 4, 0); // Act 1's steady state is twice the intensity
+    for (let k = 0; k < 16; k++) updatePollutionSeason(g, [] as never, () => 1);
+    expect(g.airPollution[at(g, 15, 15)] ?? 0).toBeLessThan(0.1 * air0);
+    expect(g.waterPollution[at(g, 5, 5)] ?? 0).toBeGreaterThan(0.5 * water0);
+    expect(AIR_HALF_LIFE_YEARS).toBeLessThanOrEqual(2);
   });
 });

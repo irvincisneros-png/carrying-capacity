@@ -57,6 +57,13 @@ const SEASONS_PER_DECADE = 40;
 
 const decaySeason = (decade: number): number => Math.pow(decade, 1 / SEASONS_PER_DECADE);
 export const AIR_WATER_DECAY_SEASON = decaySeason(AIR_WATER_PERSIST_DECADE);
+/**
+ * Act 2 air pollution clears within a few years of its source closing: smoke and fine particles wash out of the air in
+ * days, and the haze map here stands for the soot and dust they leave on streets and roofs, which rain and street
+ * cleaning remove over a couple of years (half-life about a year). Steady state with the source running is unchanged.
+ */
+export const AIR_HALF_LIFE_YEARS = 1;
+export const AIR_DECAY_SEASON = Math.pow(0.5, 1 / (4 * AIR_HALF_LIFE_YEARS));
 export const SOIL_DECAY_SEASON = decaySeason(SOIL_PERSIST_DECADE);
 
 /** Soil contamination below which plants can establish. */
@@ -84,9 +91,10 @@ export function updatePollutionSeason(
   const { w, h } = grid;
   // Per-season add = intensity * (1 - decay) / (1 - persist^(1/40)) ... normalised so steady state = Act 1's 2x.
   const addAW = (1 - AIR_WATER_DECAY_SEASON) / (1 - AIR_WATER_PERSIST_DECADE);
+  const addAir = (1 - AIR_DECAY_SEASON) / (1 - AIR_WATER_PERSIST_DECADE);
   const addSoil = (1 - SOIL_DECAY_SEASON) / (1 - SOIL_PERSIST_DECADE);
   for (let i = 0; i < grid.airPollution.length; i++) {
-    grid.airPollution[i] = (grid.airPollution[i] ?? 0) * AIR_WATER_DECAY_SEASON;
+    grid.airPollution[i] = (grid.airPollution[i] ?? 0) * AIR_DECAY_SEASON;
     grid.waterPollution[i] = (grid.waterPollution[i] ?? 0) * AIR_WATER_DECAY_SEASON;
     grid.soilContamination[i] = (grid.soilContamination[i] ?? 0) * SOIL_DECAY_SEASON;
   }
@@ -95,7 +103,7 @@ export function updatePollutionSeason(
     if (k <= 0) continue;
     const prof = BUILDINGS[b.type].pollutes;
     const channels: [Float32Array, number, number][] = [
-      [grid.airPollution, prof.air ?? 0, addAW],
+      [grid.airPollution, prof.air ?? 0, addAir],
       [grid.waterPollution, prof.water ?? 0, addAW],
       [grid.soilContamination, prof.soil ?? 0, addSoil],
     ];

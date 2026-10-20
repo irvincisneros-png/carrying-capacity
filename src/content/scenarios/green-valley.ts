@@ -36,7 +36,7 @@ export const GREEN_VALLEY: ScenarioDef = {
     turningPoint: GREEN_VALLEY_TURNING,
     objectives: [
       { id: 'energy', label: 'Run the valley on mostly clean power (60% renewable or more)', metric: 'renewableShare', op: '>=', target: 60 },
-      { id: 'healing', label: 'Heal the valley: Environment 65 or more', metric: 'environment', op: '>=', target: 65 },
+      { id: 'healing', label: 'Heal the valley: Environment 70 or more', metric: 'environment', op: '>=', target: 70 },
       { id: 'return', label: 'Welcome an animal home that had gone', metric: 'speciesBack', op: '>=', target: 1 },
       { id: 'recycle', label: 'Give the old industrial sites a second life (half or more)', metric: 'act1Repurposed', op: '>=', target: 50, pendingTier: 'circular' },
       { id: 'frogs', label: 'Frogs calling from the wetlands', metric: 'wildlifeThriving', op: '>=', target: 1, bonus: true, pendingTier: 'wildlife' },
