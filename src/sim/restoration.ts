@@ -242,8 +242,8 @@ export function stepSuccession(state: GameState, ctx: RestoreCtx, seasonIndex: n
   }
 }
 
-/** Coral nurseries lift the health coral can reach on reef tiles within 4 tiles (up to two nurseries' worth). */
-function nurseryBoost(state: GameState, per: number): Float32Array {
+/** Coral nurseries lift the health coral can reach on reef tiles within 4 tiles (up to `stack` nurseries' worth). */
+function nurseryBoost(state: GameState, per: number, stack: number): Float32Array {
   const g = state.grid;
   const out = new Float32Array(g.kind.length);
   for (const b of state.buildings) {
@@ -251,21 +251,26 @@ function nurseryBoost(state: GameState, per: number): Float32Array {
     for (let y = Math.max(0, b.y - 4); y <= Math.min(g.h - 1, b.y + b.h + 3); y++) {
       for (let x = Math.max(0, b.x - 4); x <= Math.min(g.w - 1, b.x + b.w + 3); x++) {
         const i = y * g.w + x;
-        out[i] = Math.min(per * 2, (out[i] ?? 0) + per);
+        out[i] = Math.min(per * stack, (out[i] ?? 0) + per);
       }
     }
   }
   return out;
 }
 
+/** Reef water pollution at which coral gets none of the clean-water heat tolerance. */
+export const CLEAN_REEF_WATER = 0.6;
+
 /** Reef: coral health relaxes towards what temperature and local water quality allow; losses are quicker than recovery. */
 export function stepReef(state: GameState): void {
   const g = state.grid;
   const reef = getScenario(state.scenarioId).act2.reef;
-  const boost = reef ? nurseryBoost(state, reef.nurseryBoost) : null;
+  const boost = reef ? nurseryBoost(state, reef.nurseryBoost, reef.nurseryStack ?? 2) : null;
   for (let i = 0; i < g.kind.length; i++) {
     if (g.kind[i] !== TileKind.Reef) continue;
-    const target = Math.min(1, reefHealth(state.tempC, g.waterPollution[i] ?? 0, reef?.tolerance ?? 0) + (boost ? (boost[i] ?? 0) : 0));
+    const wp = g.waterPollution[i] ?? 0;
+    const tol = (reef?.tolerance ?? 0) + (reef?.cleanWaterTolerance ?? 0) * Math.max(0, 1 - wp / CLEAN_REEF_WATER);
+    const target = Math.min(1, reefHealth(state.tempC, wp, tol) + (boost ? (boost[i] ?? 0) : 0));
     const h = g.health[i] ?? 0;
     const nh = h > target ? h - Math.min(h - target, 0.015) : h + Math.min(target - h, 0.02);
     g.health[i] = nh;

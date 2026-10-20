@@ -253,8 +253,11 @@ function evalBeach(s: GameState, h: Spec<'nesting-beach'>, wantMask: boolean): H
   }
   const water = meanOver(g.waterPollution, nearBeachWater);
   // Amber lights (1) or lights-out in nesting season (2) pull the lit zone in.
-  const lightFix = typeof s.flags['turtle.lights'] === 'number' ? s.flags['turtle.lights'] : 0;
-  const lit = within(s, Math.max(1, h.darkDist - lightFix), (i) => {
+  // The flag comes from story choices; the policy is Reef Island's standing 'turtle-friendly lighting' lever.
+  const num = (v: unknown): number => (typeof v === 'number' ? v : 0);
+  const lightFix = Math.max(num(s.flags['turtle.lights']), num(s.flags['pol.turtle.lights']));
+  const reach = Math.max(0, h.darkDist - lightFix);
+  const lit = within(s, reach, (i) => {
     const uid = g.building[i] ?? 0;
     if (uid === 0) return false;
     const b = s.buildings.find((o) => o.uid === uid);
@@ -267,7 +270,7 @@ function evalBeach(s: GameState, h: Spec<'nesting-beach'>, wantMask: boolean): H
   const limiting = seagrass.length < h.minSeagrass
     ? `Only ${seagrass.length} tiles of healthy seagrass; it needs ${h.minSeagrass}.`
     : !waterOk ? 'The water by the beach is too polluted.'
-      : darkFrac < h.minDarkFrac ? `Only ${Math.round(darkFrac * 100)}% of the beach is dark at night; it needs ${Math.round(h.minDarkFrac * 100)}%. Homes, resorts and anything that uses power within ${Math.max(1, h.darkDist - lightFix)} tiles of the sand light it up.` : '';
+      : darkFrac < h.minDarkFrac ? `Only ${Math.round(darkFrac * 100)}% of the beach is dark at night; it needs ${Math.round(h.minDarkFrac * 100)}%. ${reach > 0 ? `Homes, resorts and anything that uses power within ${reach} tile${reach === 1 ? '' : 's'} of the sand light it up${lightFix < 2 ? ' (turtle-friendly lighting shrinks that)' : ''}.` : 'Something built on the sand itself is lit.'}` : '';
   const mask = new Uint8Array(g.kind.length);
   // The habitat view shows the seagrass meadow and the stretches of sand that are dark enough to nest on.
   if (wantMask) { for (const i of seagrass) mask[i] = 1; for (const i of dark) mask[i] = 1; }

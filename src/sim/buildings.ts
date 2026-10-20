@@ -485,7 +485,7 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
       on: [TileKind.Sea],
       nearTerrain: { kinds: [TileKind.Reef], dist: 2, reason: 'A coral nursery goes in the shallows beside the reef' },
     },
-    blurb: 'Fragments of the toughest local coral are grown on frames and planted back, speeding recovery and spreading heat-tolerant genes. Each nursery helps the reef within about 4 tiles; two overlapping help most.',
+    blurb: 'Fragments of the toughest local coral are grown on frames and planted back, speeding recovery and spreading heat-tolerant genes. Each nursery helps the reef within about 4 tiles, up to three overlapping; it costs $4k a year to run.',
   },
   bore: {
     id: 'bore', name: 'Water bore', w: 1, h: 1, cost: 25, jobs: 1, housing: 0, power: -1,

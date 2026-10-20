@@ -247,7 +247,11 @@ export function advanceDecade(state: GameState): { state: GameState; report: Dec
 
   // 4. Climate for the new year.
   next.year = state.year + DECADE_YEARS;
-  next.cumulativeKt = state.cumulativeKt + total;
+  // A small place's boom nudges the world's path rather than deciding it: only `climateInfluence` of the gap between
+  // its own decade and the reference decade counts (Act 1 only; in Act 2 the town stands for a world that is acting).
+  const infl = sc.modifiers.climateInfluence ?? 1;
+  const refDecade = (referenceCumulative(next.year) - referenceCumulative(state.year)) * (sc.modifiers.emissionScale ?? 1);
+  next.cumulativeKt = state.cumulativeKt + (infl === 1 ? total : infl * total + (1 - infl) * refDecade);
   const clim = climateAt(next.year, next.cumulativeKt, sc.modifiers.climateSensitivityMult, sc.modifiers.emissionScale ?? 1);
   next.multiplier = clim.m;
   next.co2 = clim.co2;

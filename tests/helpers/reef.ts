@@ -1,11 +1,12 @@
 /** Scripted players for Reef Island. */
-import { applyAction, BUILDINGS, canPlace, createGame, startAct2, TileKind } from '../../src/sim';
+import { applyAction, BUILDINGS, canPlace, startAct2, TileKind } from '../../src/sim';
+import { seededGame } from './seeds';
 import { wouldFlood } from '../../src/sim/mechanics/reefCore';
 import type { BuildingId, GameState } from '../../src/sim';
 import { runScript } from './autoplay';
 import {
-  answerPrompts, bestSpot, buildEnergy, comanageBush, consultAll, count, nearTiles, place, placeUpTo, playAct2, queuePlan, retireFossil,
-  setPolicy, treatSewage, burnPatches,
+  answerPrompts, bestSpot, buildEnergy, comanageBush, consultAll, count, disposeLegacy, nearTiles, place, placeUpTo, playAct2, queuePlan,
+  retireFossil, setPolicy, treatSewage, burnPatches,
 } from './scen';
 import type { Plan, QueueWant } from './scen';
 
@@ -32,16 +33,34 @@ export const REEF_THOUGHTFUL_WANTS: Want[] = [
   { id: 'landfill', max: 1 },
 ];
 
-export function reefAct1Idle(): GameState {
-  return runScript(createGame('reef-island'), queuePlan(REEF_BOOM_WANTS, 1.0)).state;
+export function reefAct1Idle(seed: number | null = null): GameState {
+  return runScript(seededGame('reef-island', seed), queuePlan(REEF_BOOM_WANTS, 1.0)).state;
 }
 
-export function reefAct1Thoughtful(): GameState {
+export function reefAct1Thoughtful(seed: number | null = null): GameState {
   const inner = queuePlan(REEF_THOUGHTFUL_WANTS, 1.0);
-  return runScript(createGame('reef-island'), (s) => inner(answerPrompts(consultAll(s), {}, 25))).state;
+  return runScript(seededGame('reef-island', seed), (s) => inner(answerPrompts(consultAll(s), {}, 25))).state;
 }
 
-export const REEF_BOT = { cull: 1, nurseries: 3, wetlands: 2, relocate: true, seawalls: 0, satellites: true, startDelay: 0, scale: 1 };
+export const REEF_BOT = { cull: 1, nurseries: 6, wetlands: 4, relocate: true, seawalls: 0, satellites: true, circular: true, lights: 1, startDelay: 0, scale: 1 };
+
+/** Reef tiles a nursery here would reach that fewer than two nurseries already cover (spreads them round the reef). */
+function reefReach(s: GameState): (x: number, y: number, w: number, h: number) => number {
+  const g = s.grid;
+  const cover = new Uint8Array(g.kind.length);
+  for (const b of s.buildings) {
+    if (b.type !== 'coralnursery') continue;
+    for (let y = Math.max(0, b.y - 4); y <= Math.min(g.h - 1, b.y + b.h + 3); y++) for (let x = Math.max(0, b.x - 4); x <= Math.min(g.w - 1, b.x + b.w + 3); x++) cover[y * g.w + x] = (cover[y * g.w + x] ?? 0) + 1;
+  }
+  return (x0, y0, w, h) => {
+    let n = 0;
+    for (let y = Math.max(0, y0 - 4); y <= Math.min(g.h - 1, y0 + h + 3); y++) for (let x = Math.max(0, x0 - 4); x <= Math.min(g.w - 1, x0 + w + 3); x++) {
+      const i = y * g.w + x;
+      if (g.kind[i] === TileKind.Reef && (cover[i] ?? 0) < 2) n++;
+    }
+    return n;
+  };
+}
 const sc = (n: number): number => Math.round(n * REEF_BOT.scale);
 
 export function reefThoughtfulPlan(): Plan {
@@ -53,11 +72,13 @@ export function reefThoughtfulPlan(): Plan {
     s = comanageBush(s, 2);
     s = burnPatches(s);
     s = treatSewage(s);
-    s = placeUpTo(s, 'coralnursery', Math.max(0, sc(REEF_BOT.nurseries) - count(s, 'coralnursery')), nearTiles(s, [TileKind.Reef]));
+    if (REEF_BOT.lights > 0 && s.year === y0) s = setPolicy(s, 'turtle.lights', REEF_BOT.lights);
+    for (let k = count(s, 'coralnursery'); k < sc(REEF_BOT.nurseries); k++) s = placeUpTo(s, 'coralnursery', 1, reefReach(s));
     s = placeUpTo(s, 'wetland', Math.max(0, sc(REEF_BOT.wetlands) - count(s, 'wetland')), nearTiles(s, [TileKind.Estuary]));
     s = placeUpTo(s, 'nursery', Math.max(0, 3 - count(s, 'nursery')), nearTiles(s, [TileKind.Estuary]));
     s = buildEnergy(s, [['solarfarm', 3], ['battery', 3], ['windfarm', 2], ['tidal', 1, 2030], ['rooftopsolar', 4]], () => () => 0);
     s = retireFossil(s, { circularSafe: true });
+    if (REEF_BOT.circular) s = disposeLegacy(s, { reserve: 120, skip: ['port', 'resort', 'farm'] });
     if (REEF_BOT.satellites && REEF_BOT.scale >= 0.6) s = satellites(s);
     if (REEF_BOT.relocate && REEF_BOT.scale >= 0.6) s = relocateLowHomes(s);
     return s;
@@ -108,13 +129,13 @@ export function relocateLowHomes(state: GameState): GameState {
   return s;
 }
 
-export function reefThoughtful(): { act1: GameState; end: GameState } {
-  const act1 = reefAct1Thoughtful();
+export function reefThoughtful(seed: number | null = null): { act1: GameState; end: GameState } {
+  const act1 = reefAct1Thoughtful(seed);
   return { act1, end: playAct2(startAct2(act1), reefThoughtfulPlan()) };
 }
 
-export function reefIdle(): { act1: GameState; end: GameState } {
-  const act1 = reefAct1Idle();
+export function reefIdle(seed: number | null = null): { act1: GameState; end: GameState } {
+  const act1 = reefAct1Idle(seed);
   return { act1, end: playAct2(startAct2(act1), null) };
 }
 

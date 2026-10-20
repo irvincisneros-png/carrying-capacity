@@ -34,14 +34,22 @@ export const REEF_ISLAND: ScenarioDef = {
       blurb: 'Burns diesel shipped in by barge, cooled with seawater. Reliable, noisy, and the biggest source of the island\'s emissions.',
     },
   },
-  modifiers: { budgetMult: 1, eventSeverity: 1.5, climateSensitivityMult: 1.35, remediationYears: 20, hintLevel: 0, emissionScale: 0.45 },
+  modifiers: { budgetMult: 1, eventSeverity: 1.5, climateSensitivityMult: 1.35, remediationYears: 20, hintLevel: 0, emissionScale: 0.5, climateInfluence: 0.6 },
   policies: [
     {
       id: 'cots.cull', label: 'Crown-of-thorns control', min: 0, max: 2, step: 1, default: 0, unit: 'level', costPerYear: [0, 5, 10],
       blurb: 'Divers control selected coral-eating starfish using approved injections of vinegar or bile salts. Level 1 patrols the main dive sites. Level 2 covers the whole reef.',
     },
+    {
+      id: 'turtle.lights', label: 'Turtle-friendly lighting', min: 0, max: 2, step: 1, default: 0, unit: 'level', costPerYear: [0, 2, 3],
+      blurb: 'Hatchlings head for the brightest horizon. Level 1 swaps beachfront lights for shielded, low amber ones, so only buildings right on the sand still glow. Level 2 also turns beachfront lights out on nesting nights. Lights further inland do not reach the beach either way.',
+    },
   ],
   act2: {
+    carryOverCap: 450,
+    fundShare: 0.5,
+    fundYears: 25,
+    carryOverNote: 'Most of the boom\'s profits went to the resort owners and the shipping lines.',
     startYear: 2025,
     endYear: 2100,
     warmingCap: 2.4,
@@ -50,11 +58,11 @@ export const REEF_ISLAND: ScenarioDef = {
     weedPressure: 1.2,
     fireProneness: 0.4,
     rainfall: 1.1,
-    reef: { tolerance: 0.45, nurseryBoost: 0.07 },
+    reef: { tolerance: 0.1, nurseryBoost: 0.1, nurseryStack: 3, cleanWaterTolerance: 0.45 },
     eventMult: { 'marine-heatwave': 1.3, drought: 0.4 },
     turningPoint: REEF_ISLAND_TURNING,
     objectives: [
-      { id: 'reef', label: 'Keep the reef alive: coral health 50 or more', metric: 'reefHealth', op: '>=', target: 50 },
+      { id: 'reef', label: 'Keep the reef alive: coral health 50 or more (average of the last 5 years)', metric: 'reefHealth', op: '>=', target: 50, avgYears: 5 },
       { id: 'homes', label: 'No homes lost to the sea', metric: 'homesLost', op: '<=', target: 0 },
       { id: 'tourism', label: 'Keep the tourism economy going (index 45 or more)', metric: 'tourism', op: '>=', target: 45 },
       { id: 'turtles', label: 'Turtles nesting every summer', metric: 'wildlifeThriving', op: '>=', target: 1, bonus: true, pendingTier: 'wildlife' },

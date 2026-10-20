@@ -15,7 +15,7 @@ export function reefSeason(s: GameState): void {
   const left = flag(s, 'r.cots');
   if (left <= 0) return;
   const g = s.grid;
-  const loss = 0.025 * (1 - 0.45 * cullLevel(s));
+  const loss = 0.025 * ([1, 0.4, 0.12][cullLevel(s)] ?? 1);
   for (let i = 0; i < g.kind.length; i++) {
     if (g.kind[i] !== TileKind.Reef) continue;
     g.health[i] = Math.max(0, (g.health[i] ?? 0) * (1 - loss));
@@ -25,6 +25,11 @@ export function reefSeason(s: GameState): void {
   addFlag(s, 'r.cotsSeasons', 1);
 }
 
+/** Yearly running cost of one coral nursery (divers, frames, boat fuel). */
+export const CORAL_NURSERY_UPKEEP = 4;
+
 export function reefIncome(s: GameState): number {
-  return tourismIncome(s);
+  let nurseries = 0;
+  for (const b of s.buildings) if (b.type === 'coralnursery') nurseries++;
+  return tourismIncome(s) - CORAL_NURSERY_UPKEEP * nurseries;
 }

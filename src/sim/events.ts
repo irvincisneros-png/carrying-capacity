@@ -12,7 +12,7 @@ import type { Rng } from './rng';
 
 export const EVENT_LOG_CAP = 800;
 /** Share of the normal coral loss that remains after acting on a satellite warning. */
-export const MITIGATED_LOSS = 0.45;
+export const MITIGATED_LOSS = 0.3;
 export const EVENT_QUEUE_CAP = 200;
 
 export interface EventCtx {

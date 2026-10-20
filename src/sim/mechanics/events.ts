@@ -8,7 +8,7 @@ import { BUILDINGS } from '../buildings';
 import { stageFromHealth } from '../restoration';
 import { TileKind } from '../types';
 import { clamp, clamp01, eventActive, flag, setFlag } from './flags';
-import { cotsChance, seaRiseM, surgeHeightM, wouldFlood, wouldFloodBare } from './reefCore';
+import { cotsChance, cullLevel, seaRiseM, surgeHeightM, wouldFlood, wouldFloodBare } from './reefCore';
 import { meanRiverWaterPollution, RIVER } from './riverCore';
 
 const warm = (k: number, t: number): number => 1 + k * Math.max(0, t);
@@ -45,7 +45,8 @@ const crownOfThorns: EventDef = {
     let before = 0, after = 0, n = 0;
     for (let i = 0; i < g.kind.length; i++) {
       if (g.kind[i] !== TileKind.Reef) continue;
-      const loss = clamp(0.06 + 0.07 * sev, 0, 0.3);
+      // Divers already on patrol catch an outbreak early: level 1 halves the first damage, level 2 cuts most of it.
+      const loss = clamp(0.06 + 0.07 * sev, 0, 0.3) * ([1, 0.55, 0.3][cullLevel(s)] ?? 1);
       before += g.health[i] ?? 0;
       g.health[i] = (g.health[i] ?? 0) * (1 - loss);
       g.stage[i] = stageFromHealth(g.health[i] ?? 0);

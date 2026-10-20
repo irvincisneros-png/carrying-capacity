@@ -8,7 +8,7 @@ export const REEF_ISLAND_SPECIES: readonly SpeciesDef[] = [
     scientific: 'Chelonia mydas',
     icon: 'turtle',
     scenarios: ['reef-island'],
-    habitat: { kind: 'nesting-beach', minSeagrass: 14, minDarkFrac: 0.35, darkDist: 3, maxWater: 0.6, perTile: 0.12 },
+    habitat: { kind: 'nesting-beach', minSeagrass: 14, minDarkFrac: 0.35, darkDist: 2, maxWater: 0.6, perTile: 0.12 },
     startPop: 2,
     founders: 2,
     arriveAfter: 3,
