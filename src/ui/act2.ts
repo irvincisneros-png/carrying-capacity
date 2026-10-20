@@ -303,7 +303,7 @@ const HOW_TO: Partial<Record<string, string>> = {
   'net-zero-city:netZeroYear': 'Clean power first (rooftop solar, batteries, then offshore wind from 2040), then the rest: retrofit every brick suburb, turn the factories into recycling plants (Old sites) and move people onto transit. The Graphs (G) show which sector is left.',
   'red-dirt:netZeroYear': 'Clean power first (the sun is strong here: solar farms and batteries), then close the open-cut mines and retire the coal plant. The Graphs (G) show which sector is left.',
   societyMin: 'Keep Society up every single year: avoid blackouts, protect people in heatwaves, keep jobs.',
-  capitalSpent: 'Choose cheaper fixes first (retrofits, rooftop solar, parks) and avoid building twice.',
+  capitalSpent: 'Choose the best value first: each build card shows "$ per kt" (lower is better). Light rail and retrofits cut the most per dollar; batteries only help once there is spare daytime solar. Avoid building twice.',
 };
 
 const PENDING_TEXT: Record<string, string> = {

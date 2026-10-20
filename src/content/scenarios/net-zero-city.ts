@@ -33,7 +33,7 @@ export const NET_ZERO_CITY: ScenarioDef = {
     parkland: { cost: 5 },
     coolingcentre: { cost: 30 },
   },
-  modifiers: { budgetMult: 1.45, eventSeverity: 1.7, climateSensitivityMult: 1.2, remediationYears: 10, hintLevel: 0, emissionScale: 1.7 },
+  modifiers: { budgetMult: 1.45, eventSeverity: 1.7, climateSensitivityMult: 1.2, remediationYears: 10, hintLevel: 0, emissionScale: 1.7, stressWeight: 0.9 },
   act2: {
     startYear: 2025,
     endYear: 2100,
@@ -51,7 +51,7 @@ export const NET_ZERO_CITY: ScenarioDef = {
       { id: 'netzero', label: 'Reach the game\'s simplified net-zero target by 2050 (48 kt a year or less) and hold it', metric: 'netZeroYear', op: '<=', target: 2050 },
       { id: 'society', label: 'Society 60 or more, every year', metric: 'societyMin', op: '>=', target: 60 },
       { id: 'heat', label: 'Reduce heat deaths as far as possible (benchmark: 20 or fewer over the whole game)', metric: 'heatDeaths', op: '<=', target: 20 },
-      { id: 'budget', label: 'Under budget: spend 2500 or less on construction by 2050', metric: 'capitalSpent', op: '<=', target: 2500, byYear: 2050, bonus: true },
+      { id: 'budget', label: 'Under budget: spend 2800 or less on construction by 2050', metric: 'capitalSpent', op: '<=', target: 2800, byYear: 2050, bonus: true },
     ],
   },
 };

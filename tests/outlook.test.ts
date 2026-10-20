@@ -59,3 +59,16 @@ describe('net-zero outlook: emissions by source and the projected year', () => {
     void startAct2;
   });
 });
+
+describe('cost-effectiveness on the build cards ($ per kt cut)', () => {
+  it('ranks the city\'s options: light rail and retrofits beat solar farms; batteries do nothing before there is spare solar', async () => {
+    const { createGame, cutPerBuild, availability } = await import('../src/sim');
+    const s = createGame('net-zero-city');
+    const v = (t: Parameters<typeof cutPerBuild>[1]) => cutPerBuild(s, t, availability(s.scenarioId, t).cost);
+    expect(v('transitline')?.perKt ?? 999).toBeLessThan(v('solarfarm')?.perKt ?? 0);
+    expect(v('greensuburb')?.perKt ?? 999).toBeLessThan(v('windfarm')?.perKt ?? 0);
+    expect(v('battery')).toBeNull();
+    expect(v('parkland')).toBeNull();
+    expect(cutPerBuild(createGame('coal-coast'), 'solarfarm', 70)).toBeNull();
+  });
+});

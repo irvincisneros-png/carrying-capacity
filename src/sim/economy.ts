@@ -169,7 +169,7 @@ function computeMetersAct2(state: GameState): Meters {
   const clean = 1 - clamp01(m.housingAir / T.housingAirBad);
   const society =
     100 * (T.socHoused * housed + T.socEmployed * employed + T.socAir * clean) -
-    state.a2.stressSum / Math.max(1, state.a2.yearSeasons) * ACT2_STRESS_WEIGHT +
+    state.a2.stressSum / Math.max(1, state.a2.yearSeasons) * ACT2_STRESS_WEIGHT * (sc.modifiers.stressWeight ?? 1) +
     Math.max(-60, Math.min(20, state.a2.societyAdjust));
 
   const landScore = clamp01(meanHealth(state) / 0.6);

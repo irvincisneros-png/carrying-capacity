@@ -190,3 +190,27 @@ export function netZeroOutlook(s: GameState): NetZeroOutlook | null {
   if (has('mines')) order.push({ text: 'Close the mines (Old sites) as soon as the town has other jobs', done: false });
   return { line, byYear, nowKt, rows, lever, need: Math.round(need * 10) / 10, pace, projected, atLine, order };
 }
+
+/**
+ * Cost-effectiveness of one more building of a type, at today's buildings: kt a year it would cut and $k per kt.
+ * Only in scenarios with a net-zero line, in Act 2. A retrofit (a type that `replaces` another) swaps the first
+ * building it would replace. Null when it cuts nothing measurable (parks, cooling centres) or cannot be placed.
+ */
+export function cutPerBuild(s: GameState, type: BuildingId, cost: number): { kt: number; perKt: number } | null {
+  if (getScenario(s.scenarioId).act2.netZeroKt === undefined || s.phase !== 'act2') return null;
+  const def = BUILDINGS[type];
+  let buildings = s.buildings;
+  if (def.replaces) {
+    const k = s.buildings.findIndex((b) => b.type === def.replaces);
+    if (k < 0) return null;
+    buildings = s.buildings.slice();
+    const old = buildings[k] as (typeof buildings)[number];
+    buildings[k] = { ...old, type };
+  } else {
+    buildings = [...s.buildings, { uid: -1, type, x: 0, y: 0, rotation: 0, w: def.w, h: def.h, builtYear: s.year }];
+  }
+  const total = (st: GameState): number => emissionSources(st).reduce((a, r) => a + r.kt, 0);
+  const kt = total(s) - total({ ...s, buildings });
+  if (!(kt >= 0.05)) return null;
+  return { kt: Math.round(kt * 10) / 10, perKt: Math.round(cost / kt) };
+}

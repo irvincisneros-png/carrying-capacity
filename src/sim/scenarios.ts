@@ -74,6 +74,8 @@ export interface ScenarioModifiers {
    * gives the same share of warming.
    */
   emissionScale?: number;
+  /** Scales how hard the year's average stress (storms, heatwaves, blackouts) drags Society (default 1). */
+  stressWeight?: number;
   /**
    * How strongly the place's Act 1 emissions move the world's climate path (default 1). A small island's boom nudges
    * warming rather than deciding it: only this share of the gap between its emissions and the reference counts.

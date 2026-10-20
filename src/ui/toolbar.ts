@@ -3,6 +3,7 @@
 import { BUILDINGS, BUILDING_IDS } from '../sim/buildings';
 import { availability } from '../sim/rules';
 import { getScenario } from '../sim/scenarios';
+import { cutPerBuild } from '../sim/outlook';
 import type { BuildingId, GameState } from '../sim/types';
 import { clear, h, svg } from './dom';
 import { bIcon, UI_ICONS } from './icons';
@@ -183,11 +184,17 @@ export class Toolbar {
     if (d.co2 > 0) facts.push(`☁️ ${d.co2} kt CO₂/decade`);
     if (d.localPollution > 0) facts.push(`⚠️ pollution ${d.localPollution}`);
     if (d.energy && d.energy.source !== 'coal' && d.energy.source !== 'gas') facts.push('🌱 low-carbon');
+    let value = '';
+    try {
+      const c = cutPerBuild(s, id, av.cost);
+      if (c) value = `<div class="row"><span>📉 cuts about ${c.kt} kt CO₂ a year · <b>$${c.perKt}k per kt</b> (lower is better value)</span></div>`;
+    } catch { /* no estimate */ }
     const where = d.placement.nearTerrain?.reason ?? d.placement.nearBuilding?.reason ?? d.placement.exposed?.reason ?? d.placement.drop?.reason ?? d.placement.cableTo?.reason ?? (d.replaces ? `Build on top of a ${BUILDINGS[d.replaces].name}` : '');
     const size = `${d.w}×${d.h}${d.w !== d.h ? ' (R to rotate)' : ''}`;
     this.tip.show(r.left + r.width / 2, r.top,
       `<b>${av.name ?? d.name}</b> · $${av.cost}k · ${size}<br>${av.blurb ?? d.blurb}` +
       `<div class="row">${facts.map((f) => `<span>${f}</span>`).join('')}</div>` +
+      value +
       (where ? `<div class="row"><span>📍 ${where}</span></div>` : '') +
       (s.year < av.unlock ? `<div class="row"><span>🔒 Unlocks in ${av.unlock}</span></div>` : ''));
   }

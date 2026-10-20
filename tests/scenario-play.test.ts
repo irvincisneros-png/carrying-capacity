@@ -259,6 +259,7 @@ describe('Net Zero City: a thoughtful run gets to net zero by 2050 without leavi
       expect(lc.goalMet && lc.bonusMet).toBe(true);
       expect(lc.stars).toBeGreaterThanOrEqual(2);
       expect(lean.flags['c.spent'] as number).toBeLessThanOrEqual(2500);
+      expect(city.flags['c.spent'] as number).toBeGreaterThan(lean.flags['c.spent'] as number);
     } finally {
       Object.assign(CITY_BOT, { parks: 24, batteries: 16, rooftops: 130, transit: 6, retrofitPerYear: 3 });
     }
@@ -335,7 +336,9 @@ describe('margins of the thoughtful runs (the harder the scenario, the tighter t
     expect(margins(red).find((x) => x.id === 'water')?.margin).toBeLessThan(0.45);
   });
   it('Society, the one number that must not slip, is within reach in the city only by a few points', () => {
-    expect(value(city, 'society')).toBeLessThan(70);
+    // Round 3: storms and heatwaves drag city Society 10% less (stressWeight 0.9) so a UI player's storm years keep
+    // a few points of slack; the scripted run's worst year rose from about 68 to 70.
+    expect(value(city, 'society')).toBeLessThan(72);
   });
 });
 
