@@ -27,7 +27,9 @@ const TUFT_GREEN = [0x8aa05a, 0x9fae62, 0x7d9a56, 0x6f8c4a];
 const TUFT_DRY = [0xc2b25e, 0xb7a95a, 0xa9a05c, 0xcdb873];
 const TUFT_DUNE = [0xb9b878, 0xa8b070, 0xc8c38a];
 const SALT = [0xc7b0a0, 0xd4a29a, 0xb8c094];
-const CORAL = [0xe05a8a, 0x9b5bd1, 0xf08a3c, 0x3cc0b0, 0xf2c94c, 0xd6457a, 0x6fa8ff, 0xff7a5c];
+// A calmer, mostly warm reef palette (ART-DIRECTION: 'a visible reef', not confetti): fewer, related hues.
+const CORAL = [0xd9707e, 0xe0895a, 0xc9a24f, 0x6fb3a3, 0xd27a6a, 0xb98aa8];
+const REEF_WATER = new Color(0x5fa9a3);
 const ROCK = [0xe0c49a, 0xcfa070, 0xe8d2a8, 0xbf8f62, 0xd6b486];
 const BLEACHED = new Color(0xeee8dc);
 const DEAD = new Color(0x8f8576);
@@ -320,10 +322,10 @@ export class Vegetation {
         // ---- reef: coral coloured by health
         if (k === TileKind.Reef) {
           const h = act2 ? health : reefHealth(s.tempC, water);
-          for (let i = 0; i < 3; i++) {
-            if (i === 2 && r(i, 96) < 0.5) continue;
+          for (let i = 0; i < 2; i++) {
+            if (i === 1 && r(i, 96) < 0.45) continue;
             const [x, z] = pos(SLOT6, i * 2 + (t % 2), 0.3);
-            _c.set(CORAL[(r(i, 61) * CORAL.length) | 0]!);
+            _c.set(CORAL[(r(i, 61) * CORAL.length) | 0]!).lerp(REEF_WATER, 0.12);
             if (h < 0.15) _c.lerp(DEAD, 0.85);
             else _c.lerp(BLEACHED, Math.max(0, Math.min(1, (0.75 - h) / 0.6)));
             S.coral!.push(t * 6 + i, x, map.heightAt(x, z) - 0.02, z, r(i, 62) * 6.28, 0.9 + r(i, 63) * 0.7, 1, 0, _c);
