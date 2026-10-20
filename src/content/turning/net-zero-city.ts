@@ -3,7 +3,7 @@ import type { TurningPointDef } from '../../sim/scenarios';
 export const NET_ZERO_CITY_TURNING: TurningPointDef = {
   crisis: 'heatwave',
   title: 'Forty-seven degrees',
-  text: 'Forty-seven degrees in the western suburbs, and the city\'s highest reading ever. Trains buckle, the grid strains, and the ambulances do not stop. Dolores Fitzgerald, eighty-two, spends the night in a neighbour\'s lounge room because her flat is hotter inside than out. The morning news counts the people who did not make it.',
-  scientistNote: 'Dr Aisha Rahman puts the city\'s numbers on the table: the coal stations, the highways and the factories you inherited, and the suburbs with almost no trees. Asphalt holds heat, and the hottest streets are the ones with the least shade. You have until 2050 to reach net zero with a tight budget. Start with what saves money and lives at the same time.',
+  text: 'Forty-seven degrees in the western suburbs, the hottest day the city has ever recorded. Rails buckle, the grid groans and the ambulances do not stop. Dolores Fitzgerald, eighty-two, spends the night on her bathroom tiles because her flat is hotter inside than out. A neighbour takes her in. The morning news counts the people who were not so lucky.',
+  scientistNote: 'Dr Aisha Rahman puts the numbers on the table. The coal and gas stations, the factories and the highways you inherited emit about 180 kilotonnes a year. Asphalt holds heat, and the hottest streets have the fewest trees. You have until 2050 to reach net zero, with a tight budget. Start with what saves money and lives at the same time.',
   residentId: 'dolores-fitzgerald',
 };

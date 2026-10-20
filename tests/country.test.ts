@@ -128,8 +128,8 @@ describe('consulting before building', () => {
     const c = applyAction(s, { type: 'consult', x: t.x, y: t.y });
     expect(c.state.country.partnership).toBe(100);
   });
-  it('is switched off for scenarios that have no local community written yet', () => {
-    const s = createGame('river-town');
+  it('is switched off for scenarios with no Elder in the cast (the tutorial)', () => {
+    const s = createGame('green-valley');
     s.budget = 500;
     const t = firstTile(s, 1);
     expect(applyAction(s, { type: 'consult', x: t.x, y: t.y }).result.ok).toBe(false);

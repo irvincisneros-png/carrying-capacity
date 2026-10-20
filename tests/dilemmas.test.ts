@@ -3,7 +3,7 @@ import {
   ACT1_MIN_GAP, ACT2_OFFERS_PER_DECADE, applyAction, choose, cloneState, createGame, DILEMMA_SOCIETY_CAP, dilemmaSociety, dilemmasFor,
   EVIDENCE_REWARD, getDilemma, layersSeason, tick, offerAct1, offerAct2, societyShare, TileKind, wordCount,
 } from '../src/sim';
-import type { GameState } from '../src/sim';
+import type { GameState, ScenarioId } from '../src/sim';
 import { runScript } from './helpers/autoplay';
 import { CAUTIOUS_WANTS, DIRTY_WANTS, greedyPlan } from './helpers/scripts';
 import { act2Sandbox, addBuilding, paint } from './helpers/fixtures';
@@ -120,11 +120,11 @@ describe('Act 2 scheduling', () => {
     offerAct2(s);
     expect(s.dilemmas.pending).toEqual(['d2-heat']);
   });
-  it('stays quiet in scenarios with no cards yet', () => {
-    const s = act2Sandbox(TileKind.Land, { scenario: 'red-dirt' });
-    for (let y = 2026; y < 2060; y++) { s.year = y; offerAct2(s); }
-    expect(s.dilemmas.pending).toEqual([]);
-    expect(dilemmasFor('red-dirt')).toHaveLength(0);
+  it('has no cards for an unknown scenario, and every real scenario has its own deck', () => {
+    expect(dilemmasFor('no-such-scenario' as ScenarioId)).toHaveLength(0);
+    for (const id of ['green-valley', 'river-town', 'reef-island', 'red-dirt', 'net-zero-city'] as const) {
+      expect(dilemmasFor(id).length, id).toBeGreaterThanOrEqual(3);
+    }
   });
 });
 

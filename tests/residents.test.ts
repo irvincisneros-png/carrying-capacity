@@ -4,7 +4,7 @@ import {
   renderText, residentDef, residentHome, resolveEndings, respond, selectEnding, serialize, societyShare, stepMoods, storyVars,
   t, tick, TileKind, wordCount, advanceDecade, startAct2, consumeEvents, cloneState, computeMeters, layersYearEnd, layersSeason,
 } from '../src/sim';
-import type { GameState } from '../src/sim';
+import type { GameState, ScenarioId } from '../src/sim';
 import { act2Sandbox, addBuilding, fillField, growTile, sandbox } from './helpers/fixtures';
 import { runScript } from './helpers/autoplay';
 import { CAUTIOUS_WANTS, DIRTY_WANTS, greedyPlan } from './helpers/scripts';
@@ -299,15 +299,13 @@ describe('epilogue endings', () => {
     const kids = residentHome(s, castFor('coal-coast')[4] as NonNullable<ReturnType<typeof residentDef>>);
     expect(Math.abs(lena.x - kids.x) + Math.abs(lena.y - kids.y)).toBeGreaterThan(0);
   });
-  it('is inert in scenarios without a cast yet', () => {
+  it('is inert for a scenario with no cast', () => {
+    expect(castFor('no-such-scenario' as ScenarioId)).toHaveLength(0);
+    expect(initResidents('no-such-scenario' as ScenarioId).list).toEqual({});
     const g = createGame('river-town');
-    expect(Object.keys(g.residents.list)).toHaveLength(0);
-    expect(castFor('river-town')).toHaveLength(0);
-    expect(initResidents('river-town').list).toEqual({});
-    let s = g;
-    for (let i = 0; i < 17; i++) s = advanceDecade(s).state;
-    expect(s.phase).toBe('turning-point');
-    expect(s.eventLog.filter((e) => e.story?.channel === 'resident')).toHaveLength(0);
+    expect(Object.keys(g.residents.list)).toHaveLength(6);
+    const bare = { ...g, scenarioId: 'no-such-scenario' as ScenarioId, residents: initResidents('no-such-scenario' as ScenarioId) };
+    expect(checkBeats(bare as GameState)).toEqual([]);
   });
   it('survives a save and load with its moods, fired beats and history', () => {
     const s = runScript(createGame('coal-coast'), greedyPlan(DIRTY_WANTS, 1.0)).state;
