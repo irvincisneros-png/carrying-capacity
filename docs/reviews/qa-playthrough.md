@@ -256,3 +256,81 @@ throttling (sim runs on the main thread); not optimised further.
 6. Repeating dilemma cards ("Who gets the water?" ×4) and a few cards listing the same group as helped and hurt.
 7. Speech bubbles can overlap each other on the map; toasts briefly slide in from beyond the right edge.
 8. A one-frame 50–75 ms hitch on season ticks under heavy CPU throttling.
+
+## Round 2: balance and teaching pass (2026-10-21)
+
+Same method as round 1 (headless Chrome against `vite preview`, real mouse clicks on build cards, map tiles, card
+options, policy sliders, the Old sites chooser and the satellite "Cut runoff now" banner; read-only page queries to
+find valid tiles). Act 2 run at 4× with the clock paused for every decision. "Real minutes" is again a Year 9
+estimate, not driver time (driver time: 11–16 minutes per Act 2).
+
+### What changed before the replays
+
+| Issue (round 1 rank) | Change | Commit |
+|---|---|---|
+| 2. Act 1 money runaway | Coal Coast $900k / River Town $500k / Reef Island $450k carried into Act 2; part of the surplus becomes a Transition Fund paid yearly over 20–25 years (e.g. "$1.3M ... pays $63k a year for 20 years"), explained on the turning point and in the budget tooltip. Multi-seed bands in `tests/balance-seeds.test.ts`. | 32243cf |
+| 1. Net Zero City order of operations | Goals panel: "Your emissions by source" at today's buildings, biggest lever highlighted, "On current plan: net zero about 2047 (target 2050)" recomputed on every build, a ticked suggested order; same list on the intro card. Power-loss warning now simulates a year without the plant (other plants ramp up) and says when the night, not the batteries, is the problem. | f65d71a, 4b25c1b |
+| 3. Reef goal decided by Act 1 warming | Act 1 boom nudges warming (climateInfluence 0.6); clean water gives coral heat tolerance; nurseries stack ×3 ($4k/yr upkeep); satellite-warned heatwaves and starfish patrols do more; coral judged on a 5-year mean. Same clean-energy plan without the local work: 1 of 4 seeds wins (was 3 of 4). | 27cd81f |
+| 4. Lingering air pollution | Act 2 air half-life one year; Green Valley heal target back to 70. | 025ce5b |
+| 5–7. Smaller | Turtle lighting tied to the beach (2 tiles) plus a "Turtle-friendly lighting" lever; recurring cards max 3 offers, titled "(again)" with what was chosen last time; one "▲▼ Town: mixed" chip instead of "▲ Town ▼ Town"; overlapping speech bubbles lift above each other; finishing the tutorial steps opens Coal Coast without recording a star; estuary goal on a 10-year mean (see Coal Coast); Elder named per scenario on significant places. | 2fe7dba, a1026e9 |
+
+### Net Zero City (expert)
+
+- **Result:** ★ (3 of 3 goals): net zero reached 2047 and held, Society never under 64.5, 13 heat deaths. Bonus missed
+  (spent $3,163k by 2050). Aunty Lorraine's arc ended badly (I never consulted her), Dolores mixed.
+- **Time:** in-game 2025–2100. Real: about 90–120 minutes for a student.
+- **How the panel steered the run:** intro card listed power 83 kt, factories 57 kt (wait for Old sites in 2032),
+  traffic 24, homes 22. The projection read 2062 in 2029 ("12 years late"), which pushed money into power; 2044 once
+  the factories became recycling plants in 2032–2036; 2047 once coal went.
+- **First attempt (before 4b25c1b): net zero 2051, 0★.** The old warning said a coal plant couldn't go ("16% short
+  at night") although four gas plants had spare capacity, and the lever said "rooftop solar and batteries" when the
+  rooftops had run out and there was no spare daytime power to charge the batteries. Both fixed; the second attempt
+  followed the new text (wind for the night, retire coal with gas as the bridge) and won.
+
+### Reef Island (hard)
+
+- **Result:** ★★ (coral 56.8 as a 5-year mean, no homes lost, tourism 73.6, turtles thriving: 15 green turtles).
+  Third star missed: Kieran Walsh's arc mixed. Money was genuinely tight (lowest $13k), 37 satellite warnings acted on,
+  six coral nurseries placed by their "Replants N reef tiles" tip, starfish control and turtle lighting at level 1,
+  two low homes rebuilt on raised ground in 2026.
+- **First attempt: 0★** because my driver ignored the "Homes at risk: 1" readout and a home was lost in 2027 (the
+  readout, goal-row note and two grace years were all there; the miss was mine). The same run kept the coral at 51.3
+  even with the diesel station never retired and no warnings acted on, thanks to sewage treatment, nurseries and
+  starfish control.
+- **Time:** in-game 1900–2100. Real: about 80–105 minutes for a student.
+
+### Coal Coast (easy)
+
+- **Result:** ★★★ (warming 1.6 °C, estuary 68.8 as a 10-year mean, Society 91, every Act 1 site repurposed or recycled
+  by 2043, koalas 35 and green turtles 11 thriving, all six residents' arcs good).
+- **Played under the 5-year rule first: 0★.** The estuary sat at 82–88 from 2049 to 2093, then four floods, two hot
+  fires and a fish kill in 2093–2098 dragged the 5-year mean to 58 with every other goal met. The goal now averages ten
+  years (a1026e9) and the same save re-scored ★★★ on load.
+- **Money:** the $900k start plus a $63k-a-year fund were spent down to $30–160k every year until about 2050; after
+  everything was built the bank grew again to $1.15M by 2100.
+- **Time:** in-game 1850–2100. Real: about 75–95 minutes for a student.
+
+### Checks
+
+- `npx vitest run` 656 tests, `npx tsc --noEmit -p .` clean, `npx vite build` clean. No console errors or exceptions
+  in any replay.
+- Turning point shows the Transition Fund paragraph with real numbers; bubbles from neighbouring homes stack (checked
+  with two residents speaking a tile apart).
+
+### Remaining issues, ranked (round 2)
+
+1. **Late-game surplus:** once every site is dealt with (about 2050 on Coal Coast, 2040s on Reef Island) income piles
+   up again ($1.15M at 2100 on Coal Coast) with nothing left to buy. A late sink (restoration projects, adaptation)
+   or a falling Act 2 income would keep the second half meaningful.
+2. **River Town wins 3 of 4 event seeds:** seed 47's long drought leaves the river at 52–58 and farms under 40 even
+   with the adaptive water-sharing player. Real players may hit this; a drought-year hint about the environmental share
+   would help.
+3. **Net Zero City Society margin is thin in storm years:** two event clusters (2038–2039) dropped Society from 92 to
+   65; the "60 every year" goal has ~5 points of slack. The under-budget bonus ($2,500k by 2050) is out of reach for a
+   UI player who follows the panel (spent $3,163k).
+4. **The Goals panel covers part of the city at 1600×900** now that it holds the emissions breakdown (fold it with
+   "hide"); at 375 px it lives in the Goals sheet and was not re-checked this round.
+5. Reef Island Act 1 has a flat stretch (1920–1950: nothing affordable to build while saving for the diesel station).
+6. Report card grades a species that was never present (Coal Coast platypus "D, 0 animals, started with 0").
+7. Carried over: toasts slide in from beyond the right edge; one 50–75 ms frame on season ticks under heavy CPU
+   throttling.
