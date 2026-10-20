@@ -716,6 +716,8 @@ export interface CensusEntry {
   /** Named families currently present. */
   families: string[];
   limiting: string;
+  /** False when the species was never here this game (none at the start and none ever arrived): not graded. */
+  seen: boolean;
 }
 
 export function speciesStatus(s: GameState, def: SpeciesDef): SpeciesStatus {
@@ -731,7 +733,7 @@ export function census(s: GameState): CensusEntry[] {
     const fam = (def.families as readonly FamilyDef[]).filter((f) => rt.families[f.id] === true).map((f) => f.name);
     return {
       id: def.id, name: def.name, icon: def.icon, start: rt.startPop, pop: rt.pop, peak: rt.peak,
-      status: speciesStatus(s, def), families: fam, limiting: rt.limiting,
+      status: speciesStatus(s, def), families: fam, limiting: rt.limiting, seen: rt.startPop > 0 || rt.peak > 0,
     };
   });
 }

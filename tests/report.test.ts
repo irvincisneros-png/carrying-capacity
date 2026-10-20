@@ -150,3 +150,14 @@ describe('report card', () => {
     expect(struggle.reflections).toHaveLength(2);
   });
 });
+
+describe('species census in the report card', () => {
+  it('marks a species that was never here this game as unseen, so it is not graded', () => {
+    const s = createGame('coal-coast');
+    const rc = buildReportCard(s);
+    const platypus = rc.census.find((c) => c.id === 'platypus');
+    expect(platypus?.start).toBe(0);
+    expect(platypus?.seen).toBe(false);
+    expect(rc.census.filter((c) => c.start > 0).every((c) => c.seen)).toBe(true);
+  });
+});

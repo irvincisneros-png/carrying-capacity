@@ -62,7 +62,7 @@ export interface SpeciesStatus {
   /** 0..1 habitat quality */
   habitat?: number;
   trend: -1 | 0 | 1;
-  status: 'thriving' | 'stable' | 'struggling' | 'gone' | 'returning';
+  status: 'thriving' | 'stable' | 'struggling' | 'gone' | 'returning' | 'not here yet';
   needs?: string;
 }
 

@@ -216,7 +216,7 @@ export class SpeciesPanel {
         h('span', { class: 'portrait', style: 'background:#8a6a4a' }, svg(UI_ICONS.paw)),
         h('div', null, h('b', null, s.name), h('div', { class: 'muted', style: 'font-size:12px' }, `${s.family ? s.family + ' · ' : ''}${s.population} ${s.trend > 0 ? '▲' : s.trend < 0 ? '▼' : '•'}${s.needs ? ' · needs ' + s.needs : ''}`)),
         h('div', { style: 'display:flex;flex-direction:column;gap:4px;align-items:flex-end;margin-left:auto' },
-          h('span', { class: `st ${s.status}`, style: 'margin-left:0' }, s.status),
+          h('span', { class: `st ${s.status.replace(/ /g, '-')}`, style: 'margin-left:0' }, s.status),
           h('button', { class: 'linkbtn', onclick: () => { this.shown = this.shown === s.id ? null : s.id; this.onHabitat?.(this.shown); this.set(this.species); } }, this.shown === s.id ? 'hide habitat' : 'show habitat'))));
     }
   }

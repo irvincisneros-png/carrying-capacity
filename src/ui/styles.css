@@ -288,7 +288,7 @@ kbd { font: 700 11px/1 var(--font); background: var(--paper-3); border-radius: 5
 .impact.p2 { background: #cfe9c0; color: #24561a; } .impact.p1 { background: #e2f1d8; color: #3a6a2a; } .impact.n1 { background: #f8dfd6; color: #8a3020; } .impact.n2 { background: #f2c4b6; color: #7a1a10; } .impact.z { background: var(--paper-3); color: var(--ink-2); }
 .species-card { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px dashed var(--line); }
 .species-card .st { margin-left: auto; font-size: 11px; font-weight: 900; text-transform: uppercase; padding: 3px 8px; border-radius: 8px; }
-.st.thriving, .st.returning { background: #cfe9c0; color: #24561a; } .st.stable { background: #e6efe0; } .st.struggling { background: #ffe1b8; color: #7a4a10; } .st.gone { background: #e4dccb; color: var(--ink-3); }
+.st.thriving, .st.returning { background: #cfe9c0; color: #24561a; } .st.stable { background: #e6efe0; } .st.struggling { background: #ffe1b8; color: #7a4a10; } .st.gone, .st.not-here-yet { background: #e4dccb; color: var(--ink-3); }
 .stars { display: flex; gap: 6px; justify-content: center; margin: 8px 0; }
 .stars .ic { width: 46px; height: 46px; animation: popin .6s cubic-bezier(.2,1.6,.4,1) backwards; }
 .grade-row { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px dashed var(--line); }

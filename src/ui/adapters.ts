@@ -174,7 +174,7 @@ export function speciesList(s: GameState): SpeciesStatus[] {
       const pop = Number(x.pop ?? 0);
       const start = Number(x.start ?? 0);
       const st = String(x.status ?? 'present');
-      const status: SpeciesStatus['status'] = st === 'thriving' ? 'thriving' : st === 'struggling' ? 'struggling' : st === 'gone' ? 'gone' : pop > start ? 'returning' : 'stable';
+      const status: SpeciesStatus['status'] = x.seen === false ? 'not here yet' : st === 'thriving' ? 'thriving' : st === 'struggling' ? 'struggling' : st === 'gone' ? 'gone' : pop > start ? 'returning' : 'stable';
       const fam = Array.isArray(x.families) ? (x.families as string[]) : [];
       return {
         id: String(x.id), name: String(x.name), family: fam.join(', ') || undefined, population: pop,
@@ -201,7 +201,11 @@ export function reportCard(s: GameState): ReportCard | undefined {
             : `Ended at ${typeof o.current === 'number' ? Math.round(o.current * 10) / 10 : o.current}`,
     }));
     const census = Array.isArray(rc.census) ? (rc.census as Record<string, unknown>[]) : [];
-    for (const c of census) items.push({ label: `${c.name}`, grade: c.status === 'thriving' ? 'A' : c.status === 'gone' ? 'D' : 'B', ok: c.status !== 'gone', detail: `${c.pop} animals (started with ${c.start})` });
+    for (const c of census) {
+      // A species that was never here this game (none at the start, none ever arrived) is not graded.
+      if (c.seen === false) items.push({ label: `${c.name}`, grade: '–', ok: true, detail: 'Never recorded here this game, so not graded' });
+      else items.push({ label: `${c.name}`, grade: c.status === 'thriving' ? 'A' : c.status === 'gone' ? 'D' : 'B', ok: c.status !== 'gone', detail: `${c.pop} animals (started with ${c.start})` });
+    }
     const residents = Array.isArray(rc.residents) ? (rc.residents as Record<string, unknown>[]) : [];
     return {
       title: `${rc.scenarioName ?? ''} · ${SIM.getScenario(s.scenarioId).act2.endYear} Report Card`,
