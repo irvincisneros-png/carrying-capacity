@@ -9,7 +9,7 @@ export const REEF_ISLAND: ScenarioDef = {
   blurb: 'A tropical island beside a reef: keep the coral alive, the homes dry and the tourists coming as the sea rises and warms.',
   biome: 'tropical',
   mechanics: ['reef'],
-  playMinutes: [75, 115],
+  playMinutes: [70, 105],
   mapW: 32,
   mapH: 32,
   seed: 2007,
@@ -25,8 +25,12 @@ export const REEF_ISLAND: ScenarioDef = {
     dripfarm: { disabled: true },
     fishway: { disabled: true },
     outfall: { unlock: 1900 },
+    coalpower: {
+      name: 'Diesel power station', nearTerrainAdd: [0],
+      blurb: 'Burns diesel shipped in by barge, cooled with seawater. Reliable, noisy, and the biggest source of the island\'s emissions.',
+    },
   },
-  modifiers: { budgetMult: 1, eventSeverity: 1.5, climateSensitivityMult: 1.15, remediationYears: 20, hintLevel: 0 },
+  modifiers: { budgetMult: 1, eventSeverity: 1.5, climateSensitivityMult: 1.35, remediationYears: 20, hintLevel: 0, emissionScale: 0.45 },
   policies: [
     {
       id: 'cots.cull', label: 'Crown-of-thorns control', min: 0, max: 2, step: 1, default: 0, unit: 'level', costPerYear: [0, 5, 10],
