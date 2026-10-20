@@ -600,8 +600,9 @@ export class App {
       this.renderer.showCursor('demolish', hv.tx, hv.ty, 0, !!b, b ? { x: b.x, y: b.y, w: b.w, h: b.h } : undefined);
       let legacy = false;
       try { legacy = !!b && s.phase === 'act2' && SIM.itemAt(s, hv.tx, hv.ty)?.status === 'standing'; } catch { legacy = false; }
-      if (b && legacy) this.tip.show(px, py, `<b>Demolish ${BUILDINGS[b.type].name}</b><br>${s.circular?.unlocked ? 'This old site would go to landfill (the worst choice). Use the <b>Old sites</b> tool to repurpose or recycle it.' : 'This old site would become rubble. Wait for the circular economy to give it a second life.'}`, 'bad');
-      else if (b) this.tip.show(px, py, `<b>Demolish ${BUILDINGS[b.type].name}</b><br>Refund $${Math.floor(availability(s.scenarioId, b.type).cost * DEMOLISH_REFUND)}k`, '');
+      const nm = availability(s.scenarioId, b?.type ?? 'road').name ?? (b ? BUILDINGS[b.type].name : '');
+      if (b && legacy) this.tip.show(px, py, `<b>Demolish ${nm}</b><br>${s.circular?.unlocked ? 'This old site would go to landfill (the worst choice). Use the <b>Old sites</b> tool to repurpose or recycle it.' : 'It closes now and is left as rubble; once the circular economy opens you can still recycle what is left.'}`, s.circular?.unlocked ? 'bad' : '');
+      else if (b) this.tip.show(px, py, `<b>Demolish ${nm}</b><br>Refund $${Math.floor(availability(s.scenarioId, b.type).cost * DEMOLISH_REFUND)}k`, '');
       if (b) { const pw = powerLossWarning(s, b.type); if (pw) this.tip.show(px, py, `${this.tip.el.innerHTML}<br><b>${pw}</b>`, 'bad'); }
       else this.tip.hide();
       return;

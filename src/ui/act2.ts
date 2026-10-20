@@ -5,6 +5,7 @@ import { EVENT_NAMES } from '../content/act2';
 import { eventChances } from '../sim/events';
 import { objectiveStatus } from '../sim/objectives';
 import { mechMetric } from '../sim/mechanics';
+import { readoutTrend } from './scenario';
 import { hash32, seasonWeather } from '../sim/season';
 import { getScenario } from '../sim/scenarios';
 import { BONUS_SPECIES, SPECIES_BY_ID } from '../content/species';
@@ -245,9 +246,9 @@ const HOW_TO: Partial<Record<string, string>> = {
   reefHealth: 'Cut runoff and sewage, grow coral nurseries, use the starfish cull lever, and cut emissions.',
   homesLost: 'Watch "Homes at risk" (top right): inspect homes by the shore and rebuild them on raised ground before a big cyclone. Mangroves soften surges.',
   tourism: 'Visitors come for a healthy reef and beaches. Resorts earn more when the reef is well.',
-  netZeroYear: 'Emissions must fall to the net-zero line and stay there: clean power, retrofits, transit.',
-  rehabPct: 'Close the mine, then use Rehab mine on the pit: reshape, topsoil, then seed with the Traditional Owners.',
-  aquifer: 'Pump less from bores: cap mine water in Town policies and recycle water.',
+  netZeroYear: 'Emissions must fall to the net-zero line and stay there: clean power first, then close or clean up the biggest emitters (mines, factories, cars). The Graphs (G) show where emissions come from.',
+  rehabPct: 'Close the mine, then use Rehab mine on the pit: reshape, topsoil, then seed with the Traditional Owners. Seeded ground grows from a native plant nursery right beside it (its crews also pull weeds); each patch is signed off after 5 years of good growth.',
+  aquifer: 'Open-cut mines drink the most groundwater: close them as early as you can. Water restrictions (Town policies) trim town use, and a town water storage catches the wet.',
   waterFailures: 'Keep the town supplied in dry years: bores, storage and water policies.',
   heatDeaths: 'Cooling centres, street trees, retrofitted homes and a reliable grid protect people in heatwaves.',
   societyMin: 'Keep Society up every single year: avoid blackouts, protect people in heatwaves, keep jobs.',
@@ -286,7 +287,17 @@ export function objectiveRow(o: ObjectiveResult, s?: GameState): HTMLElement {
   let atRiskHomes = 0;
   try { atRiskHomes = s && o.metric === 'homesLost' ? mechMetric(s, 'homesAtRisk') ?? 0 : 0; } catch { atRiskHomes = 0; }
   if (atRiskHomes > 0 && o.status === 'on-track') detail = `${detail} · ${atRiskHomes} home${atRiskHomes > 1 ? 's' : ''} on low ground`;
-  const how = s && (o.status === 'at-risk' || o.status === 'missed' || atRiskHomes > 0) && s.phase === 'act2' ? HOW_TO[o.metric] : undefined;
+  // A goal that is fine now but sliding fast (the aquifer) gets its hint early, with the trend.
+  let sliding = false;
+  if (s && o.metric === 'aquifer' && o.current !== null) {
+    const d = readoutTrend('aquifer');
+    if (d !== null && d <= -1) {
+      sliding = true;
+      const yrs = Math.max(0, (o.current - o.target) / -d);
+      detail = `${detail} · falling ${Math.round(-d)} a year${o.current > o.target ? `, below ${o.target} in about ${Math.round(yrs)} years` : ''}`;
+    }
+  }
+  const how = s && (o.status === 'at-risk' || o.status === 'missed' || atRiskHomes > 0 || sliding) && s.phase === 'act2' ? HOW_TO[o.metric] : undefined;
   return h('div', { class: `obj ${o.status} ${o.bonus ? 'bonus' : ''}` }, svg(icon),
     h('div', { style: 'flex:1;min-width:0' }, h('div', { class: 'lab' }, degC(o.label)), h('div', { class: 'val' }, `${label} · ${detail}`), h('div', { class: 'bar' }, h('i', { style: `width:${pct * 100}%` })), how ? h('div', { class: 'how' }, degC(how)) : null));
 }

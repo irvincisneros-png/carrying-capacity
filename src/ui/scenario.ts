@@ -19,7 +19,7 @@ const READOUTS: Record<string, Readout> = {
   seaLevelCm: { key: 'seaLevelCm', label: 'Sea level', icon: UI_ICONS.wave, fmt: (v) => `+${Math.round(v)} cm`, good: (v) => (v < 40 ? 2 : v < 70 ? 1 : 0), tip: 'Sea-level rise since pre-industrial times' },
   homesAtRisk: { key: 'homesAtRisk', label: 'Homes at risk', icon: UI_ICONS.warn, fmt: (v) => `${Math.round(v)}`, good: (v) => (v <= 0 ? 2 : 0), tip: 'Homes on ground low enough for a 1.3 m storm surge to flood. Inspect homes by the shore; rebuild them on raised ground' },
   tourism: { key: 'tourism', label: 'Tourism', icon: UI_ICONS.coral, fmt: (v) => `${Math.round(v)}`, good: (v) => (v >= 45 ? 2 : v >= 30 ? 1 : 0), tip: 'Tourism index: visitors come for the reef and the beaches' },
-  aquifer: { key: 'aquifer', label: 'Aquifer', icon: UI_ICONS.wave, fmt: (v) => `${Math.round(v)}`, good: (v) => (v >= 40 ? 2 : v >= 20 ? 1 : 0), tip: 'Groundwater left in the aquifer (0-100). It refills very slowly' },
+  aquifer: { key: 'aquifer', label: 'Aquifer', icon: UI_ICONS.wave, fmt: (v) => `${Math.round(v)}`, good: (v) => (v >= 40 ? 2 : v >= 20 ? 1 : 0), tip: 'Groundwater left in the aquifer (0-100), with its change per year. It refills by less than 1 a year, and open-cut mines drink the most' },
   rehabPct: { key: 'rehabPct', label: 'Mine rehab', icon: UI_ICONS.sprout, fmt: (v) => `${Math.round(v)}%`, good: (v) => (v >= 100 ? 2 : v >= 40 ? 1 : 0), tip: 'Share of the mine site reshaped, topsoiled, seeded and signed off' },
   heatDeaths: { key: 'heatDeaths', label: 'Heat deaths', icon: UI_ICONS.hot, fmt: (v) => `${Math.round(v)}`, good: (v) => (v <= 5 ? 2 : v <= 20 ? 1 : 0), tip: 'People who have died in heatwaves so far' },
   canopyPct: { key: 'canopyPct', label: 'Canopy', icon: UI_ICONS.leaf, fmt: (v) => `${Math.round(v)}%`, good: (v) => (v >= 25 ? 2 : v >= 15 ? 1 : 0), tip: 'Share of the city shaded by tree canopy' },
@@ -33,6 +33,20 @@ const BY_MECH: Record<string, string[]> = {
   heat: ['heatDeaths'],
   city: ['canopyPct', 'transitPct'],
 };
+
+/** Year-on-year change of each readout (UI memory only), so a slow slide is visible before it is too late. */
+const TREND = new Map<string, { year: number; v: number; prevYear: number; prev: number }>();
+export function readoutTrend(key: string): number | null {
+  const t = TREND.get(key);
+  if (!t || t.prevYear < 0 || t.year <= t.prevYear) return null;
+  return (t.v - t.prev) / (t.year - t.prevYear);
+}
+function noteTrend(key: string, year: number, v: number): void {
+  const t = TREND.get(key);
+  if (!t || year < t.year) { TREND.set(key, { year, v, prevYear: -1, prev: v }); return; }
+  if (year === t.year) { t.v = v; return; }
+  TREND.set(key, { year, v, prevYear: t.year, prev: t.v });
+}
 
 export class Readouts {
   el = h('div', { class: 'readouts panel hidden' });
@@ -60,7 +74,13 @@ export class Readouts {
     for (const it of this.items) {
       let v: number | null = null;
       try { v = mechMetric(s, it.r.key); } catch { v = null; }
-      it.val.textContent = v === null ? '–' : it.r.fmt(v);
+      let arrow = '';
+      if (v !== null && s.phase === 'act2') {
+        noteTrend(it.r.key, s.year, v);
+        const d = readoutTrend(it.r.key);
+        if (d !== null && Math.abs(d) >= 0.5) arrow = d > 0 ? ` ▲${Math.round(d)}` : ` ▼${Math.round(-d)}`;
+      }
+      it.val.textContent = v === null ? '–' : it.r.fmt(v) + arrow;
       const g = v === null ? 1 : it.r.good(v);
       it.box.className = `readout g${g}`;
     }
