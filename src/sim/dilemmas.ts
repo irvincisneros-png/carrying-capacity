@@ -81,13 +81,35 @@ export function getDilemma(scenario: ScenarioId, id: string): DilemmaDef | undef
   return dilemmasFor(scenario).find((d) => d.id === id);
 }
 
+/** How many times a card has been put on the table (answered, ignored or waiting). */
+export function timesOffered(s: GameState, id: string): number {
+  return s.dilemmas.decisions.filter((x) => x.dilemmaId === id).length + (s.dilemmas.pending.includes(id) ? 1 : 0);
+}
+
+/** A recurring card comes round at most this many times in one game (the first offer included). */
+export const MAX_OFFERS = 3;
+
+/** Title and opening line for a card that comes round again: it says so, and remembers what was decided. */
+export function repeatFraming(s: GameState, d: DilemmaDef): { title: string; lead: string } | null {
+  const last = [...s.dilemmas.decisions].reverse().find((x) => x.dilemmaId === d.id);
+  if (!last) return null;
+  const when = last.year;
+  const leads = last.optionId === 'ignored'
+    ? [`This came up in ${when} and was put off. It has not gone away.`, `Back on the table: in ${when} nobody decided, and the problem grew.`]
+    : [`It's back. In ${when} you chose "${last.optionLabel}". Conditions have changed since: does that still hold?`,
+      `The same question returns. Last time (${when}) the town went with "${last.optionLabel}". People remember how that went.`];
+  return { title: `${d.title} (again)`, lead: leads[hash32(s.seed, s.year, d.id.length) % leads.length] ?? '' };
+}
+
 function fire(s: GameState, d: DilemmaDef): void {
+  const again = repeatFraming(s, d);
   s.dilemmas.offered[d.id] = s.year;
   s.dilemmas.pending.push(d.id);
-  emitStory(s, renderText(d.setup, storyVars(s)), {
+  const setup = renderText(d.setup, storyVars(s));
+  emitStory(s, again ? `${again.lead} ${setup}` : setup, {
     channel: 'dilemma', ref: d.id,
     ...(d.speaker ? { speakerId: d.speaker } : {}),
-    choice: { prompt: d.title, options: d.options.map((o) => ({ id: o.id, label: o.label })) },
+    choice: { prompt: again ? again.title : d.title, options: d.options.map((o) => ({ id: o.id, label: o.label })) },
     tone: 'concern',
     ...(d.needsConsultation ? { needsConsultation: true } : {}),
   }, 0.6);
@@ -96,7 +118,7 @@ function fire(s: GameState, d: DilemmaDef): void {
 function canOffer(s: GameState, d: DilemmaDef): boolean {
   const last = s.dilemmas.offered[d.id];
   if (last === undefined) return true;
-  return d.repeat !== undefined && s.year - last >= d.repeat && !s.dilemmas.pending.includes(d.id);
+  return d.repeat !== undefined && s.year - last >= d.repeat && !s.dilemmas.pending.includes(d.id) && timesOffered(s, d.id) < MAX_OFFERS;
 }
 
 function eligible(s: GameState, phase: 'act1' | 'act2'): DilemmaDef[] {

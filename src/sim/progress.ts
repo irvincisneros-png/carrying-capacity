@@ -14,6 +14,11 @@ export interface Progress {
   stars: Partial<Record<ScenarioId, Stars>>;
   /** The player chose to skip the tutorial, which opens Coal Coast. */
   skippedTutorial: boolean;
+  /**
+   * The player finished the tutorial's guided steps, which also opens Coal Coast. Stars are only ever the report
+   * card's (finishing the steps is not itself a star).
+   */
+  tutorialDone?: boolean;
   /** Teacher override: everything is unlocked. */
   teacher: boolean;
 }
@@ -45,7 +50,7 @@ export function isScenarioUnlocked(p: Progress, id: ScenarioId, teacherOverride 
   if (p.teacher || teacherOverride) return true;
   const groups = UNLOCK_REQUIRES[id];
   return groups.every((group) => {
-    if (id === 'coal-coast' && p.skippedTutorial) return true;
+    if (id === 'coal-coast' && (p.skippedTutorial || p.tutorialDone === true)) return true;
     return group.some((req) => starsOf(p, req) >= 1);
   });
 }
@@ -79,6 +84,13 @@ export function skipTutorial(p: Progress): Progress {
   return { ...p, skippedTutorial: true };
 }
 
+/** The guided steps are done: Coal Coast opens. Returns the new Progress and whether that newly unlocked anything. */
+export function completeTutorial(p: Progress): { progress: Progress; newlyUnlocked: ScenarioId[] } {
+  const before = new Set(unlockedScenarios(p));
+  const next: Progress = { ...p, tutorialDone: true };
+  return { progress: next, newlyUnlocked: unlockedScenarios(next).filter((s) => !before.has(s)) };
+}
+
 /** Total stars earned over all scenarios (the menu shows this). */
 export function totalStars(p: Progress): number {
   return SCENARIO_IDS.reduce((n, id) => n + starsOf(p, id), 0);
@@ -106,6 +118,7 @@ export function parseProgress(text: string | null | undefined): Progress {
       }
     }
     out.skippedTutorial = r.skippedTutorial === true;
+    if (r.tutorialDone === true) out.tutorialDone = true;
     out.teacher = r.teacher === true;
     return out;
   } catch {

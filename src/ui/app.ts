@@ -825,7 +825,8 @@ export class App {
       this.renderer.sparkle(Math.floor(s.grid.w * Math.random()), Math.floor(s.grid.h * Math.random()), 3, 3, true);
     }, i * 250);
     try {
-      const { progress } = SIM.recordResult(loadProgressSafe(), 'green-valley', 1);
+      // Finishing the steps opens Coal Coast; the tutorial's stars come from its report card, like every scenario.
+      const { progress } = SIM.completeTutorial(loadProgressSafe());
       SIM.saveProgress(localStorage, progress);
     } catch { /* ignore */ }
     toast('Tutorial complete!', 'Coal Coast is unlocked. Read your report card, then head on to Coal Coast.', 'good', UI_ICONS.star, 9000);

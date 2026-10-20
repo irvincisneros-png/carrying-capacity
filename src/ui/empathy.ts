@@ -59,7 +59,7 @@ export function dilemmaFromEvent(e: SimEvent): DilemmaCard | null {
     detail: typeof o.detail === 'string' ? o.detail : typeof o.text === 'string' ? o.text : undefined,
     cost: typeof o.cost === 'number' ? o.cost : undefined,
     impacts: (Array.isArray(o.impacts) ? o.impacts : []).filter(isObj).map((im) => ({
-      who: String(im.who ?? im.name ?? '?'), effect: Number(im.effect ?? im.delta ?? 0), note: typeof im.note === 'string' ? im.note : undefined,
+      who: String(im.who ?? im.name ?? '?'), effect: Number(im.effect ?? im.delta ?? 0), note: typeof im.note === 'string' ? im.note : undefined, mixed: im.mixed === true,
     })),
   }));
   return {
@@ -135,6 +135,30 @@ export class Voices {
       b.el.style.top = `${p.y}px`;
       b.el.style.opacity = p.visible ? String(Math.min(1, (b.until - now) / 600)) : '0';
     }
+    this.unstack();
+  }
+
+  /** Two residents speaking from nearby homes: lift the newer bubble above the older one instead of covering it. */
+  private unstack(): void {
+    const placed: { l: number; r: number; t: number; b: number }[] = [];
+    for (const b of this.bubbles) {
+      const x = parseFloat(b.el.style.left) || 0;
+      const y = parseFloat(b.el.style.top) || 0;
+      const w = b.el.offsetWidth, hgt = b.el.offsetHeight;
+      let top = y - 12 - hgt;
+      const l = x - w / 2, r = x + w / 2;
+      let lift = 0;
+      for (let guard = 0; guard < 4; guard++) {
+        const hit = placed.find((q) => l < q.r + 6 && r > q.l - 6 && top < q.b + 6 && top + hgt > q.t - 6);
+        if (!hit) break;
+        const d = top + hgt - (hit.t - 8);
+        top -= d;
+        lift += d;
+      }
+      b.el.style.marginTop = lift > 0 ? `${-lift}px` : '';
+      b.el.classList.toggle('lifted', lift > 0);
+      placed.push({ l, r, t: top, b: top + hgt });
+    }
   }
 }
 
@@ -157,8 +181,8 @@ export function showDilemma(card: DilemmaCard, onChoose: (optionId: string) => v
     o.detail ? h('p', { style: 'margin:0 0 8px;font-size:13px' }, o.detail) : null,
     h('div', { class: 'impacts' }, ...o.impacts.map((im) => {
       const cls = im.effect >= 2 ? 'p2' : im.effect >= 1 ? 'p1' : im.effect <= -2 ? 'n2' : im.effect <= -1 ? 'n1' : 'z';
-      const arrow = im.effect > 0 ? '▲'.repeat(Math.min(2, im.effect)) : im.effect < 0 ? '▼'.repeat(Math.min(2, -im.effect)) : '•';
-      return h('span', { class: `impact ${cls}`, title: im.note ?? '' }, `${arrow} ${im.who}`);
+      const arrow = im.mixed ? '▲▼' : im.effect > 0 ? '▲'.repeat(Math.min(2, im.effect)) : im.effect < 0 ? '▼'.repeat(Math.min(2, -im.effect)) : '•';
+      return h('span', { class: `impact ${cls}${im.mixed ? ' mixed' : ''}`, title: im.note ?? '' }, `${arrow} ${im.who}${im.mixed ? ': mixed' : ''}`);
     }))))),
   ], { closable: false, onClose: () => { if (!chosen) onChoose(card.options[0]?.id ?? ''); } });
 }

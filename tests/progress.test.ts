@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  emptyProgress, isScenarioUnlocked, loadProgress, lockedReason, MAX_STARS, parseProgress, PROGRESS_KEY, recordResult, SCENARIO_IDS,
+  completeTutorial, emptyProgress, isScenarioUnlocked, loadProgress, lockedReason, MAX_STARS, parseProgress, PROGRESS_KEY, recordResult, SCENARIO_IDS,
   saveProgress, serializeProgress, setTeacherMode, skipTutorial, starsOf, totalStars, UNLOCK_REQUIRES, unlockedScenarios,
 } from '../src/sim';
 import type { Progress, ScenarioId, Stars } from '../src/sim';
@@ -119,5 +119,20 @@ describe('saving and loading', () => {
     expect(JSON.parse(serializeProgress(earn(emptyProgress(), 'green-valley', 1)))).toEqual({
       version: 1, stars: { 'green-valley': 1 }, skippedTutorial: false, teacher: false,
     });
+  });
+});
+
+describe('finishing the tutorial steps', () => {
+  it('opens Coal Coast without recording a star the report card did not give', () => {
+    const { progress, newlyUnlocked } = completeTutorial(emptyProgress());
+    expect(newlyUnlocked).toEqual(['coal-coast']);
+    expect(starsOf(progress, 'green-valley')).toBe(0);
+    expect(isScenarioUnlocked(progress, 'coal-coast')).toBe(true);
+    const back = parseProgress(serializeProgress(progress));
+    expect(back.tutorialDone).toBe(true);
+    expect(isScenarioUnlocked(back, 'coal-coast')).toBe(true);
+    // A 0-star report card afterwards keeps it at 0; a 2-star one records 2.
+    expect(starsOf(recordResult(back, 'green-valley', 0).progress, 'green-valley')).toBe(0);
+    expect(starsOf(recordResult(back, 'green-valley', 2).progress, 'green-valley')).toBe(2);
   });
 });

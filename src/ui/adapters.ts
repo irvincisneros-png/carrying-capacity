@@ -99,6 +99,36 @@ export function beatChoice(s: GameState, e: SimEvent): DilemmaCard | null {
   };
 }
 
+/**
+ * Who an option helps and hurts, one chip per name. A name on both lists (the town gains jobs but pays more) becomes
+ * a single "mixed" chip that says both, rather than "▲ Town ▼ Town".
+ */
+export function mergeImpacts(helps: { who: string; why: string }[], hurts: { who: string; why: string }[]): DilemmaImpact[] {
+  const out: DilemmaImpact[] = [];
+  const seen = new Map<string, DilemmaImpact>();
+  const add = (who: string, effect: number, why: string): void => {
+    const prev = seen.get(who);
+    if (!prev) {
+      const im: DilemmaImpact = { who, effect, note: why };
+      seen.set(who, im);
+      out.push(im);
+      return;
+    }
+    if (Math.sign(prev.effect) === Math.sign(effect)) {
+      if (why && !(prev.note ?? '').includes(why)) prev.note = prev.note ? `${prev.note}; ${why}` : why;
+      return;
+    }
+    const help = prev.effect > 0 ? prev.note : why;
+    const hurt = prev.effect > 0 ? why : prev.note;
+    prev.effect = 0;
+    prev.mixed = true;
+    prev.note = `Helps: ${help || 'yes'}. Costs: ${hurt || 'yes'}.`;
+  };
+  for (const x of helps) add(x.who, 1, x.why);
+  for (const x of hurts) add(x.who, -1, x.why);
+  return out;
+}
+
 /** Dilemma cards ({type:'choose'}) with the per-option "who is helped / hurt" preview from the dilemma catalogue. */
 export function dilemmaCard(s: GameState, e: SimEvent): DilemmaCard | null {
   const m = metaOf(e);
@@ -121,16 +151,17 @@ export function dilemmaCard(s: GameState, e: SimEvent): DilemmaCard | null {
   const opts: Record<string, unknown>[] = def && Array.isArray(def.options) ? (def.options as Record<string, unknown>[]) : (m.choice?.options ?? []).map((o) => ({ ...o }));
   return {
     id: m.ref,
-    title: String(def?.title ?? m.choice?.prompt ?? 'A decision for the town'),
-    text: String(def?.setup ?? e.text),
+    // The offer carries the text as told this time (a card that comes round again says so).
+    title: String(m.choice?.prompt ?? def?.title ?? 'A decision for the town'),
+    text: String(e.text || def?.setup || ''),
     speaker: m.speakerId ? speaker(s, m.speakerId, m.speaker) : def?.speaker ? speaker(s, String(def.speaker)) : undefined,
     evidence: typeof def?.evidence === 'string' ? def.evidence : undefined,
     options: opts.map((o) => {
       const pv = isObj(o.preview) ? o.preview : null;
-      const impacts: DilemmaImpact[] = [];
-      for (const t of (pv && Array.isArray(pv.helps) ? pv.helps : []) as Record<string, unknown>[]) impacts.push({ who: nameOf(t), effect: 1, note: String(t.why ?? '') });
-      for (const t of (pv && Array.isArray(pv.hurts) ? pv.hurts : []) as Record<string, unknown>[]) impacts.push({ who: nameOf(t), effect: -1, note: String(t.why ?? '') });
-      return { id: String(o.id), label: String(o.label), impacts };
+      return { id: String(o.id), label: String(o.label), impacts: mergeImpacts(
+        ((pv && Array.isArray(pv.helps) ? pv.helps : []) as Record<string, unknown>[]).map((t) => ({ who: nameOf(t), why: String(t.why ?? '') })),
+        ((pv && Array.isArray(pv.hurts) ? pv.hurts : []) as Record<string, unknown>[]).map((t) => ({ who: nameOf(t), why: String(t.why ?? '') })),
+      ) };
     }),
   };
 }

@@ -31,6 +31,8 @@ export interface DilemmaImpact {
   /** -2 .. +2 (hurt a lot .. helped a lot) */
   effect: number;
   note?: string;
+  /** Helped in one way and hurt in another: shown once, as a mixed chip. */
+  mixed?: boolean;
 }
 
 export interface DilemmaOption {

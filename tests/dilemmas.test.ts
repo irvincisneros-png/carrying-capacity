@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   ACT1_MIN_GAP, ACT2_OFFERS_PER_DECADE, applyAction, choose, cloneState, createGame, DILEMMA_SOCIETY_CAP, dilemmaSociety, dilemmasFor,
-  EVIDENCE_REWARD, getDilemma, layersSeason, tick, offerAct1, offerAct2, societyShare, TileKind, wordCount,
+  EVIDENCE_REWARD, getDilemma, layersSeason, MAX_OFFERS, tick, offerAct1, offerAct2, societyShare, TileKind, wordCount,
 } from '../src/sim';
+import { mergeImpacts } from '../src/ui/adapters';
 import type { GameState, ScenarioId } from '../src/sim';
 import { runScript } from './helpers/autoplay';
 import { CAUTIOUS_WANTS, DIRTY_WANTS, greedyPlan } from './helpers/scripts';
@@ -231,5 +232,29 @@ describe('choosing', () => {
     expect(applyAction(tp, { type: 'choose', dilemmaId: 'a1-outfall', optionId: 'tank' }).result.ok).toBe(true);
     const over = { ...s, phase: 'epilogue' as const };
     expect(applyAction(over, { type: 'choose', dilemmaId: 'a1-outfall', optionId: 'tank' }).result.code).toBe('game-over');
+  });
+});
+
+describe('recurring cards', () => {
+  it('limits every recurring card in the full River Town run to three offers, with "(again)" titles on repeats', async () => {
+    const { riverThoughtful } = await import('./helpers/river');
+    const end = riverThoughtful().end;
+    const counts = new Map<string, number>();
+    for (const x of end.dilemmas.decisions) counts.set(x.dilemmaId, (counts.get(x.dilemmaId) ?? 0) + 1);
+    for (const [, n] of counts) expect(n).toBeLessThanOrEqual(MAX_OFFERS);
+    const offers = end.eventLog.filter((e) => e.story?.channel === 'dilemma' && e.story.choice);
+    const repeats = offers.filter((e) => (e.story?.choice?.prompt ?? '').endsWith('(again)'));
+    expect(repeats.length).toBeGreaterThan(0);
+    for (const e of repeats) expect(e.text).toMatch(/It's back|returns|put off|Back on the table/);
+  });
+});
+
+describe('who an option helps and hurts', () => {
+  it('lists a name once: someone helped in one way and hurt in another gets one mixed chip', () => {
+    const out = mergeImpacts([{ who: 'Town', why: 'jobs' }, { who: 'Koalas', why: 'habitat' }], [{ who: 'Town', why: 'rates go up' }]);
+    expect(out.map((x) => x.who)).toEqual(['Town', 'Koalas']);
+    expect(out[0]).toMatchObject({ effect: 0, mixed: true });
+    expect(out[0]?.note).toBe('Helps: jobs. Costs: rates go up.');
+    expect(out[1]).toMatchObject({ effect: 1 });
   });
 });

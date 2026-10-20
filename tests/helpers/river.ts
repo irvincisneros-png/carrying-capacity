@@ -1,5 +1,5 @@
 /** Scripted players for River Town. */
-import { applyAction, canPlace, startAct2, TileKind } from '../../src/sim';
+import { applyAction, canPlace, objectiveStatus, startAct2, TileKind } from '../../src/sim';
 import { seededGame } from './seeds';
 import type { BuildingId, GameState } from '../../src/sim';
 import { runScript } from './autoplay';
@@ -85,7 +85,7 @@ function riparianNurseries(s0: GameState, total: number): GameState {
 }
 
 /** How thorough the thoughtful player is (the numbers a sensible, careful person would do; scratch scripts may tweak them). */
-export const RIVER_BOT = { town: 0.25, env: 0.3, reservoirs: 1, wetlands: 2, drip: 4, nurseries: 3, phyto: 2, fishway: true, startDelay: 0, scale: 1 };
+export const RIVER_BOT = { adapt: true, town: 0.25, env: 0.3, reservoirs: 1, wetlands: 2, drip: 4, nurseries: 3, phyto: 2, fishway: true, startDelay: 0, scale: 1 };
 const sc = (n: number): number => Math.round(n * RIVER_BOT.scale);
 
 export function riverThoughtfulPlan(): Plan {
@@ -100,6 +100,15 @@ export function riverThoughtfulPlan(): Plan {
     s = comanageBush(s, 2);
     s = burnPatches(s);
     s = treatSewage(s);
+    // Follow the goal row: when the river slips under the target, leave it more water (while the farms can spare it).
+    if (RIVER_BOT.adapt && s.year > y0 + 3) {
+      const st = objectiveStatus(s);
+      const river = st.find((o) => o.id === 'river')?.current ?? 100;
+      const farms = st.find((o) => o.id === 'farms')?.current ?? 100;
+      const env = typeof s.flags['pol.alloc.env'] === 'number' ? (s.flags['pol.alloc.env'] as number) : RIVER_BOT.env;
+      if (river < 63 && farms > 56 && env < 0.45) s = setPolicy(s, 'alloc.env', Math.round((env + 0.05) * 100) / 100);
+      else if (farms < 52 && river > 66 && env > RIVER_BOT.env) s = setPolicy(s, 'alloc.env', Math.round((env - 0.05) * 100) / 100);
+    }
     const near = nearTiles(s, [TileKind.River]);
     s = placeUpTo(s, 'reservoir', Math.max(0, sc(RIVER_BOT.reservoirs) - count(s, 'reservoir')), near);
     if (RIVER_BOT.fishway && RIVER_BOT.scale >= 0.6) s = fishway(s);
