@@ -150,14 +150,14 @@ run at 4× with pauses to plan. Driver: `scratchpad/drv.mjs` (persistent CDP ser
 
 | # | Bug | Fix |
 |---|---|---|
-| 1 | Real players carried millions into Act 2 while the Red Dirt balance tests cap the carry-over at $350k, so the tested trade-offs never applied in the game. | `fix(balance)` (carry-over cap): `act2.carryOverCap` with a turning-point line |
-| 2 | Aquifer hint told players to "cap mine water in Town policies" — no such lever exists. The aquifer slid 80 → 11 by 2037 with no warning until too late. | `fix(red-dirt)` ca9207f: correct hint (mines drink the most), readouts show ▲/▼ per year, the goal row says "falling 5 a year, below 40 in about 4 years" while there's still time; trend fix in follow-ups |
+| 1 | Real players carried millions into Act 2 while the Red Dirt balance tests cap the carry-over at $350k, so the tested trade-offs never applied in the game. | `fix(balance)` 55b5795: `act2.carryOverCap` with a turning-point line |
+| 2 | Aquifer hint told players to "cap mine water in Town policies" — no such lever exists. The aquifer slid 80 → 11 by 2037 with no warning until too late. | `fix(red-dirt)` ca9207f: correct hint (mines drink the most), readouts show ▲/▼ per year, the goal row says "falling 5 a year, below 40 in about 4 years" while there's still time; trend fix 5633068 |
 | 3 | Rehab sat at 7% for 20 years: nothing said seeded ground needs a nursery beside it. | ca9207f: hint explains nurseries and the 5-year sign-off |
-| 4 | **Permanent block**: a nursery built on seeded mine-site ground kept four tiles at zero growth forever; rehab stuck at 93% and the goal could never be met. | `fix(red-dirt)` (mine site): building on the rehabilitating site is refused with a reason |
+| 4 | **Permanent block**: a nursery built on seeded mine-site ground kept four tiles at zero growth forever; rehab stuck at 93% and the goal could never be met. | `fix(red-dirt)` fc399b8: building on the rehabilitating site is refused with a reason |
 | 5 | **Unfair net-zero reset**: net zero held from 2036 (4–6 kt vs 12 kt line) until repurposing the old coal station (the *best* waste-hierarchy choice) added 8 kt of one-off work in 2063 → 12.5 kt, resetting "reached" to 2064 and failing the scenario. | `fix(sim)` b053784: one isolated spike between two years under the line, averaging under it, no longer resets the hold |
 | 6 | Demolish tooltip said "Coal mine" (scenario calls it Open-cut mine) and discouraged closing before the circular economy. | ca9207f |
 | 7 | Tia and Ben were Year 5 kids from 2000 yet asked about the school playground in the 2070s and were "grown, at uni" in their sixties. | `fix(content)` 761103d: childhood beats 2020s–2040s, "grown" 2046–2070, the empty-waterhole beat told by them as parents (successor voice); River Town's twins likewise |
-| 8 | Ending header said "You met 3 of 4 goals" next to four A grades (stale stored outcome). | ending header uses the same evaluation as the card |
+| 8 | Ending header said "You met 3 of 4 goals" next to four A grades (stale stored outcome). | de18f5c: ending header uses the same evaluation as the card |
 
 ### Balance notes
 
@@ -186,9 +186,9 @@ run at 4× with pauses to plan. Driver: `scratchpad/drv.mjs` (persistent CDP ser
 | # | Bug | Fix |
 |---|---|---|
 | 1 | Pocket park "wouldn't place": aiming street trees at a road or house gave only "Something is already built here". 720 valid tiles exist (open ground beside streets). | `fix(ui)` b50d58d: specific reason ("needs an empty tile beside the streets and homes") |
-| 2 | Disposing several sites in one year near the line silently tipped net zero over. | b50d58d + follow-up: the disposal chooser shows "this year is already at about N of 48 kt; spread the work out" once the town is at the line |
-| 3 | No hint mentioned retrofits/transit for the city's remaining emissions. | scenario-specific net-zero hints |
-| 4 | City blocks read as dark masses at whole-map zoom (ink outlines kept constant screen width). | `fix(render)`: outline width capped in world units |
+| 2 | Disposing several sites in one year near the line silently tipped net zero over. | b50d58d + 8dd4d23: the disposal chooser shows "this year is already at about N of 48 kt; spread the work out" once the town is at the line |
+| 3 | No hint mentioned retrofits/transit for the city's remaining emissions. | c8520c0: scenario-specific net-zero hints |
+| 4 | City blocks read as dark masses at whole-map zoom (ink outlines kept constant screen width). | eb4438a: outline width capped in world units |
 
 ### Balance notes
 
