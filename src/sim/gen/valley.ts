@@ -1,5 +1,5 @@
 /**
- * Green Valley (16x16): a small inland valley. Hills close the north-east and south-west corners; a creek rises on the
+ * Green Valley (20x20): a small inland valley. Hills close the north-east and south-west corners; a creek rises on the
  * west edge, fills a farm dam (wetland) in the middle and leaves through the south-east. Gentle slopes (elevation 2)
  * run along both sides of the floor, so a wind turbine has a ridge and a hydro dam has a drop.
  */
@@ -11,19 +11,21 @@ import { at, carveRiver, clampi, kit, markSite, plantBush, set } from './util';
 export function generateValley(sc: ScenarioDef, seed: number): TileGrid {
   const k = kit(sc.mapW, sc.mapH, seed);
   const { w, h, grid } = k;
+  /** Linear scale against the original 16x16 valley: slopes, pasture and wobble grow with the map. */
+  const s = Math.min(w, h) / 16;
 
   // Creek centre line: west edge (row ~4) to the south-east (row ~10).
   const phase = k.rng.next() * 2;
   const creekY: number[] = [];
   for (let x = 0; x < w; x++) {
     const t = x / (w - 1);
-    creekY.push(clampi(Math.round(4 + 6 * t + Math.sin(t * 5 + phase) * 1.4 + (k.n1(x / 4, 1.3) - 0.5) * 1.6), 2, h - 3));
+    creekY.push(clampi(Math.round(h * 0.25 + h * 0.375 * t + Math.sin(t * 5 + phase) * 1.4 * s + (k.n1(x / (4 * s), 1.3) - 0.5) * 1.6 * s), 2, h - 3));
   }
   // Floor and slopes: height grows with distance from the creek line.
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const d = Math.abs(y - (creekY[x] ?? y));
-      const e = 1 + Math.floor((d + (k.n2(x / 3, y / 3) - 0.5) * 3.2) / 3.6);
+      const e = 1 + Math.floor((d + (k.n2(x / 3, y / 3) - 0.5) * 3.2 * s) / (3.6 * s));
       set(k, x, y, TileKind.Land, clampi(e, 1, 3));
     }
   }
@@ -47,12 +49,12 @@ export function generateValley(sc: ScenarioDef, seed: number): TileGrid {
   }
   plantBush(k, sc.terrain.bushCover, (x, y) => {
     const d = Math.abs(y - (creekY[x] ?? y));
-    return k.n1(x / 3.5, y / 3.5) * 0.7 + (d > 5 ? 0.22 : 0) + (y < 4 ? 0.1 : 0);
+    return k.n1(x / 3.5, y / 3.5) * 0.7 + (d > 5 * s ? 0.22 : 0) + (y < 4 * s ? 0.1 : 0);
   });
   // Open pasture on the lower floor, so the first houses have room without clearing bush.
-  for (let x = 2; x < 9; x++) {
+  for (let x = Math.round(2 * s); x < Math.round(9 * s); x++) {
     const cy = creekY[x] ?? 0;
-    for (let y = cy + 1; y <= cy + 3 && y < h - 1; y++) if (at(k, x, y) === TileKind.Bush) set(k, x, y, TileKind.Land);
+    for (let y = cy + 1; y <= cy + Math.round(3 * s) && y < h - 1; y++) if (at(k, x, y) === TileKind.Bush) set(k, x, y, TileKind.Land);
   }
   markSite(k, damX + 2, (creekY[damX] ?? 8) - 3, 1);
   return grid;
