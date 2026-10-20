@@ -4,6 +4,7 @@
  * billabongs. Flow follows the weather, drought and warming; the player's levers are the allocation policies, storage,
  * efficient irrigation, a fishway at the weir and plantings along the banks.
  */
+import { getScenario } from '../scenarios';
 import { policyValue } from '../policyCore';
 import { TileKind } from '../types';
 import type { GameState } from '../types';
@@ -33,7 +34,7 @@ export const RIVER = {
   /** Extra salt decay near the river when it runs high (flushing). */
   flush: 0.03,
   /** Scales the chance of a blue-green algae bloom. */
-  bloomK: 2,
+  bloomK: 2.5,
   townFailBelow: 0.9,
   townFailFromYear: 2041,
   /** Drought plan: wet-season water banked for the farms (only flow above the river's own share), and its cap. */
@@ -150,7 +151,10 @@ export function meanRiverWaterPollution(s: GameState): number {
   const g = s.grid;
   let t = 0, n = 0;
   for (let i = 0; i < g.kind.length; i++) if (g.kind[i] === TileKind.River) { t += g.waterPollution[i] ?? 0; n++; }
-  return n > 0 ? t / n : 0;
+  // A bigger map has a longer river, so the town's reach is a smaller share of it: the mean is scaled back by the area
+  // growth (same normalisation as the Environment meter) so "polluted river" means what it did on the original map.
+  const ref = getScenario(s.scenarioId)?.pollutionRefTiles ?? g.kind.length;
+  return n > 0 ? (t / n) * (g.kind.length / ref) : 0;
 }
 
 /** Mean salt (soil contamination) on unbuilt land within `r` tiles of a building of the given types, or of water if none given. */

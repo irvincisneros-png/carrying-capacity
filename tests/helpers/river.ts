@@ -15,7 +15,7 @@ type Want = { id: BuildingId; max: number; prefer?: 'near' | 'far' };
 
 /** The irrigation boom: lots of farms, some industry, sewage straight into the river. */
 export const RIVER_BOOM_WANTS: Want[] = [
-  { id: 'farm', max: 9 },
+  { id: 'farm', max: 13 },
   { id: 'coalmine', max: 1 },
   { id: 'factory', max: 3 },
   { id: 'outfall', max: 2 },
@@ -26,7 +26,7 @@ export const RIVER_BOOM_WANTS: Want[] = [
 
 /** A little more thoughtful: one fewer farm and a smaller dump, asks Uncle Ray before clearing. */
 export const RIVER_THOUGHTFUL_WANTS: Want[] = [
-  { id: 'farm', max: 8 },
+  { id: 'farm', max: 12, prefer: 'far' },
   { id: 'coalmine', max: 1 },
   { id: 'factory', max: 3 },
   { id: 'outfall', max: 1 },
