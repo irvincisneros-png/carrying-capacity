@@ -129,7 +129,9 @@ export class MatLib {
           #endif
           w = modelMatrix * w;
           float d = distance(cameraPosition, w.xyz);
-          w.xyz += n * uOutline * d;
+          // Constant screen width up close, but capped in world units so that zoomed out over a whole city the ink
+          // doesn't swallow small houses and turn every block dark.
+          w.xyz += n * min(uOutline * d, 0.04);
           gl_Position = projectionMatrix * viewMatrix * w;
         }
       `,
