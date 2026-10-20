@@ -643,7 +643,17 @@ export class App {
     let sites: number[] = [];
     try { sites = SIM.countryActive(s) ? SIM.footprintSites(s, a.x, a.y, a.w, a.h).filter((id) => !s.country.consulted.includes(id)) : []; } catch { sites = []; }
     const siteWarn = sites.length ? '<br><b>⚠ A place that matters to the local community.</b> Inspect it and talk with them first.' : '';
-    if (chk.ok) this.tip.show(px, py, `<b>${def.name}</b> · $${chk.cost}k${chk.bushCleared ? `<br>Clears ${chk.bushCleared} bush tile${chk.bushCleared > 1 ? 's' : ''} (releases CO₂)` : ''}${siteWarn}`, 'ok');
+    let reach = '';
+    if (bt === 'coralnursery') {
+      // Nurseries replant the coral within about 4 tiles: say how much reef this spot would reach.
+      let n = 0;
+      const g = s.grid;
+      for (let y = Math.max(0, a.y - 4); y <= Math.min(g.h - 1, a.y + a.h + 3); y++) {
+        for (let x = Math.max(0, a.x - 4); x <= Math.min(g.w - 1, a.x + a.w + 3); x++) if (g.kind[y * g.w + x] === TileKind.Reef) n++;
+      }
+      reach = `<br>Replants ${n} reef tile${n === 1 ? '' : 's'} nearby${n < 20 ? ' (try a spot closer to the reef)' : ''}`;
+    }
+    if (chk.ok) this.tip.show(px, py, `<b>${def.name}</b> · $${chk.cost}k${chk.bushCleared ? `<br>Clears ${chk.bushCleared} bush tile${chk.bushCleared > 1 ? 's' : ''} (releases CO₂)` : ''}${reach}${siteWarn}`, 'ok');
     else this.tip.show(px, py, degC(chk.reason ?? 'Cannot build here'), 'bad');
   }
 
