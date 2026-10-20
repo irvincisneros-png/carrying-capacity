@@ -51,6 +51,30 @@ export interface GoodPlayOpts {
   holdSteel?: boolean;
   /** Once the circular tier is open, never plain-demolish legacy sites (that would send them to landfill). */
   circularSafe?: boolean;
+  /** Clean the water and soil before buying more clean power (a player with a capped budget has to choose). */
+  waterFirst?: boolean;
+}
+
+function soilStep(state: GameState): GameState {
+  let s = state;
+  // 4. Soil: dig out the worst hotspots first, plant the rest.
+  const soil = s.grid.soilContamination;
+  const hot = (x: number, y: number, w: number, h: number): number => fieldSum(s, soil, x, y, w, h, 3);
+  for (const id of ['excavation', 'phytoremediation'] as const) {
+    const have = count(s, id);
+    const goal = id === 'excavation' ? 2 : 4;
+    for (let i = have; i < goal; i++) {
+      const spot = bestSpot(s, id, hot);
+      if (!spot) break;
+      const covered = hot(spot.x, spot.y, 2, 2);
+      if (covered < 6) break; // nothing contaminated enough left
+      const p = place(s, id, spot);
+      if (!p.ok) break;
+      s = p.state;
+    }
+  }
+
+  return s;
 }
 
 /** Scripted "good player" for coal-coast. Called once per year before the year is simulated. */
@@ -80,6 +104,8 @@ export function goodPlayPlan(opts: GoodPlayOpts = {}): (s: GameState) => GameSta
     }
     s = placeUpTo(s, 'wetland', Math.max(0, 5 - count(s, 'wetland')), (x, y) => near(x, y));
 
+    if (opts.waterFirst) s = soilStep(s);
+
     // 3. Energy: build clean capacity, then retire coal and (later) gas when the grid holds without it.
     const want: [BuildingId, number, number][] = [
       ['windfarm', 8, 0],
@@ -107,22 +133,7 @@ export function goodPlayPlan(opts: GoodPlayOpts = {}): (s: GameState) => GameSta
       }
     }
 
-    // 4. Soil: dig out the worst hotspots first, plant the rest.
-    const soil = s.grid.soilContamination;
-    const hot = (x: number, y: number, w: number, h: number): number => fieldSum(s, soil, x, y, w, h, 3);
-    for (const id of ['excavation', 'phytoremediation'] as const) {
-      const have = count(s, id);
-      const goal = id === 'excavation' ? 2 : 4;
-      for (let i = have; i < goal; i++) {
-        const spot = bestSpot(s, id, hot);
-        if (!spot) break;
-        const covered = hot(spot.x, spot.y, 2, 2);
-        if (covered < 6) break; // nothing contaminated enough left
-        const p = place(s, id, spot);
-        if (!p.ok) break;
-        s = p.state;
-      }
-    }
+    if (!opts.waterFirst) s = soilStep(s);
 
     // 5. Restoration: nurseries where they cover the most uncovered open land.
     const cover = (x: number, y: number, w: number, h: number): number => uncoveredLand(s, x, y, w, h, 5);

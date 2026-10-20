@@ -38,6 +38,10 @@ export const RIVER_TOWN: ScenarioDef = {
     },
   ],
   act2: {
+    carryOverCap: 500,
+    fundShare: 0.5,
+    fundYears: 25,
+    carryOverNote: 'Most of the boom\'s profits went to the irrigation companies and the banks.',
     startYear: 2025,
     endYear: 2100,
     warmingCap: 2.7,

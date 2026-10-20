@@ -56,6 +56,39 @@ export function enterTurningPoint(s: GameState): void {
   emit(s, { type: 'story', year: s.year, season: 0, seasonIndex: 0, severity: 1, text: `${tp.title}. ${tp.text}`, data: {} });
 }
 
+/** What happens to the Act 1 savings at the start of Act 2 (for the turning-point screen and startAct2). */
+export function carryOverPlan(state: Pick<GameState, 'scenarioId' | 'budget'>): { keep: number; fund: number; drip: number; years: number; lost: number } | null {
+  const a2 = getScenario(state.scenarioId).act2;
+  const cap = a2.carryOverCap;
+  if (cap === undefined || state.budget <= cap) return null;
+  const surplus = state.budget - cap;
+  const years = a2.fundYears ?? 0;
+  const fund = years > 0 ? Math.round(surplus * (a2.fundShare ?? 1)) : 0;
+  const drip = years > 0 ? Math.round(fund / years) : 0;
+  return { keep: cap, fund: drip * years, drip, years, lost: Math.round(surplus - drip * years) };
+}
+
+function applyCarryOver(s: GameState): void {
+  const p = carryOverPlan(s);
+  if (!p) return;
+  s.budget = p.keep;
+  if (p.drip > 0) {
+    s.flags['fund.left'] = p.fund;
+    s.flags['fund.drip'] = p.drip;
+  }
+}
+
+/** Pays this year's Transition Fund instalment (if any). Returns the amount paid. */
+function payFund(s: GameState): number {
+  const left = typeof s.flags['fund.left'] === 'number' ? s.flags['fund.left'] : 0;
+  const drip = typeof s.flags['fund.drip'] === 'number' ? s.flags['fund.drip'] : 0;
+  if (left <= 0 || drip <= 0) return 0;
+  const pay = Math.min(left, drip);
+  s.flags['fund.left'] = left - pay;
+  s.budget += pay;
+  return pay;
+}
+
 /**
  * Starts Act 2 from the turning point. Years between Act 1's end and the scenario's Act 2 start year are
  * fast-forwarded with the full economy / grid / pollution / climate model but no random events and no player actions.
@@ -68,8 +101,7 @@ export function startAct2(state: GameState): GameState {
   s.status = 'playing';
   s.a2 = emptyAct2(sc.act2.startYear, s.tempC);
   s.a2.nextEventId = state.a2.nextEventId;
-  const cap = sc.act2.carryOverCap;
-  if (cap !== undefined && s.budget > cap) s.budget = cap;
+  applyCarryOver(s);
   initRestoration(s);
   s.meters = computeMeters(s);
   const rctx = buildRestoreCtx(s);
@@ -186,6 +218,7 @@ function yearEnd(s: GameState, quiet: boolean): void {
   const incomeAdj = typeof s.flags['income.adj'] === 'number' ? s.flags['income.adj'] : 0;
   s.lastIncome = Math.round(income + incomeAdj + mechIncome(s));
   s.budget += s.lastIncome;
+  payFund(s);
 
   // Climate: emissions -> CO2 -> equilibrium temperature; actual temperature lags (committed warming).
   s.cumulativeKt += total;

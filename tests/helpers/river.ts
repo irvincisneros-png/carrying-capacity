@@ -1,5 +1,6 @@
 /** Scripted players for River Town. */
-import { applyAction, canPlace, createGame, startAct2, TileKind } from '../../src/sim';
+import { applyAction, canPlace, startAct2, TileKind } from '../../src/sim';
+import { seededGame } from './seeds';
 import type { BuildingId, GameState } from '../../src/sim';
 import { runScript } from './autoplay';
 import { fieldSum } from './act2play';
@@ -33,13 +34,13 @@ export const RIVER_THOUGHTFUL_WANTS: Want[] = [
   { id: 'landfill', max: 1 },
 ];
 
-export function riverAct1Idle(): GameState {
-  return runScript(createGame('river-town'), greedyPlan(RIVER_BOOM_WANTS, 1.0)).state;
+export function riverAct1Idle(seed: number | null = null): GameState {
+  return runScript(seededGame('river-town', seed), greedyPlan(RIVER_BOOM_WANTS, 1.0)).state;
 }
 
-export function riverAct1Thoughtful(): GameState {
+export function riverAct1Thoughtful(seed: number | null = null): GameState {
   const inner = greedyPlan(RIVER_THOUGHTFUL_WANTS, 1.0);
-  return runScript(createGame('river-town'), (s) => inner(answerPrompts(consultAll(s), {}, 25))).state;
+  return runScript(seededGame('river-town', seed), (s) => inner(answerPrompts(consultAll(s), {}, 25))).state;
 }
 
 const BEAT_PICKS: Record<string, string> = {};
@@ -117,13 +118,13 @@ export function riverThoughtfulPlan(): Plan {
   };
 }
 
-export function riverThoughtful(): { act1: GameState; end: GameState } {
-  const act1 = riverAct1Thoughtful();
+export function riverThoughtful(seed: number | null = null): { act1: GameState; end: GameState } {
+  const act1 = riverAct1Thoughtful(seed);
   return { act1, end: playAct2(startAct2(act1), riverThoughtfulPlan()) };
 }
 
-export function riverIdle(): { act1: GameState; end: GameState } {
-  const act1 = riverAct1Idle();
+export function riverIdle(seed: number | null = null): { act1: GameState; end: GameState } {
+  const act1 = riverAct1Idle(seed);
   return { act1, end: playAct2(startAct2(act1), null) };
 }
 

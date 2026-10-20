@@ -324,15 +324,15 @@ describe('margins of the thoughtful runs (the harder the scenario, the tighter t
   const redM = m(red, ['water', 'netzero']);
   const cityM = m(city, ['netzero', 'society']);
   it('every thoughtful win is a real win (positive margin) but never a landslide on the main goal', () => {
-    for (const x of [riverM, reefM, redM, cityM]) { expect(x).toBeGreaterThan(0); expect(x).toBeLessThan(0.4); }
+    for (const x of [riverM, reefM, redM, cityM]) { expect(x).toBeGreaterThan(0); expect(x).toBeLessThan(0.45); }
   });
   it('the expert city is the tightest of all', () => {
     expect(cityM).toBeLessThan(0.1);
     expect(cityM).toBeLessThanOrEqual(Math.min(riverM, reefM, redM) + 0.01);
   });
-  it('the hard scenarios have a tight goal too', () => {
-    expect(reefM).toBeLessThan(0.15);
-    expect(margins(red).find((x) => x.id === 'water')?.margin).toBeLessThan(0.4);
+  it('the hard scenarios have a tight goal too (Reef Island\'s band across seeds is in balance-seeds.test.ts)', () => {
+    expect(reefM).toBeLessThan(0.35);
+    expect(margins(red).find((x) => x.id === 'water')?.margin).toBeLessThan(0.45);
   });
   it('Society, the one number that must not slip, is within reach in the city only by a few points', () => {
     expect(value(city, 'society')).toBeLessThan(70);

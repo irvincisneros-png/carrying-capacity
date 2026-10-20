@@ -41,6 +41,26 @@ export interface ObjectiveDef {
   bonus?: boolean;
   /** Needs a later tier to supply the metric (see metricValue). Reported as 'pending' until it does. */
   pendingTier?: string;
+  /**
+   * Judge the average of the last N Act 2 years rather than a single year's snapshot (for numbers that swing with
+   * the weather, like water quality and coral cover). Supported for estuaryHealth and reefHealth.
+   */
+  avgYears?: number;
+}
+
+/** Mean of the last `n` yearly records of a metric that the yearly record keeps, or null when there are none. */
+function averaged(state: GameState, metric: MetricId, n: number): number | null {
+  const ys = state.a2.yearly.slice(-n);
+  if (ys.length === 0 || state.phase === 'act1' || state.phase === 'turning-point') return null;
+  const pick = (y: (typeof ys)[number]): number | null =>
+    metric === 'estuaryHealth' ? y.estuaryHealth : metric === 'reefHealth' ? y.reefHealth * 100 : null;
+  let t = 0;
+  for (const y of ys) {
+    const v = pick(y);
+    if (v === null) return null;
+    t += v;
+  }
+  return Math.round((t / ys.length) * 10) / 10;
 }
 
 /**
@@ -69,7 +89,7 @@ export function metricValue(state: GameState, metric: MetricId): number | null {
 export function objectiveStatus(state: GameState): ObjectiveResult[] {
   const sc = getScenario(state.scenarioId);
   return sc.act2.objectives.map((o): ObjectiveResult => {
-    const current = metricValue(state, o.metric);
+    const current = (o.avgYears ? averaged(state, o.metric, o.avgYears) : null) ?? metricValue(state, o.metric);
     const base = {
       id: o.id, label: o.label, bonus: o.bonus === true, metric: o.metric, op: o.op, target: o.target, current,
       ...(o.pendingTier ? { pendingTier: o.pendingTier } : {}),

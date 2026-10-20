@@ -1,6 +1,7 @@
 // Full-screen flows: title + scenario select, intro (Acknowledgement of Country), decade report, present-day
 // summary + turning point story, epilogue / failure, settings.
 import { metricValue, objectiveStatus } from '../sim/objectives';
+import { carryOverPlan } from '../sim/act2';
 import { SCENARIOS, SCENARIO_IDS, getScenario } from '../sim/scenarios';
 import { MAX_STARS, isScenarioUnlocked, loadProgress, lockedReason, starsOf, totalStars, type Progress } from '../sim/progress';
 
@@ -192,7 +193,16 @@ export function showTurningPoint(s: GameState, onBegin: () => void, storyOnly = 
         h('div', { class: 'stat' }, h('small', null, 'Warming'), h('b', null, `+${fmt1(tp.stats.tempC)} °C`))),
       h('div', { class: 'fact' }, portrait(sci, 40), h('p', null, h('b', null, sci.name), sci.role ? h('span', { class: 'muted' }, ` · ${sci.role}`) : null, h('br'), degC(tp.scientistNote))),
       h('p', null, h('b', null, 'Act 2: Transition. '), `Time now runs by itself, season by season, to ${getScenario(s.scenarioId).act2.endYear}. Clean up the power, heal the land and water, and keep people with you.`),
-      (() => { const a2 = getScenario(s.scenarioId).act2; return a2.carryOverCap !== undefined && s.budget > a2.carryOverCap && a2.carryOverNote ? h('p', { class: 'muted' }, a2.carryOverNote) : null; })(),
+      (() => {
+        const a2 = getScenario(s.scenarioId).act2;
+        const plan = carryOverPlan(s);
+        if (!plan) return null;
+        const money = (k: number): string => (k >= 1000 ? `$${(k / 1000).toFixed(1)}M` : `$${Math.round(k)}k`);
+        return h('div', { class: 'fact', 'data-qa': 'transition-fund' }, svg(UI_ICONS.coin), h('p', null,
+          h('b', null, `The boom left ${money(s.budget)} in the bank. `),
+          `${a2.carryOverNote ? `${a2.carryOverNote} ` : ''}The council starts the transition with ${money(plan.keep)}.`,
+          plan.drip > 0 ? ` The rest of the town's share, ${money(plan.fund)}, goes into a Transition Fund that pays ${money(plan.drip)} a year for ${plan.years} years. You can't spend it all at once, so plan what comes first.` : ''));
+      })(),
       h('div', { class: 'modal-actions' }, h('button', { class: 'btn green', 'data-tut': 'start-transition', onclick: () => { m.close(); onBegin(); } }, svg(UI_ICONS.sprout), storyOnly ? 'Get to work' : 'Begin the transition')),
     ], { closable: false });
   };

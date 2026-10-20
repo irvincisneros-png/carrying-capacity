@@ -5,7 +5,7 @@
  */
 import {
   applyAction, BUILDINGS, canPlace, getDilemma, SPECIES_BY_ID, tick, TileKind, CAST, LEGACY_TYPES, REPURPOSE, disposalPlans,
-  itemAt, RESEARCH_BY_ID,
+  itemAt, RESEARCH_BY_ID, startAct2,
 } from '../../src/sim';
 import type { Action, GameState } from '../../src/sim';
 import { goodPlayPlan } from './goodplay';
@@ -151,7 +151,7 @@ function satellites(state: GameState): GameState {
     const r = applyAction(s, { type: 'mitigate' });
     if (r.result.ok) s = r.state;
   }
-  if (!s.buildings.some((b) => b.type === 'groundstation') && s.budget > 90 && s.year >= 2028) {
+  if (!s.buildings.some((b) => b.type === 'groundstation') && s.budget > 50 && s.year >= 2030) {
     for (let y = 0; y < s.grid.h; y++) for (let x = 0; x < s.grid.w; x++) {
       if (s.buildings.some((b) => b.type === 'groundstation')) break;
       if (canPlace(s, 'groundstation', x, y).ok) {
@@ -161,7 +161,7 @@ function satellites(state: GameState): GameState {
     }
   }
   for (const o of ['sst', 'forest'] as const) {
-    if (!s.satellites.overlays[o] && s.buildings.some((b) => b.type === 'groundstation') && s.budget > 70) {
+    if (!s.satellites.overlays[o] && s.buildings.some((b) => b.type === 'groundstation') && s.budget > 40) {
       const r = applyAction(s, { type: 'subscribe', overlay: o });
       if (r.result.ok) s = r.state;
     }
@@ -171,7 +171,7 @@ function satellites(state: GameState): GameState {
 
 const RESEARCH_ORDER = ['green-steel', 'plastic-to-fuel', 'construction-reuse', 'biogas', 'ewaste', 'sorting', 'tyre-road', 'battery-recycling'];
 
-function circular(state: GameState): GameState {
+function research(state: GameState): GameState {
   let s = state;
   if (!s.circular.unlocked) return s;
   for (const id of RESEARCH_ORDER) {
@@ -181,6 +181,12 @@ function circular(state: GameState): GameState {
     const r = applyAction(s, { type: 'research', id });
     if (r.result.ok) s = r.state;
   }
+  return s;
+}
+
+function circular(state: GameState): GameState {
+  let s = research(state);
+  if (!s.circular.unlocked) return s;
   const todo = s.circular.items.filter((i) => i.status === 'standing' || i.status === 'rubble');
   // Cheap, funding-friendly recycling first, then the best repurposing the budget allows.
   const order = (t: string): number => (['rail', 'carpark', 'outfall'].includes(t) ? 0 : t === 'steelworks' ? 3 : 2);
@@ -233,15 +239,55 @@ function moreWetlands(state: GameState, target: number): GameState {
   return s;
 }
 
+/** Follows the estuary hint ("keep farms away from the water"): farms whose runoff reaches the water move inland. */
+export function moveFarmsInland(state: GameState, maxPerYear = 2): GameState {
+  let s = state;
+  const g = s.grid;
+  const water: number[] = [];
+  for (let i = 0; i < g.kind.length; i++) if (g.kind[i] === TileKind.Estuary || g.kind[i] === TileKind.River) water.push(i);
+  const distToWater = (x: number, y: number, w: number, h: number): number => {
+    let best = 99;
+    for (const i of water) {
+      const wx = i % g.w, wy = Math.floor(i / g.w);
+      const dx = Math.max(x - wx, wx - (x + w - 1), 0), dy = Math.max(y - wy, wy - (y + h - 1), 0);
+      best = Math.min(best, Math.hypot(dx, dy));
+    }
+    return best;
+  };
+  let moved = 0;
+  for (const b of s.buildings.filter((o) => o.type === 'farm')) {
+    if (moved >= maxPerYear || s.budget < BUILDINGS.farm.cost + 20) break;
+    if (distToWater(b.x, b.y, b.w, b.h) > 2.5) continue;
+    let spot: { x: number; y: number } | null = null;
+    let bestD = 3.5;
+    for (let y = 0; y < g.h - 1; y++) for (let x = 0; x < g.w - 1; x++) {
+      if (g.kind[y * g.w + x] !== TileKind.Land) continue;
+      if (!canPlace(s, 'farm', x, y).ok) continue;
+      const d = distToWater(x, y, 2, 2);
+      if (d > bestD) { bestD = d; spot = { x, y }; if (d > 6) break; }
+    }
+    if (!spot) break;
+    const d = applyAction(s, { type: 'demolish', x: b.x, y: b.y });
+    if (!d.result.ok) continue;
+    const p = applyAction(d.state, { type: 'place', building: 'farm', x: spot.x, y: spot.y });
+    if (!p.result.ok) continue;
+    s = p.state;
+    moved++;
+  }
+  return s;
+}
+
 /** The Act 2 plan: respectful, evidence-minded, and thorough. */
 export function fullPlayPlan(): Plan {
-  const base = goodPlayPlan({ holdSteel: true, circularSafe: true });
+  const base = goodPlayPlan({ holdSteel: true, circularSafe: true, waterFirst: true });
   return (state) => {
     let s = answerPrompts(state);
     s = consultAll(s);
+    s = research(s);
+    s = satellites(s);
     s = comanageBush(s, 3);
     s = burnPatches(s);
-    s = satellites(s);
+    s = moveFarmsInland(s);
     s = base(s);
     s = moreWetlands(s, s.year >= 2085 ? 16 : 11);
     s = circular(s);
@@ -260,3 +306,18 @@ export function playAct2(start: GameState, plan: Plan | null): GameState {
 
 export { BUILDINGS, LEGACY_TYPES, SPECIES_BY_ID };
 export type { Action };
+
+import { runScript } from './autoplay';
+import { DIRTY_WANTS, greedyPlan } from './scripts';
+import { seededGame } from './seeds';
+
+/** Coal Coast end to end: the respectful Act 1 and the full Act 2 plan, or the dirty Act 1 left alone. */
+export function coalThoughtful(seed: number | null = null): { act1: GameState; end: GameState } {
+  const act1 = runScript(seededGame('coal-coast', seed), act1Respectful(greedyPlan(RESPECTFUL_WANTS, 1.0))).state;
+  return { act1, end: playAct2(startAct2(act1), fullPlayPlan()) };
+}
+
+export function coalIdle(seed: number | null = null): { act1: GameState; end: GameState } {
+  const act1 = runScript(seededGame('coal-coast', seed), greedyPlan(DIRTY_WANTS, 1.0)).state;
+  return { act1, end: playAct2(startAct2(act1), null) };
+}

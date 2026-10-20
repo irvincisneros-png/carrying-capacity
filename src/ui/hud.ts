@@ -85,6 +85,13 @@ export class Hud {
       } else this.budget.textContent = fmtMoney(s.budget);
       this.budgetBox.classList.toggle('neg', s.budget < 0);
     }
+    if (!p || p.lastIncome !== s.lastIncome || p.flags['fund.left'] !== s.flags['fund.left']) {
+      const left = typeof s.flags['fund.left'] === 'number' ? s.flags['fund.left'] : 0;
+      const drip = typeof s.flags['fund.drip'] === 'number' ? s.flags['fund.drip'] : 0;
+      const per = s.phase === 'act1' ? 'a decade' : 'a year';
+      this.budgetBox.title = `Budget (thousands of dollars). Income last ${s.phase === 'act1' ? 'decade' : 'year'}: ${fmtMoney(s.lastIncome)}`
+        + (left > 0 ? `. Transition Fund: ${fmtMoney(left)} left, paying ${fmtMoney(Math.min(left, drip))} ${per}.` : '.');
+    }
     if (!p || p.population !== s.population) {
       if (p) tweenNumber(this.pop, p.population, s.population, fmtInt, 700);
       else this.pop.textContent = fmtInt(s.population);

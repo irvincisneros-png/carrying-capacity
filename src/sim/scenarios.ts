@@ -74,6 +74,11 @@ export interface ScenarioModifiers {
    * gives the same share of warming.
    */
   emissionScale?: number;
+  /**
+   * How strongly the place's Act 1 emissions move the world's climate path (default 1). A small island's boom nudges
+   * warming rather than deciding it: only this share of the gap between its emissions and the reference counts.
+   */
+  climateInfluence?: number;
 }
 
 /** Pure data describing the crisis that opens Act 2 (rendered by the UI, spoken by the scientist). */
@@ -112,7 +117,17 @@ export interface Act2Def {
   /** Multiplier on wind output. */
   windCf?: number;
   /** Reef Island: how much warming the local coral tolerates before it bleaches, and how much a coral nursery helps. */
-  reef?: { tolerance: number; nurseryBoost: number };
+  reef?: {
+    tolerance: number;
+    nurseryBoost: number;
+    /** How many nurseries' boost can stack on one reef tile (default 2). */
+    nurseryStack?: number;
+    /**
+     * Extra warming (C) coral in clean water can take before it bleaches: reefs without nutrient and sediment stress
+     * bleach later and recover faster. Scaled down as the water over the tile gets dirtier.
+     */
+    cleanWaterTolerance?: number;
+  };
   /** Heat health: deaths per 1000 people per unit of heatwave severity, with no shade, cooling centres or power cuts. */
   heat?: { deathsPer1000: number };
   /** Year the circular economy tier opens (default 2050, or earlier once the town runs on clean power). */
@@ -126,6 +141,12 @@ export interface Act2Def {
   carryOverCap?: number;
   /** Shown on the turning point when the cap applies. */
   carryOverNote?: string;
+  /**
+   * Money above the cap is not simply lost: this share of it becomes a ring-fenced Transition Fund paid out in equal
+   * yearly instalments over `fundYears` (0 or unset: no fund, the surplus is gone).
+   */
+  fundShare?: number;
+  fundYears?: number;
   todo?: string;
 }
 
@@ -170,7 +191,7 @@ const COAST: TerrainParams = {
 
 const COAL_COAST_OBJECTIVES: readonly ObjectiveDef[] = [
   { id: 'warming', label: 'Hold warming to 1.8 C or less by 2100', metric: 'warming', op: '<=', target: 1.8 },
-  { id: 'estuary', label: 'Bring the estuary back to good water health (60+)', metric: 'estuaryHealth', op: '>=', target: 60 },
+  { id: 'estuary', label: 'Bring the estuary back to good water health (60+, average of the last 5 years)', metric: 'estuaryHealth', op: '>=', target: 60, avgYears: 5 },
   { id: 'society', label: 'Keep the town together: Society 50 or more', metric: 'society', op: '>=', target: 50 },
   {
     id: 'repurpose', label: 'Repurpose or recycle every Act 1 building', metric: 'act1Repurposed', op: '>=', target: 100,
@@ -217,6 +238,10 @@ export const SCENARIOS: Readonly<Record<ScenarioId, ScenarioDef>> = {
     availability: {},
     modifiers: { ...DEFAULT_MODS },
     act2: act2Defaults({
+      carryOverCap: 900,
+      fundShare: 0.6,
+      fundYears: 20,
+      carryOverNote: 'Most of the boom\'s profits went to the steel and coal companies.',
       turningPoint: {
         crisis: 'fish-kill',
         title: 'The estuary goes quiet',

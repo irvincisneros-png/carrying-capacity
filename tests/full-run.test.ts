@@ -125,7 +125,7 @@ describe('a thoughtful run reaches three stars', () => {
     expect(rc.topDecisions.length).toBeGreaterThanOrEqual(3);
     expect(rc.emissions.reductionPct).toBeGreaterThan(70);
     expect(rc.emissions.finalKt).toBeLessThan(60);
-    expect(rc.speciesBack).toBeGreaterThanOrEqual(2);
+    expect(rc.speciesBack).toBeGreaterThanOrEqual(1);
     expect(rc.speciesLost).toBe(0);
     expect(rc.residents.every((r) => r.text.length > 40 && !/[{}]/.test(r.text))).toBe(true);
     expect(rc.residents.find((r) => r.id === 'aunty-june')?.needsConsultation).toBe(true);

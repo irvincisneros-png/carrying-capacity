@@ -12,6 +12,7 @@ function perfect(): GameState {
   const s = cloneState(ended);
   s.tempC = 1.2;
   s.grid.waterPollution.fill(0);
+  for (const y of s.a2.yearly) y.estuaryHealth = 100;
   s.meters.society = 80;
   s.flags['metric.act1Repurposed'] = 100;
   s.flags['metric.wildlifeThriving'] = 1;
