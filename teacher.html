@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en-AU">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Teacher guide for Carrying Capacity, a Year 9 environmental sustainability game: lesson plans, syllabus map, scenarios, assessment ideas and limitations." />
+    <title>Carrying Capacity · Teacher guide</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="wrap">
+        <p class="kicker">Teacher guide</p>
+        <h1>Carrying Capacity</h1>
+        <p class="lede">A browser game for Year 9 Science (NSW Science 7–10 syllabus, 2023, Environmental sustainability). Students grow a town through the industrial boom, see the climate and pollution consequences in their own graphs, then lead the transition while keeping people and wildlife safe.</p>
+        <p class="actions no-print">
+          <a class="btn primary" href="./">Open the game</a>
+          <a class="btn" href="./?teacher">Open with every scenario unlocked</a>
+          <button class="btn" type="button" onclick="window.print()">Print this guide</button>
+        </p>
+      </div>
+    </header>
+
+    <nav class="toc no-print" aria-label="Contents">
+      <div class="wrap">
+        <a href="#overview">Overview</a>
+        <a href="#lessons">Running a lesson</a>
+        <a href="#syllabus">Syllabus map</a>
+        <a href="#scenarios">Scenarios</a>
+        <a href="#assessment">Assessment</a>
+        <a href="#cultural-safety">Cultural safety</a>
+        <a href="#teacher-mode">Teacher mode</a>
+        <a href="#access">Accessibility</a>
+        <a href="#limitations">Limitations</a>
+      </div>
+    </nav>
+
+    <main class="wrap">
+      <section id="overview">
+        <h2>Overview</h2>
+        <p>Each scenario has two acts. In <b>Act 1 (the boom)</b> students build a settlement decade by decade from the 1800s to about 2020. The cheapest buildings are the dirtiest, so the damage feels earned rather than lectured. A <b>turning point</b> then lands (a fish kill, a drought, a bleaching event) and a scientist character puts the student's own graphs on the table. In <b>Act 2 (the transition)</b> time runs season by season to 2100: students replace dirty power, clean up pollution, restore land and water, deal with every old building through the waste hierarchy and keep the town's people on side through heatwaves, floods and fires.</p>
+        <p>The game is designed for empathy and care as much as content: named residents with families react to decisions, animals return or disappear, and dilemma cards have no single right answer. Every dilemma has a <i>What does the evidence say?</i> button, and the 2100 Report Card ends with reflection prompts.</p>
+        <div class="grid3">
+          <div class="card"><h3>Six places</h3><p>A 20–30 minute tutorial and five scenarios from easy to expert, each about 70–120 minutes of play.</p></div>
+          <div class="card"><h3>Real data</h3><p>Graphs compare the student's CO₂ and temperature with the real record (Law Dome ice cores and Mauna Loa) and export as CSV.</p></div>
+          <div class="card"><h3>Runs in a browser</h3><p>No install or login. Tested on school laptops and Chromebooks; graphics drop to a lighter level automatically when needed.</p></div>
+        </div>
+        <h3>Before the first lesson</h3>
+        <ul>
+          <li><b>Saves live in the browser.</b> The game autosaves every in-game year, but only on that device and browser profile, and there is one save slot. Students who swap devices start again; clearing browsing data deletes the save.</li>
+          <li><b>Unlock order.</b> Green Valley (tutorial) → Coal Coast → River Town and Reef Island → Red Dirt → Net Zero City. Use <a href="#teacher-mode">teacher mode</a> to open any scenario straight away.</li>
+          <li><b>Same map, same weather.</b> Every student gets the same map, and the same actions produce the same events, so results are comparable across the class.</li>
+          <li><b>Sound</b> is on by default; headphones help. It can be muted in Settings.</li>
+        </ul>
+      </section>
+
+      <section id="lessons">
+        <h2>How to run a lesson</h2>
+        <p>Scenarios are longer than one lesson. Plan on two or three lessons per scenario, or set the second half as homework on the same device. The tutorial fits in one lesson.</p>
+        <div class="grid2">
+          <div class="card plan">
+            <h3>60-minute lesson</h3>
+            <ol>
+              <li><b>Hook (5 min).</b> Show the Keeling curve or a photo of a fish kill. Ask: what would a town have to do to cause this?</li>
+              <li><b>Set up (5 min).</b> Students open the game. First-timers start Green Valley; everyone else continues their save.</li>
+              <li><b>Play (35 min).</b> Act 1 of Coal Coast to the turning point takes about 25 minutes. Students keep a one-line log of each decade's biggest decision.</li>
+              <li><b>Graph talk (10 min).</b> Pause at the turning point. Open Graphs (G): compare your CO₂ and temperature lines with the real ones. Why are they shaped the same?</li>
+              <li><b>Exit ticket (5 min).</b> "Name one building that made the biggest difference to your emissions and explain why."</li>
+            </ol>
+          </div>
+          <div class="card plan">
+            <h3>90-minute lesson</h3>
+            <ol>
+              <li><b>Hook and predictions (10 min).</b> Students predict what will happen to the estuary, the bush and the air by 2020.</li>
+              <li><b>Act 1 (25 min).</b> Coal Coast to the turning point.</li>
+              <li><b>Turning point discussion (10 min).</b> Read the scientist's note together. Which of your choices show up in the graph?</li>
+              <li><b>Act 2 (30 min).</b> Start the transition: clean power first. Pause for every dilemma card and press <i>What does the evidence say?</i> before choosing.</li>
+              <li><b>CSV task (10 min).</b> Export the graph data (Graphs → CSV) and sketch emissions by decade.</li>
+              <li><b>Reflection (5 min).</b> One of the in-game reflection prompts in workbooks.</li>
+            </ol>
+          </div>
+        </div>
+        <h3>Sample sequence (4–5 lessons)</h3>
+        <table>
+          <thead><tr><th>Lesson</th><th>Play</th><th>Focus</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>Green Valley (tutorial)</td><td>Sustainability as Environment, Society and Economy together (4.1.1)</td></tr>
+            <tr><td>2</td><td>Coal Coast, Act 1</td><td>Industrialisation and temperature; the enhanced greenhouse effect (4.2.4, 4.2.6)</td></tr>
+            <tr><td>3</td><td>Coal Coast, Act 2 to about 2050</td><td>Emission-reduction methods and their limits (4.2.5); pollution clean-up (4.4.1)</td></tr>
+            <tr><td>4</td><td>Coal Coast to 2100, or a second scenario</td><td>Circular economy (4.4.3–4.4.5); Caring for Country (4.4.2)</td></tr>
+            <tr><td>5</td><td>Report Card</td><td>Graph analysis and a pollution write-up (4.2.2, 4.2.6, 4.5.1)</td></tr>
+          </tbody>
+        </table>
+        <p class="note">Differentiation: confident students can move to River Town or Reef Island after Coal Coast; Net Zero City (expert) suits extension and HPGE groups, as it starts in 2025 with no Act 1 and is about the order of operations.</p>
+      </section>
+
+      <section id="syllabus">
+        <h2>Syllabus dot-point map</h2>
+        <p>Where each dot point of the Environmental sustainability focus area lives in the game.</p>
+        <table class="syl">
+          <thead><tr><th>Dot point</th><th>In the game</th><th>Best scenarios</th></tr></thead>
+          <tbody>
+            <tr><td><b>4.1.1</b> Principles and goals of sustainability</td><td>Three meters on screen at all times: Environment, Society and Economy. Any meter at zero for three years ends the run. Goals ask for all three at once.</td><td>All; Green Valley introduces it</td></tr>
+            <tr><td><b>4.1.2</b> Propose valid solutions</td><td>Dilemma cards with two or three options, a "who is helped, who is hurt" preview and "What does the evidence say?". Evidence-backed choices are rewarded; some cards have no clean answer.</td><td>All</td></tr>
+            <tr><td><b>4.2.1</b> Weather and climate</td><td>The Act 2 clock shows this season's weather beside a 30-year climate trend line, and the hazard odds rising with warming.</td><td>All Act 2s</td></tr>
+            <tr><td><b>4.2.2</b> Climate trends</td><td>Graphs of CO₂, temperature and emissions by source, with the real record alongside, exportable as CSV.</td><td>Coal Coast, River Town</td></tr>
+            <tr><td><b>4.2.3</b> Natural greenhouse effect</td><td>Partly covered. "The science" under the temperature graph explains how CO₂ traps heat the Earth radiates. The game has no separate model of the natural effect, so introduce it in class first, then use the graph to ask what <i>extra</i> CO₂ does.</td><td>Coal Coast</td></tr>
+            <tr><td><b>4.2.4</b> Enhanced greenhouse effect</td><td>The student's own emissions drive CO₂ and warming; warming keeps rising after emissions fall (committed warming).</td><td>Coal Coast, Net Zero City</td></tr>
+            <tr><td><b>4.2.5</b> Emission-reduction methods</td><td>Solar (day only), wind, hydro, pumped hydro, batteries, tidal, retrofits, transit and recycling plants, each with siting rules and limits felt as blackouts or costs. Net Zero City shows emissions by source and "$ per kt cut".</td><td>Net Zero City, Red Dirt, Coal Coast</td></tr>
+            <tr><td><b>4.2.6</b> Industrialisation and temperature</td><td>Act 1: the student's industrial build-out draws the temperature curve, decade by decade.</td><td>Coal Coast, River Town, Reef Island, Red Dirt</td></tr>
+            <tr><td><b>4.3.1</b> Impacts: sea-level rise and storms</td><td>Storm surges, low homes at risk, seawalls versus mangroves versus moving homes.</td><td>Reef Island</td></tr>
+            <tr><td><b>4.3.2</b> Impacts on ecosystems</td><td>Coral bleaching, bushfire seasons, species leaving and returning, the restoration front.</td><td>Reef Island, Coal Coast</td></tr>
+            <tr><td><b>4.3.3</b> Impacts on the water cycle</td><td>Droughts and floods, river flows, environmental water, salinity, algal blooms and the drought plan.</td><td>River Town, Red Dirt</td></tr>
+            <tr><td><b>4.3.4</b> Satellites</td><td>A ground station unlocks sea-surface temperature, sea level, forest cover and fire overlays; satellite warnings of marine heatwaves let students act early.</td><td>Reef Island, Coal Coast</td></tr>
+            <tr><td><b>4.4.1</b> Pollution causes and implications</td><td>Air, water and soil pollution spread from sources on the map; fish kills, smog over homes, contaminated soil and its slow clean-up.</td><td>Coal Coast, Green Valley</td></tr>
+            <tr><td><b>4.4.2</b> Aboriginal and Torres Strait Islander sustainable practices</td><td>Caring for Country: asking before building on significant places, co-managing bush, cool mosaic burns, mine rehabilitation with Traditional Owners. Draft content pending consultation (see <a href="#cultural-safety">cultural safety</a>).</td><td>Coal Coast, Red Dirt</td></tr>
+            <tr><td><b>4.4.3</b> Reduce, reuse, recycle</td><td>Every Act 1 building must be repurposed, recycled or landfilled (the waste hierarchy) before 2100.</td><td>All except Net Zero City's Act 1 (it has none)</td></tr>
+            <tr><td><b>4.4.4</b> Recycling processes</td><td>The Old sites chooser compares repurposing, recycling and landfill for each site, and each choice says what happens to its materials.</td><td>Coal Coast, Net Zero City</td></tr>
+            <tr><td><b>4.4.5</b> Recycling innovations</td><td>Research: e-waste recovery, tyre-derived road base, smart sorting, food-waste biogas, construction reuse, battery recycling, green steel, and a critique of plastic-to-fuel.</td><td>Coal Coast</td></tr>
+            <tr><td><b>4.5.1</b> Human activity and one pollution concern</td><td>The 2100 Report Card (goals, species census, decisions that mattered, resident epilogues) as the basis of a written case study.</td><td>Any completed scenario</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="scenarios">
+        <h2>Scenarios</h2>
+        <p>Goals, difficulty and play times below come straight from the game's data. Play times are estimates for a Year 9 student who pauses to read and plan.</p>
+        <div id="scenario-cards"></div>
+      </section>
+
+      <section id="assessment">
+        <h2>Assessment ideas</h2>
+        <div class="grid2">
+          <div class="card">
+            <h3>Graph analysis (4.2.2, 4.2.6)</h3>
+            <p>At the turning point or the end, students open Graphs and press <b>CSV</b>. The file has one row per decade (Act 1) and per year (Act 2): their CO₂ and temperature, the real CO₂ and temperature to 2020, and emissions by sector (power, industry, transport, land, waste).</p>
+            <ul>
+              <li>Plot their temperature against the real record. Describe the trend and explain any difference using their own build decisions.</li>
+              <li>Find the decade with the biggest jump in emissions. Which buildings caused it?</li>
+              <li>Calculate the percentage fall in yearly emissions from the start of Act 2 to 2050. Did warming fall too? Explain the lag.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>Report Card write-up (4.5.1)</h3>
+            <p>The 2100 Report Card shows each goal, the species census, the five decisions that mattered most and where each resident ended up. Students choose <b>one pollution concern</b> from their town (estuary runoff, smog over homes, contaminated soil, salt on farmland, light on a turtle beach) and write a case study:</p>
+            <ul>
+              <li>the human activity that caused it, with evidence from their game;</li>
+              <li>its effects on people and on other living things;</li>
+              <li>what they did about it, what worked, what it cost and who it helped or hurt;</li>
+              <li>what a real community could learn from it.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>Dilemma justification (4.1.2)</h3>
+            <p>Pick one dilemma card. Record the options, the evidence, who each option helps and hurts, the student's choice and what happened next. Mark against how well the choice uses evidence and considers all three meters.</p>
+          </div>
+          <div class="card">
+            <h3>Reflection (not graded in game)</h3>
+            <p>The ending shows two reflection prompts and a letter to the next generation. Answers are typed into the game but <b>not saved or sent anywhere</b>: ask students to copy them into workbooks or a document before closing the tab.</p>
+          </div>
+        </div>
+        <h3>Reflection prompts used in the game</h3>
+        <ul id="reflections"></ul>
+      </section>
+
+      <section id="cultural-safety">
+        <h2>Cultural safety</h2>
+        <div class="card warn">
+          <p><b>All Aboriginal and Torres Strait Islander content in this game is a draft.</b> It has not yet been reviewed through the NSW AECG or a Local Aboriginal Land Council. Elder characters, place names, cultural burning, co-management and the mine-rehabilitation partnership are placeholders written to point towards respectful practice, and they are flagged in the code as needing consultation.</p>
+          <ul>
+            <li>Before teaching with this content, speak with your school's Aboriginal Education Officer or local AECG, and use local resources and voices wherever possible.</li>
+            <li>Present Caring for Country as living knowledge held by communities and specific to each Country, not as a game mechanic. The game cannot teach it; it can only open a conversation.</li>
+            <li>The partnership in the game grows through asking, listening and returning land management, and cannot be bought. Use that as a discussion point.</li>
+            <li>Content warning: the game includes loss of homes in storms, heat deaths in Net Zero City, wildlife deaths and fish kills, described without graphic detail.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="teacher-mode">
+        <h2>Teacher mode</h2>
+        <p>Add <code>?teacher</code> to the game's address (for example <code>…/carrying-capacity/?teacher</code>) or use the <i>Open with every scenario unlocked</i> button above. Every scenario is open on the scenario list for that visit, without the unlock order. It does not change saved games or earned stars, so students can use it too if you want them to jump straight to a scenario.</p>
+        <p class="note">Advanced: <code>?seed=1234</code> starts new games on a different map with different weather. Goals are balanced and tested on each scenario's own map, so use this only for curious groups who want to compare runs.</p>
+      </section>
+
+      <section id="access">
+        <h2>Accessibility and graphics</h2>
+        <ul>
+          <li><b>Graphics</b> (Settings): Auto, Low, Medium, High and Ultra. Auto measures the frame rate and steps down a level when the computer struggles; Low suits older Chromebooks.</li>
+          <li><b>Sound</b> (Settings): on or off. No information is given by sound alone.</li>
+          <li><b>Keyboard</b>: number keys pick buildings, <kbd>R</kbd> rotates, <kbd>Q</kbd>/<kbd>E</kbd> turn the view, <kbd>X</kbd> demolishes, <kbd>Esc</kbd> cancels or closes panels, <kbd>G</kbd> opens graphs, <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes the last placement and <kbd>Space</kbd> pauses Act 2. Buttons have labels for screen readers.</li>
+          <li><b>Pace</b>: Act 2 can be paused at any time, and every dilemma card pauses the clock. Speeds are 1×, 2× and 4×.</li>
+          <li><b>Reading level</b>: Year 9, Australian English. Science explanations sit behind "What does the evidence say?" and "The science" buttons, so students can go deeper when ready.</li>
+          <li><b>Phones and tablets</b>: playable at 375 px wide in portrait (panels become bottom sheets), but a laptop is much more comfortable.</li>
+          <li><b>Motion</b>: notifications respect the operating system's reduced-motion setting.</li>
+        </ul>
+      </section>
+
+      <section id="limitations">
+        <h2>Known limitations and simplifications</h2>
+        <p>Every model leaves things out. The same list is in the game under <b>Settings → Simplified!</b>, so students can check it themselves. Good discussion: "Which simplification matters most for the conclusions you drew?"</p>
+        <div id="simplified"></div>
+        <h3>Other things to know</h3>
+        <ul>
+          <li>Reflection answers and the letter are not saved or exported.</li>
+          <li>One save slot per browser; starting a new scenario replaces the save.</li>
+          <li>Prices, populations and emissions are game-scaled, not real figures for any real town.</li>
+          <li>Residents and places are fictional, inspired by real kinds of Australian towns (Illawarra, the Murray–Darling, Queensland islands, the Pilbara, a large coastal city).</li>
+        </ul>
+      </section>
+    </main>
+
+    <footer class="wrap foot">
+      <p>Carrying Capacity · Year 9 Science · Environmental sustainability. Teacher guide for the current build.</p>
+    </footer>
+    <script type="module" src="/src/teacher/main.ts"></script>
+  </body>
+</html>

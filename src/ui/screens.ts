@@ -21,6 +21,7 @@ import { objectiveRow } from './act2';
 import { portrait, reportCardView, speakerFrom } from './empathy';
 import type { ReportCard, Speaker } from './types';
 import { CAST } from '../content/residents';
+import { SIMPLIFIED } from '../content/simplified';
 
 const SCEN_ICON: Record<ScenarioId, string> = {
   'green-valley': UI_ICONS.sprout,
@@ -53,6 +54,7 @@ export function showTitle(hd: TitleHandlers, saved: { scenarioId: ScenarioId; ye
       h('button', { class: `btn ${saved ? '' : 'primary'}`, onclick: () => { unlockAudio(); sfx('click'); pick(); } }, svg(UI_ICONS.sprout), 'New game'),
       h('div', { class: 'title-foot' },
         h('button', { class: 'btn small ghost', onclick: () => hd.settings() }, svg(UI_ICONS.gear), 'Settings'),
+        h('a', { class: 'btn small ghost', href: `${import.meta.env.BASE_URL}teacher.html`, target: '_blank', rel: 'noopener' }, svg(UI_ICONS.info), 'For teachers'),
         h('span', { class: 'muted', style: 'font-size:12px;margin-left:auto;align-self:center' }, 'Year 9 Science · Environmental sustainability')),
     ].filter((x): x is HTMLButtonElement | HTMLDivElement => x !== null));
   };
@@ -264,6 +266,20 @@ export function showEnding(s: GameState, onTitle: () => void, card?: ReportCard,
   void objectiveRow;
 }
 
+// ---------------------------------------------------------------- simplified
+/** The game's simplifications, side by side with what is really true (same text as the teacher page). */
+export function showSimplified(): void {
+  openModal([
+    h('div', { class: 'kicker' }, 'Simplified!'),
+    h('h2', null, 'How this game bends reality'),
+    h('p', null, 'Every model leaves things out. These are the biggest shortcuts this game takes, and what is really true.'),
+    ...SIMPLIFIED.map((n) => h('div', { class: 'dil-opt', id: `simplified-${n.id}`, style: 'margin-top:8px' },
+      h('h4', null, h('span', null, n.title)),
+      h('p', { style: 'margin:0 0 4px;font-size:13px' }, h('b', null, 'In the game: '), n.game),
+      h('p', { style: 'margin:0;font-size:13px' }, h('b', null, 'In reality: '), n.reality))),
+  ]);
+}
+
 // ---------------------------------------------------------------- settings
 export function showSettings(r: GameRenderer, onReset: (() => void) | null): void {
   const tiers = h('div', { class: 'seg' });
@@ -286,6 +302,8 @@ export function showSettings(r: GameRenderer, onReset: (() => void) | null): voi
     h('div', { class: 'settings-row' }, h('b', null, 'Sound'), snd),
     h('div', { class: 'settings-row' }, h('div', null, h('b', null, 'Controls'), h('div', { class: 'muted', style: 'font-size:12px;line-height:1.6' },
       'Drag: pan · Right-drag / two fingers: turn · Scroll / pinch: zoom', h('br'), h('kbd', null, 'Q'), ' ', h('kbd', null, 'E'), ' turn 90° · ', h('kbd', null, 'R'), ' rotate building · ', h('kbd', null, 'X'), ' demolish · ', h('kbd', null, 'Esc'), ' cancel · ', h('kbd', null, 'G'), ' graphs · ', h('kbd', null, 'Ctrl Z'), ' undo · ', h('kbd', null, 'Space'), ' pause (Act 2)'))),
+    h('div', { class: 'settings-row' }, h('div', null, h('b', null, 'Simplified!'), h('div', { class: 'muted', style: 'font-size:12px' }, 'Where this game bends reality to stay playable, and what is really true.')),
+      h('button', { class: 'btn small teal', onclick: () => showSimplified() }, 'Read')),
     onReset ? h('div', { class: 'settings-row' }, h('div', null, h('b', null, 'Start over'), h('div', { class: 'muted', style: 'font-size:12px' }, 'Deletes your saved game.')), h('button', { class: 'btn small', style: 'background:#f6d2c8;color:#7a1a10', onclick: () => { if (confirm('Delete your saved game and return to the title screen?')) { m.close(); onReset(); } } }, 'Reset game')) : null,
   ]);
 }
