@@ -261,24 +261,43 @@ export function outlookView(nz: NetZeroOutlook, s: GameState): HTMLElement {
         s.a2.yearly.length < 2 ? `To reach the line by ${nz.byYear}, cut about ${kt(nz.need)} a year, every year, from now.` : `Emissions are not falling yet: cut about ${kt(nz.need)} a year to make ${nz.byYear}.`));
   const sub = h('div', { class: 'nz-sub' }, `This year at today's buildings: ${kt(nz.nowKt)} · line ${kt(nz.line)}`,
     nz.pace !== null && !nz.atLine ? ` · cutting ${kt(Math.max(0, nz.pace))} a year (need ${kt(nz.need)})` : '');
-  const bars = h('div', { class: 'nz-bars' }, ...nz.rows.filter((r) => r.kt >= 0.5).map((r) => {
+  // The four biggest sources get a bar; the small ones fold into one line.
+  const shown = nz.rows.filter((r) => r.kt >= 0.5);
+  const top = shown.slice(0, 4);
+  const rest = shown.slice(4);
+  const restKt = rest.reduce((a, r) => a + r.kt, 0);
+  const bars = h('div', { class: 'nz-bars' }, ...top.map((r) => {
     const isLever = nz.lever?.key === r.key;
     return h('div', { class: `nz-row${isLever ? ' lever' : ''}${r.waitsFor ? ' waits' : ''}`, title: `${r.label}: ${r.lever}${r.waitsFor ? ` (${r.waitsFor})` : ''}` },
       h('span', { class: 'nz-lbl' }, r.short),
       h('span', { class: 'nz-bar' }, h('i', { style: `width:${(r.kt / max) * 100}%` }), h('em', { style: `left:${(nz.line / max) * 100}%`, title: 'The net-zero line is for the whole town' })),
       h('span', { class: 'nz-kt' }, kt(r.kt)));
   }));
+  if (rest.length) bars.appendChild(h('div', { class: 'nz-sub', style: 'margin-top:0' }, `+ ${rest.length} smaller source${rest.length > 1 ? 's' : ''}: ${kt(restKt)}`));
+  // The lever's how-to and the suggested order fold away (closed by default) so the panel leaves the map visible;
+  // the panel is rebuilt as numbers change, so remember what the player opened.
+  const fold = (key: string, summary: HTMLElement | string, body: HTMLElement, cls: string): HTMLElement => {
+    const d = h('details', { class: `nz-fold ${cls}` }, h('summary', null, summary), body) as HTMLDetailsElement;
+    d.open = FOLD_OPEN.has(key);
+    d.addEventListener('toggle', () => { if (d.open) FOLD_OPEN.add(key); else FOLD_OPEN.delete(key); });
+    return d;
+  };
   const lever = nz.lever && !nz.atLine
-    ? h('div', { class: 'nz-lever' }, h('b', null, `Biggest lever now: ${nz.lever.label}. `), nz.lever.lever)
+    ? fold('lever', h('span', null, h('b', null, 'Biggest lever now: '), nz.lever.short), h('div', null, nz.lever.lever), 'nz-lever')
     : null;
   const waiting = nz.rows.find((r) => r.waitsFor && r.kt >= 5);
-  const order = nz.atLine ? null : h('ol', { class: 'nz-order' }, ...nz.order.map((o) => h('li', { class: o.done ? 'done' : '' }, o.done ? '✓ ' : '', o.text)));
+  const done = nz.order.filter((o) => o.done).length;
+  const order = nz.atLine ? null : fold('order', `Suggested order (${done} of ${nz.order.length} done)`,
+    h('ol', { class: 'nz-order' }, ...nz.order.map((o) => h('li', { class: o.done ? 'done' : '' }, o.done ? '✓ ' : '', o.text))), 'nz-orderfold');
   return h('div', { class: 'nz', 'data-qa': 'nz-outlook' },
     h('div', { class: 'nz-title' }, 'Your emissions by source'),
     head, sub, bars, lever,
     waiting && !nz.atLine ? h('div', { class: 'nz-sub' }, `${waiting.short}: ${waiting.waitsFor}. Save up for it.`) : null,
     order);
 }
+
+/** Which folded sections of the Goals panel the player has opened (kept across re-renders). */
+const FOLD_OPEN = new Set<string>();
 
 /** One line on how to move each goal, shown under a goal that is not yet on track. */
 const HOW_TO: Partial<Record<string, string>> = {
@@ -349,7 +368,9 @@ export function objectiveRow(o: ObjectiveResult, s?: GameState, noHow = false): 
     }
   }
   const how = s && !noHow && (o.status === 'at-risk' || o.status === 'missed' || atRiskHomes > 0 || sliding) && s.phase === 'act2' ? HOW_TO[`${s.scenarioId}:${o.metric}`] ?? HOW_TO[o.metric] : undefined;
-  return h('div', { class: `obj ${o.status} ${o.bonus ? 'bonus' : ''}` }, svg(icon),
+  // Goals that are fine for now are drawn compact (no progress bar) so the ones that need attention stand out.
+  const compact = !how && (o.status === 'on-track' || o.status === 'met' || o.status === 'pending');
+  return h('div', { class: `obj ${o.status} ${o.bonus ? 'bonus' : ''}${compact ? ' compact' : ''}` }, svg(icon),
     h('div', { style: 'flex:1;min-width:0' }, h('div', { class: 'lab' }, degC(o.label)), h('div', { class: 'val' }, `${label} · ${detail}`), h('div', { class: 'bar' }, h('i', { style: `width:${pct * 100}%` })), how ? h('div', { class: 'how' }, degC(how)) : null));
 }
 

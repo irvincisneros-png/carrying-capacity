@@ -57,7 +57,9 @@ export function toast(title: string, text: string, kind: 'info' | 'good' | 'warn
   }
   const t = h('div', { class: `toast panel ${kind}` }, svg(icon), h('div', null, h('b', null, title), text ? h('p', null, text) : null));
   toastBox.prepend(t);
-  while (toastBox.children.length > 4) toastBox.lastElementChild?.remove();
+  // Phones keep only the two newest so toasts never bury the map.
+  const keep = window.innerWidth < 700 ? 2 : 4;
+  while (toastBox.children.length > keep) toastBox.lastElementChild?.remove();
   const kill = (): void => {
     t.classList.add('out');
     setTimeout(() => t.remove(), 350);

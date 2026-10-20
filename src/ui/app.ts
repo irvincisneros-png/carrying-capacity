@@ -450,7 +450,7 @@ export class App {
       // Money piling up late in the game: point at the community projects once per scenario run.
       if (s.phase === 'act2' && s.budget >= 400 && SIM.projectsOpen(s) && SIM.projectsFunded(s) === 0 && this.projectNudge !== s.scenarioId) {
         this.projectNudge = s.scenarioId;
-        toast('Savings in the bank', 'Community projects can put them to work: adopt a habitat, climate aid for a neighbouring town, cool refuges, junior rangers. Open Innovations and projects (top right).', 'good', UI_ICONS.sprout, 7000);
+        toast('Savings in the bank', 'Community projects can put them to work: adopt a habitat, climate aid for a neighbouring town, cool refuges, junior rangers. Open Innovations and projects (the circular-arrows button).', 'good', UI_ICONS.sprout, 7000);
       }
     } catch { /* layer state missing in old saves */ }
     if (this.overlayFn) this.renderer.setOverlay(this.overlayFn(s), this.overlayRamp);

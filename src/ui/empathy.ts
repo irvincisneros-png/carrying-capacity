@@ -140,23 +140,36 @@ export class Voices {
 
   /** Two residents speaking from nearby homes: lift the newer bubble above the older one instead of covering it. */
   private unstack(): void {
+    if (!this.bubbles.length) return;
     const placed: { l: number; r: number; t: number; b: number }[] = [];
+    // Never lift a bubble over the top HUD bar: beside the other bubble instead.
+    const hud = document.querySelector('.hud');
+    const minTop = hud ? hud.getBoundingClientRect().bottom + 6 : 80;
     for (const b of this.bubbles) {
       const x = parseFloat(b.el.style.left) || 0;
       const y = parseFloat(b.el.style.top) || 0;
       const w = b.el.offsetWidth, hgt = b.el.offsetHeight;
       let top = y - 12 - hgt;
-      const l = x - w / 2, r = x + w / 2;
-      let lift = 0;
+      let l = x - w / 2, r = x + w / 2;
+      let lift = 0, shift = 0;
       for (let guard = 0; guard < 4; guard++) {
         const hit = placed.find((q) => l < q.r + 6 && r > q.l - 6 && top < q.b + 6 && top + hgt > q.t - 6);
         if (!hit) break;
         const d = top + hgt - (hit.t - 8);
-        top -= d;
-        lift += d;
+        if (top - d >= minTop) {
+          top -= d;
+          lift += d;
+        } else {
+          // Side by side: to the right of the other bubble, or to its left if that runs off screen.
+          const right = hit.r + 8 - l;
+          const left = hit.l - 8 - r;
+          const dx = r + right <= window.innerWidth - 8 ? right : left;
+          l += dx; r += dx; shift += dx;
+        }
       }
       b.el.style.marginTop = lift > 0 ? `${-lift}px` : '';
-      b.el.classList.toggle('lifted', lift > 0);
+      b.el.style.marginLeft = shift !== 0 ? `${shift}px` : '';
+      b.el.classList.toggle('lifted', lift > 0 || shift !== 0);
       placed.push({ l, r, t: top, b: top + hgt });
     }
   }
