@@ -207,7 +207,7 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
     co2: 0, localPollution: 3, pollutes: { water: 3 }, unlock: 1880, category: 'waste',
     placement: {
       on: [Land, Beach, Bush],
-      nearTerrain: { kinds: [TileKind.Sea, TileKind.Reef, TileKind.Estuary], dist: 1, reason: 'Sewage outfalls must touch the sea or estuary' },
+      nearTerrain: { kinds: [TileKind.Sea, TileKind.Reef, TileKind.Estuary, TileKind.River], dist: 1, reason: 'Sewage outfalls must touch the sea, an estuary or a river' },
     },
     blurb: 'Cheap way to get rid of sewage. Out of sight, not out of the ecosystem.',
   },

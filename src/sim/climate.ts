@@ -57,8 +57,10 @@ export function climateAt(
   year: number,
   playerCumulativeKt: number,
   sensitivityMult = 1,
+  /** Scales the reference pathway to the size of the town (a small island emits far less than the reference town). */
+  referenceScale = 1,
 ): ClimateState {
-  const m = emissionsMultiplier(playerCumulativeKt, referenceCumulative(year));
+  const m = emissionsMultiplier(playerCumulativeKt, referenceCumulative(year) * referenceScale);
   const co2 = co2For(year, m);
   return { m, co2, tempC: tempFor(co2, sensitivityMult) };
 }

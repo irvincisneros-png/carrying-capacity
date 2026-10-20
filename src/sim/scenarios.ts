@@ -4,7 +4,7 @@ import { RED_DIRT } from '../content/scenarios/red-dirt';
 import { REEF_ISLAND } from '../content/scenarios/reef-island';
 import { RIVER_TOWN } from '../content/scenarios/river-town';
 import type { ObjectiveDef } from './objectives';
-import type { BuildingId, EventType, ScenarioId } from './types';
+import type { BuildingId, EventType, ScenarioId, TileKindValue } from './types';
 
 export type Difficulty = 'tutorial' | 'easy' | 'medium' | 'hard' | 'expert';
 export type TerrainKind = 'coast' | 'valley' | 'river' | 'island' | 'outback' | 'city';
@@ -53,6 +53,8 @@ export interface BuildingOverride {
   /** Scenario wording for the build menu (e.g. Red Dirt calls the coal mine an open-cut mine). */
   name?: string;
   blurb?: string;
+  /** Extra terrain kinds that satisfy the building's "must be near" rule here (an island's power station can use seawater). */
+  nearTerrainAdd?: readonly TileKindValue[];
 }
 
 export interface ScenarioModifiers {
@@ -66,6 +68,12 @@ export interface ScenarioModifiers {
   remediationYears: number;
   /** 0 = none, 3 = lots of hints. */
   hintLevel: number;
+  /**
+   * Scales the reference emissions pathway to the size of the place (default 1 = the Coal Coast town). A small island
+   * would never move the climate against the full reference, so its reference is smaller: the same share of effort
+   * gives the same share of warming.
+   */
+  emissionScale?: number;
 }
 
 /** Pure data describing the crisis that opens Act 2 (rendered by the UI, spoken by the scientist). */
@@ -97,6 +105,8 @@ export interface Act2Def {
   objectives: readonly ObjectiveDef[];
   /** Per-event-type multiplier on the chance of that event (on top of modifiers.eventSeverity). */
   eventMult?: Partial<Record<EventType, number>>;
+  /** Multiplier on the runoff pulse a flood sends down the river (default 1; a big inland river dilutes it). */
+  floodRunoff?: number;
   /** Multiplier on solar output (Red Dirt gets the strongest sun in the game). */
   solarCf?: number;
   /** Multiplier on wind output. */

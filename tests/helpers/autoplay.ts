@@ -10,13 +10,22 @@ export interface Spot {
 /** Hub = middle of the estuary, where the town grows from. */
 export function hubOf(state: GameState): { x: number; y: number } {
   const g = state.grid;
-  let sx = 0, sy = 0, n = 0;
-  for (let y = 0; y < g.h; y++) {
-    for (let x = 0; x < g.w; x++) {
-      if (g.kind[y * g.w + x] === TileKind.Estuary) { sx += x; sy += y; n++; }
+  const centroid = (kind: number): { x: number; y: number } | null => {
+    let sx = 0, sy = 0, n = 0;
+    for (let y = 0; y < g.h; y++) {
+      for (let x = 0; x < g.w; x++) {
+        if (g.kind[y * g.w + x] === kind) { sx += x; sy += y; n++; }
+      }
     }
+    return n > 0 ? { x: sx / n, y: sy / n } : null;
+  };
+  // The town grows from the estuary, the river (River Town), the waterhole (Red Dirt) or the middle of the map.
+  const order = state.scenarioId === 'river-town' ? [TileKind.River] : [TileKind.Estuary, TileKind.Wetland, TileKind.River];
+  for (const k of order) {
+    const c = centroid(k);
+    if (c) return c;
   }
-  return n > 0 ? { x: sx / n, y: sy / n } : { x: g.w / 2, y: g.h / 2 };
+  return { x: g.w / 2, y: g.h / 2 };
 }
 
 /** First valid spot ordered by distance to the hub ('near') or farthest from it ('far'). Ignores funds. */

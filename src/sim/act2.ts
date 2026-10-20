@@ -189,7 +189,7 @@ function yearEnd(s: GameState, quiet: boolean): void {
   s.cumulativeKt += total;
   s.year += 1;
   a2.season = 0;
-  const clim = climateAt(s.year, s.cumulativeKt, sc.modifiers.climateSensitivityMult);
+  const clim = climateAt(s.year, s.cumulativeKt, sc.modifiers.climateSensitivityMult, sc.modifiers.emissionScale ?? 1);
   s.multiplier = clim.m;
   s.co2 = clim.co2;
   a2.eqTempC = clim.tempC;

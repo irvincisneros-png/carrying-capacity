@@ -9,6 +9,7 @@ import { buildCity } from './prebuilt';
 import { mechIncome } from './mechanics';
 import { applyLayerAction, emptyLayers, layersDecadeMoods, layersDecadeStory, onDemolishedBuilding, onPlaced } from './layers';
 import { updatePollution } from './pollution';
+import { noteAction } from './residents';
 import { bumpRect } from './restoration';
 import { cloneState, emptyAct2, emptyEmissions } from './state';
 import { realCO2, realTemp } from './realData';
@@ -45,8 +46,8 @@ export function createGame(scenarioId: GameState['scenarioId'], seed?: number): 
   let bush = 0;
   for (let i = 0; i < grid.kind.length; i++) if (grid.kind[i] === TileKind.Bush) bush++;
   // Scenarios that start after 1850 inherit the reference world's legacy emissions so m starts near 1.
-  const legacy = sc.startYear > 1850 ? referenceCumulative(sc.startYear) : 0;
-  const clim = climateAt(sc.startYear, legacy, sc.modifiers.climateSensitivityMult);
+  const legacy = sc.startYear > 1850 ? referenceCumulative(sc.startYear) * (sc.modifiers.emissionScale ?? 1) : 0;
+  const clim = climateAt(sc.startYear, legacy, sc.modifiers.climateSensitivityMult, sc.modifiers.emissionScale ?? 1);
   const base: GameState = {
     saveVersion: SAVE_VERSION,
     scenarioId,
@@ -206,6 +207,7 @@ export function applyAction(state: GameState, action: Action): { state: GameStat
       next.grid.kind[i] = TileKind.Land;
       next.pendingLandKt += CLEAR_KT_PER_TILE;
       next.budget -= CLEAR_COST;
+      noteAction(next, 'cleared');
       next.meters = computeMeters(next);
       next.version = state.version + 1;
       return { state: next, result: { ok: true, spent: CLEAR_COST } };
@@ -246,7 +248,7 @@ export function advanceDecade(state: GameState): { state: GameState; report: Dec
   // 4. Climate for the new year.
   next.year = state.year + DECADE_YEARS;
   next.cumulativeKt = state.cumulativeKt + total;
-  const clim = climateAt(next.year, next.cumulativeKt, sc.modifiers.climateSensitivityMult);
+  const clim = climateAt(next.year, next.cumulativeKt, sc.modifiers.climateSensitivityMult, sc.modifiers.emissionScale ?? 1);
   next.multiplier = clim.m;
   next.co2 = clim.co2;
   next.tempC = clim.tempC;

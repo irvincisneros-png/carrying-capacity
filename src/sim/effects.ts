@@ -3,7 +3,7 @@ import { TileKind } from './types';
 import type { GameState } from './types';
 import { addPartnership } from './country';
 
-export type TileScope = 'estuary' | 'river' | 'reef' | 'bush' | 'land' | 'beach' | 'sea' | 'all' | 'contaminated';
+export type TileScope = 'estuary' | 'river' | 'reef' | 'bush' | 'land' | 'beach' | 'sea' | 'all' | 'contaminated' | 'wetland';
 
 /** A change to the map. `mult` scales the field, `add` is added afterwards (all fields stay >= 0, health <= 1). */
 export interface TileEffect {
@@ -42,6 +42,7 @@ const inScope = (kind: number, scope: TileScope, soil: number): boolean => {
     case 'land': return kind === TileKind.Land || kind === TileKind.Bush;
     case 'beach': return kind === TileKind.Beach;
     case 'sea': return kind === TileKind.Sea;
+    case 'wetland': return kind === TileKind.Wetland;
     case 'contaminated': return soil > 0.5;
     case 'all': return true;
   }

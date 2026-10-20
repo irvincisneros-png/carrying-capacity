@@ -42,8 +42,9 @@ export function act2Sandbox(
   s.year = opts.year ?? sc.act2.startYear;
   s.budget = opts.budget ?? 1_000_000;
   s.initialBushTiles = 100;
-  s.cumulativeKt = referenceCumulative(s.year);
-  const clim = climateAt(s.year, s.cumulativeKt, sc.modifiers.climateSensitivityMult);
+  const scale = sc.modifiers.emissionScale ?? 1;
+  s.cumulativeKt = referenceCumulative(s.year) * scale;
+  const clim = climateAt(s.year, s.cumulativeKt, sc.modifiers.climateSensitivityMult, scale);
   s.co2 = clim.co2;
   s.tempC = clim.tempC;
   s.multiplier = clim.m;

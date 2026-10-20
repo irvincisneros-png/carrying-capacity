@@ -130,15 +130,17 @@ describe('placement: building-specific rules', () => {
     paint(s, 20, 10, 1, 2, TileKind.Reef);
     expect(canPlace(s, 'port', 18, 10).ok).toBe(true);
   });
-  it('sewage outfall must touch sea or estuary', () => {
+  it('sewage outfall must touch the sea, an estuary or a river', () => {
     const s = sandbox(TileKind.Land, { year: 1880 });
-    expect(canPlace(s, 'outfall', 5, 5).reason).toBe('Sewage outfalls must touch the sea or estuary');
+    expect(canPlace(s, 'outfall', 5, 5).reason).toBe('Sewage outfalls must touch the sea, an estuary or a river');
     paint(s, 6, 5, 1, 1, TileKind.Estuary);
     expect(canPlace(s, 'outfall', 5, 5).ok).toBe(true);
     paint(s, 15, 15, 1, 1, TileKind.Sea);
     expect(canPlace(s, 'outfall', 14, 15).ok).toBe(true);
     paint(s, 25, 25, 1, 1, TileKind.River);
-    expect(canPlace(s, 'outfall', 24, 25).ok).toBe(false); // river alone does not count
+    expect(canPlace(s, 'outfall', 24, 25).ok).toBe(true); // an inland town's sewage goes to the river
+    paint(s, 20, 3, 1, 1, TileKind.Wetland);
+    expect(canPlace(s, 'outfall', 19, 3).ok).toBe(false); // a billabong is not a place to put an outfall
   });
   it('steelworks needs a port first', () => {
     const s = sandbox(TileKind.Land, { year: 1910 });

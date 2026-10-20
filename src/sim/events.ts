@@ -187,7 +187,7 @@ const BASE_EVENTS: readonly EventDef[] = [
       for (let i = 0; i < g.kind.length; i++) {
         const k = g.kind[i];
         if (k === TileKind.River || k === TileKind.Estuary) {
-          g.waterPollution[i] = (g.waterPollution[i] ?? 0) + 0.25 * sev + 0.12 * Math.min(4, g.soilContamination[i] ?? 0);
+          g.waterPollution[i] = (g.waterPollution[i] ?? 0) + (0.25 * sev + 0.12 * Math.min(4, g.soilContamination[i] ?? 0)) * (getScenario(c.state.scenarioId).act2.floodRunoff ?? 1);
         }
         if ((k === TileKind.Beach || k === TileKind.Estuary) && (g.building[i] ?? 0) === 0) {
           g.health[i] = Math.max(0, (g.health[i] ?? 0) - 0.12 * sev);

@@ -9,7 +9,7 @@ import { stageFromHealth } from '../restoration';
 import { TileKind } from '../types';
 import { clamp, clamp01, eventActive, flag, setFlag } from './flags';
 import { cotsChance, seaRiseM, surgeHeightM, wouldFlood, wouldFloodBare } from './reefCore';
-import { meanRiverWaterPollution } from './riverCore';
+import { meanRiverWaterPollution, RIVER } from './riverCore';
 
 const warm = (k: number, t: number): number => 1 + k * Math.max(0, t);
 
@@ -21,7 +21,7 @@ const algalBloom: EventDef = {
     const nutrients = clamp01(meanRiverWaterPollution(s) / 0.9);
     const still = clamp01(1.3 - flag(s, 'w.envRatio', 1));
     const heat = 0.5 + 0.25 * clamp(s.tempC, 0, 2) + (eventActive(s, 'heatwave', c.idx) ? 0.4 : 0);
-    return clamp(base * (0.15 + nutrients) * (0.2 + still) * heat * c.mult, 0, 0.7);
+    return clamp(base * RIVER.bloomK * (0.15 + nutrients) * (0.2 + still) * heat * c.mult, 0, 0.7);
   },
   fire: (c, rng) => {
     const s = c.state;
@@ -63,7 +63,7 @@ const crownOfThorns: EventDef = {
 const stormSurge: EventDef = {
   type: 'storm-surge', name: 'Storm surge', stage: 'post', scenarios: ['reef-island'],
   chance: (c) => {
-    const base = [0.06, 0.07, 0.012, 0.02][c.season] ?? 0;
+    const base = [0.04, 0.045, 0.007, 0.012][c.season] ?? 0;
     return clamp(base * warm(0.5, c.warming) * c.mult, 0, 0.9);
   },
   fire: (c, rng) => {
@@ -75,7 +75,7 @@ const stormSurge: EventDef = {
     s.budget -= damage;
     for (let i = 0; i < g.kind.length; i++) {
       const k = g.kind[i];
-      if (k === TileKind.Reef || k === TileKind.Estuary || k === TileKind.Sea) g.waterPollution[i] = (g.waterPollution[i] ?? 0) + 0.12 * sev;
+      if (k === TileKind.Reef || k === TileKind.Estuary || k === TileKind.Sea) g.waterPollution[i] = (g.waterPollution[i] ?? 0) + 0.07 * sev;
     }
     const homes = s.buildings.filter((b) => BUILDINGS[b.type].housing > 0);
     const saved = homes.filter((b) => wouldFloodBare(s, b, surge) && !wouldFlood(s, b, surge)).length;

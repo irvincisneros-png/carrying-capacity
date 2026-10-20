@@ -155,7 +155,9 @@ export function canPlace(
     }
   }
 
-  const nt = def.placement.nearTerrain;
+  const nt = def.placement.nearTerrain
+    ? { ...def.placement.nearTerrain, kinds: [...def.placement.nearTerrain.kinds, ...(getScenario(state.scenarioId).availability[buildingId]?.nearTerrainAdd ?? [])] }
+    : undefined;
   if (nt) {
     let found = false;
     const x0 = Math.max(0, x - nt.dist);
