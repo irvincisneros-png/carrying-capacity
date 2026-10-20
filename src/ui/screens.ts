@@ -2,6 +2,7 @@
 // summary + turning point story, epilogue / failure, settings.
 import { metricValue, objectiveStatus } from '../sim/objectives';
 import { carryOverPlan } from '../sim/act2';
+import { netZeroOutlook } from '../sim/outlook';
 import { SCENARIOS, SCENARIO_IDS, getScenario } from '../sim/scenarios';
 import { MAX_STARS, isScenarioUnlocked, loadProgress, lockedReason, starsOf, totalStars, type Progress } from '../sim/progress';
 
@@ -98,6 +99,7 @@ export function showIntro(s: GameState, onGo: () => void): void {
       : h('p', null, `Your job: grow this settlement into a thriving town, one decade at a time, all the way to ${sc.endYear}. People need homes, jobs and power. Every choice changes the land, the water and the air.`),
     h('p', null, h('b', null, 'Watch what happens to the air.'), ' The graphs track the CO₂ your town adds and how the world warms.'),
     goalsBox(sc, act2Start),
+    act2Start ? introOutlook(s) : null,
     h('div', { class: 'stat-grid' },
       h('div', { class: 'stat' }, h('small', null, 'Build'), h('div', { style: 'font-size:13px' }, 'Pick a building below, then click the map. ', h('kbd', null, 'R'), ' rotates.')),
       h('div', { class: 'stat' }, h('small', null, 'Look around'), h('div', { style: 'font-size:13px' }, 'Drag to pan, right-drag or ', h('kbd', null, 'Q'), h('kbd', null, 'E'), ' to turn, scroll to zoom.')),
@@ -107,6 +109,18 @@ export function showIntro(s: GameState, onGo: () => void): void {
     h('p', { class: 'ack' }, ACK),
     h('div', { class: 'modal-actions' }, h('button', { class: 'btn primary', onclick: () => { m.close(); } }, 'Let\'s build')),
   ], { onClose: onGo });
+}
+
+/** A city that starts in the transition gets its emissions by source on the first card: the map of what to cut. */
+function introOutlook(s: GameState): HTMLElement | null {
+  let nz: ReturnType<typeof netZeroOutlook> = null;
+  try { nz = netZeroOutlook(s); } catch { nz = null; }
+  if (!nz) return null;
+  const top = nz.rows.filter((r) => r.kt >= 3);
+  return h('div', { class: 'fact', style: 'display:block', 'data-qa': 'intro-outlook' },
+    h('b', null, `Where the city's ${Math.round(nz.nowKt)} kt a year comes from (the line is ${nz.line} kt):`),
+    h('ul', { style: 'margin:6px 0 0 18px;padding:0' }, ...top.map((r) => h('li', null, h('b', null, `${r.label}: ${Math.round(r.kt)} kt. `), r.lever, r.waitsFor ? ` (${r.waitsFor}.)` : ''))),
+    h('p', { style: 'margin:6px 0 0;font-size:13px' }, h('b', null, 'Order matters. '), nz.order.map((o, i) => `${i + 1}. ${o.text}.`).join(' '), ' The Goals panel keeps this list, and your projected net-zero year, up to date as you build.'));
 }
 
 /** The scenario's win condition, up front, so the whole game has a clear goal from the first click. */

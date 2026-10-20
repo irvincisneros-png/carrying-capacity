@@ -4,6 +4,7 @@ import type { Speed } from '../game/controller';
 import { EVENT_NAMES } from '../content/act2';
 import { eventChances } from '../sim/events';
 import { objectiveStatus } from '../sim/objectives';
+import { netZeroOutlook, type NetZeroOutlook } from '../sim/outlook';
 import { mechMetric } from '../sim/mechanics';
 import { readoutTrend } from './scenario';
 import { hash32, seasonWeather } from '../sim/season';
@@ -222,13 +223,60 @@ export class ObjectivesPanel {
     const end = getScenario(s.scenarioId).act2.endYear;
     let risk = 0;
     try { risk = mechMetric(s, 'homesAtRisk') ?? 0; } catch { risk = 0; }
-    const sig = `${end}|${s.year}|${risk}|${s.phase}|${s.circular?.unlocked}|` + objs.map((o) => `${o.id}:${o.status}:${o.current === null ? 'n' : Math.round(o.current * 10)}`).join('|');
+    // The net-zero outlook moves with every build, so it is part of the signature (cached per state version / season).
+    const nzKey = `${s.version}|${s.year}|${s.a2?.season}`;
+    if (nzKey !== this.nzKey) {
+      this.nzKey = nzKey;
+      try { this.nz = s.phase === 'act2' ? netZeroOutlook(s) : null; } catch { this.nz = null; }
+    }
+    const nz = this.nz;
+    const nzSig = nz ? `${Math.round(nz.nowKt)}|${nz.projected}|${nz.pace}|${nz.rows.map((r) => `${r.key}${Math.round(r.kt)}${r.waitsFor ? 'w' : ''}`).join()}|${nz.order.map((o) => (o.done ? 1 : 0)).join('')}` : '';
+    const sig = `${end}|${s.year}|${risk}|${s.phase}|${s.circular?.unlocked}|${nzSig}|` + objs.map((o) => `${o.id}:${o.status}:${o.current === null ? 'n' : Math.round(o.current * 10)}`).join('|');
     if (sig === this.sig) return;
     this.titleEl.textContent = `Goals for ${end}`;
     this.sig = sig;
     clear(this.list);
-    for (const o of objs) this.list.appendChild(objectiveRow(o, s));
+    for (const o of objs) {
+      this.list.appendChild(objectiveRow(o, s));
+      if (o.metric === 'netZeroYear' && nz && o.status !== 'met' && o.status !== 'missed') this.list.appendChild(outlookView(nz, s));
+    }
   }
+
+  private nzKey = '';
+  private nz: NetZeroOutlook | null = null;
+}
+
+/** "Your emissions by source": the readout that teaches the order of operations for a net-zero goal. */
+export function outlookView(nz: NetZeroOutlook, s: GameState): HTMLElement {
+  const kt = (v: number): string => `${v >= 10 ? Math.round(v) : fmt1(v)} kt`;
+  const max = Math.max(nz.line, ...nz.rows.map((r) => r.kt), 1);
+  const ok = nz.projected !== null && nz.projected <= nz.byYear;
+  const head = nz.atLine
+    ? h('div', { class: 'nz-head ok' }, svg(UI_ICONS.check), h('span', null, `At the line now (${kt(nz.nowKt)} a year). Hold it every year, and spread one-off demolition work out.`))
+    : nz.projected !== null
+      ? h('div', { class: `nz-head ${ok ? 'ok' : 'late'}` }, svg(ok ? UI_ICONS.check : UI_ICONS.warn),
+        h('span', null, 'On current plan: net zero about ', h('b', null, String(nz.projected)), ok ? ` (target ${nz.byYear})` : `, ${nz.projected - nz.byYear} years late (target ${nz.byYear})`))
+      : h('div', { class: 'nz-head late' }, svg(UI_ICONS.warn), h('span', null,
+        s.a2.yearly.length < 2 ? `To reach the line by ${nz.byYear}, cut about ${kt(nz.need)} a year, every year, from now.` : `Emissions are not falling yet: cut about ${kt(nz.need)} a year to make ${nz.byYear}.`));
+  const sub = h('div', { class: 'nz-sub' }, `This year at today's buildings: ${kt(nz.nowKt)} · line ${kt(nz.line)}`,
+    nz.pace !== null && !nz.atLine ? ` · cutting ${kt(Math.max(0, nz.pace))} a year (need ${kt(nz.need)})` : '');
+  const bars = h('div', { class: 'nz-bars' }, ...nz.rows.filter((r) => r.kt >= 0.5).map((r) => {
+    const isLever = nz.lever?.key === r.key;
+    return h('div', { class: `nz-row${isLever ? ' lever' : ''}${r.waitsFor ? ' waits' : ''}`, title: `${r.label}: ${r.lever}${r.waitsFor ? ` (${r.waitsFor})` : ''}` },
+      h('span', { class: 'nz-lbl' }, r.label),
+      h('span', { class: 'nz-bar' }, h('i', { style: `width:${(r.kt / max) * 100}%` }), h('em', { style: `left:${(nz.line / max) * 100}%`, title: 'The net-zero line is for the whole town' })),
+      h('span', { class: 'nz-kt' }, kt(r.kt)));
+  }));
+  const lever = nz.lever && !nz.atLine
+    ? h('div', { class: 'nz-lever' }, h('b', null, `Biggest lever now: ${nz.lever.label}. `), nz.lever.lever)
+    : null;
+  const waiting = nz.rows.find((r) => r.waitsFor && r.kt >= 5);
+  const order = nz.atLine ? null : h('ol', { class: 'nz-order' }, ...nz.order.map((o) => h('li', { class: o.done ? 'done' : '' }, o.done ? '✓ ' : '', o.text)));
+  return h('div', { class: 'nz', 'data-qa': 'nz-outlook' },
+    h('div', { class: 'nz-title' }, 'Your emissions by source'),
+    head, sub, bars, lever,
+    waiting && !nz.atLine ? h('div', { class: 'nz-sub' }, `${waiting.label}: ${waiting.waitsFor}. ${waiting.lever}`) : null,
+    order);
 }
 
 /** One line on how to move each goal, shown under a goal that is not yet on track. */

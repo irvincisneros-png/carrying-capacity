@@ -1,0 +1,186 @@
+/**
+ * Net-zero outlook (pure reads): where this year's emissions come from, which source is the biggest lever right
+ * now, and when the town reaches its net-zero line at the pace it is cutting. Recomputed from the buildings that
+ * stand today, so it moves the moment the player builds, retrofits or retires something.
+ */
+import { BUILDINGS } from './buildings';
+import { wasteEmissionsMult } from './circular';
+import { balanceGrid } from './energy';
+import { mechEmissionFactor } from './mechanics';
+import { getScenario } from './scenarios';
+import { seasonIndexOf } from './season';
+import type { BuildingId, GameState, Season } from './types';
+
+export type SourceKey = 'coal' | 'gas' | 'homes' | 'industry' | 'mines' | 'traffic' | 'waste' | 'farms' | 'other';
+
+export interface SourceRow {
+  key: SourceKey;
+  label: string;
+  /** kt CO2-e a year at today's buildings. */
+  kt: number;
+  /** Buildings behind it. */
+  n: number;
+  /** What brings it down, in one line. */
+  lever: string;
+  /** Set when the fix is not open yet (e.g. 'Old sites opens in 2032'). */
+  waitsFor?: string;
+}
+
+export interface OrderStep {
+  text: string;
+  done: boolean;
+}
+
+export interface NetZeroOutlook {
+  /** The net-zero line (kt a year) and the year it must be reached by. */
+  line: number;
+  byYear: number;
+  /** This year's emissions if nothing changes (kt). */
+  nowKt: number;
+  rows: SourceRow[];
+  /** The biggest source that can be cut now (not waiting on a later tier). */
+  lever: SourceRow | null;
+  /** kt a year the town must cut, on average, from now to make the deadline. */
+  need: number;
+  /** kt a year the town has cut on average over the last few years (counting what was just built), or null early on. */
+  pace: number | null;
+  /** Year the line is reached at that pace, or null (no pace yet / not falling). */
+  projected: number | null;
+  /** True once this year's buildings put the town at or under the line. */
+  atLine: boolean;
+  order: OrderStep[];
+}
+
+const GROUP: Partial<Record<BuildingId, SourceKey>> = {
+  suburb: 'homes', cottage: 'homes', greensuburb: 'homes',
+  factory: 'industry', steelworks: 'industry', greensteel: 'industry',
+  coalmine: 'mines',
+  carpark: 'traffic', road: 'traffic', rail: 'traffic', port: 'traffic', excavation: 'traffic', transitline: 'traffic', windport: 'traffic',
+  landfill: 'waste', recycler: 'waste', sewagetreatment: 'waste', outfall: 'waste',
+  farm: 'farms', dripfarm: 'farms',
+};
+
+/** kt a year from each source, at today's buildings (power from a year of grid dispatch with today's capacity). */
+export function emissionSources(s: GameState): SourceRow[] {
+  const sc = getScenario(s.scenarioId);
+  const sum: Record<SourceKey, { kt: number; n: number }> = {
+    coal: { kt: 0, n: 0 }, gas: { kt: 0, n: 0 }, homes: { kt: 0, n: 0 }, industry: { kt: 0, n: 0 }, mines: { kt: 0, n: 0 },
+    traffic: { kt: 0, n: 0 }, waste: { kt: 0, n: 0 }, farms: { kt: 0, n: 0 }, other: { kt: 0, n: 0 },
+  };
+  const wasteK = s.phase === 'act2' ? wasteEmissionsMult(s) : 1;
+  let oldHomes = 0;
+  for (const b of s.buildings) {
+    const def = BUILDINGS[b.type];
+    if (b.type === 'coalpower') { sum.coal.n++; continue; }
+    if (b.type === 'gaspower') { sum.gas.n++; continue; }
+    if (def.category === 'power' || def.co2 <= 0) continue;
+    const key = GROUP[b.type] ?? 'other';
+    const kt = (def.co2 / 10) * mechEmissionFactor(s, b) * (def.category === 'waste' ? wasteK : 1);
+    sum[key].kt += kt;
+    if (b.type === 'suburb' || b.type === 'cottage') oldHomes++;
+    if (key !== 'homes') sum[key].n++;
+  }
+  sum.homes.n = oldHomes;
+  // A year of grid dispatch with what is built today, split between coal and gas by what they generate.
+  if (sum.coal.n + sum.gas.n > 0) {
+    const base = seasonIndexOf(s) - s.a2.season;
+    // One row for both: solar displaces gas before coal (gas is the peaker), so split rows would hide the effect.
+    let total = 0;
+    for (let k = 0; k < 4; k++) {
+      const probe: GameState = { ...s, a2: { ...s.a2, season: k as Season } };
+      total += balanceGrid(probe, base + k).report.emissionsKt;
+    }
+    sum.coal.kt = total;
+  }
+  const circularOpen = s.circular.unlocked;
+  const circularYear = sc.act2.circularYear ?? 2050;
+  const rows: SourceRow[] = [];
+  const add = (key: SourceKey, label: string, lever: string, waitsFor?: string): void => {
+    const v = sum[key];
+    if (v.kt < 0.05) return;
+    rows.push({ key, label, kt: Math.round(v.kt * 10) / 10, n: v.n, lever, ...(waitsFor ? { waitsFor } : {}) });
+  };
+  const plants = sum.coal.n + sum.gas.n;
+  add('coal', `${sum.coal.n > 0 && sum.gas.n > 0 ? 'Coal and gas' : sum.coal.n > 0 ? 'Coal' : 'Gas'} power (${plants} station${plants === 1 ? '' : 's'})`,
+    'Add rooftop solar and batteries until the night is covered too (Power panel), then retire the plants with Old sites, one at a time.');
+  add('homes', `Homes${oldHomes > 0 ? ` (${oldHomes} not retrofitted)` : ''}`,
+    oldHomes > 0 ? 'Retrofit each brick suburb (build Green retrofit on it): insulation, heat pumps, solar. It takes years at a few a year: start early.' : 'Already retrofitted: little left here.');
+  add('industry', 'Factories and steelworks',
+    'Turn them into recycling plants or green steel with Old sites. Save up: it costs more than a building.',
+    circularOpen ? undefined : `Old sites opens around ${circularYear}`);
+  add('mines', 'Mines', 'Close the mines (Old sites) once the town has other jobs.');
+  add('traffic', 'Traffic and freight', 'Transit lines move people out of cars: each line serves about 900 people.');
+  add('waste', 'Waste', 'Recycling research and composting (Old sites) cut landfill gas.');
+  add('farms', 'Farms and land', 'Small: efficient farms and restored bush help a little.');
+  add('other', 'Everything else', 'Small sources spread across the town.');
+  return rows.sort((a, b) => b.kt - a.kt);
+}
+
+const NZ_KEY = 'nz.';
+const NZ_KEEP = 6;
+
+/**
+ * Called at each Act 2 year end in scenarios with a net-zero line: remembers the buildings' yearly emissions (without
+ * one-off spikes such as taking a power station apart) for the last few years, so the pace is not thrown by a spike.
+ */
+export function recordOutlook(s: GameState): void {
+  if (getScenario(s.scenarioId).act2.netZeroKt === undefined) return;
+  const kt = emissionSources(s).reduce((a, r) => a + r.kt, 0);
+  s.flags[`${NZ_KEY}${s.year}`] = Math.round(kt * 10) / 10;
+  const old = `${NZ_KEY}${s.year - NZ_KEEP}`;
+  if (old in s.flags) delete s.flags[old];
+}
+
+/** Linear-fit slope (kt per year, positive = falling) of the last few years' building emissions, ending with `nowKt`. */
+function cuttingPace(s: GameState, nowKt: number, n = 5): number | null {
+  const pts: { x: number; v: number }[] = [];
+  for (let y = s.year - n + 1; y < s.year; y++) {
+    const v = s.flags[`${NZ_KEY}${y}`];
+    if (typeof v === 'number') pts.push({ x: y, v });
+  }
+  if (pts.length < 2) return null;
+  pts.push({ x: s.year, v: nowKt });
+  const mx = pts.reduce((a, p) => a + p.x, 0) / pts.length;
+  const mv = pts.reduce((a, p) => a + p.v, 0) / pts.length;
+  let num = 0, den = 0;
+  for (const p of pts) { num += (p.x - mx) * (p.v - mv); den += (p.x - mx) ** 2; }
+  return den > 0 ? -num / den : null;
+}
+
+export function netZeroOutlook(s: GameState): NetZeroOutlook | null {
+  const sc = getScenario(s.scenarioId);
+  const line = sc.act2.netZeroKt;
+  const obj = sc.act2.objectives.find((o) => o.metric === 'netZeroYear');
+  if (line === undefined || !obj || s.phase === 'act1') return null;
+  const rows = emissionSources(s);
+  const nowKt = Math.round(rows.reduce((a, r) => a + r.kt, 0) * 10) / 10;
+  const byYear = obj.target;
+  const yearsLeft = Math.max(1, byYear - s.year);
+  const need = Math.max(0, (nowKt - line) / yearsLeft);
+  const atLine = nowKt <= line;
+  const p = cuttingPace(s, nowKt);
+  const pace = p === null ? null : Math.round(p * 10) / 10;
+  const projected = atLine ? s.year : pace !== null && pace > 0.2 ? s.year + Math.ceil((nowKt - line) / pace) : null;
+  const lever = rows.find((r) => !r.waitsFor && r.kt >= 1 && !(r.key === 'homes' && !/not retrofitted/.test(r.label))) ?? null;
+  const has = (k: SourceKey): SourceRow | undefined => rows.find((r) => r.key === k);
+  const transit = s.buildings.filter((b) => b.type === 'transitline').length;
+  const oldHomes = has('homes')?.label.includes('not retrofitted') ?? false;
+  const order: OrderStep[] = [
+    { text: 'Clean power first: rooftop solar and batteries, then retire coal and gas', done: !s.buildings.some((b) => b.type === 'coalpower' || b.type === 'gaspower') },
+  ];
+  if (oldHomes || (has('traffic')?.kt ?? 0) >= 3) {
+    order.push({
+      text: 'Start the slow ones early, a few each year: retrofit the brick suburbs and build transit lines',
+      done: !oldHomes && (has('traffic')?.kt ?? 0) < 6 && transit > 0,
+    });
+  }
+  if (has('industry') || s.buildings.some((b) => b.type === 'factory' || b.type === 'steelworks')) {
+    order.push({
+      text: s.circular.unlocked ? 'Turn the factories into recycling plants (Old sites), one or two a year so no single year spikes'
+        : `When Old sites opens (around ${sc.act2.circularYear ?? 2050}), turn the factories into recycling plants: save up for it`,
+      done: !has('industry'),
+    });
+  }
+  if (has('mines')) order.push({ text: 'Close the mines (Old sites) as soon as the town has other jobs', done: false });
+  return { line, byYear, nowKt, rows, lever, need: Math.round(need * 10) / 10, pace, projected, atLine, order };
+}

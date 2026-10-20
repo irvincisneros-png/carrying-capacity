@@ -6,6 +6,7 @@ import { emit, makeCtx, rollEvents } from './events';
 import { estuaryHealth, meanHealth, meanReefHealth } from './metrics';
 import { mechEmissionFactor, mechIncome } from './mechanics';
 import { objectiveStatus } from './objectives';
+import { recordOutlook } from './outlook';
 import { applyRemediation, applyWetlands, REMEDIATION_IDLE, updatePollutionSeason } from './pollution';
 import { realTemp } from './realData';
 import {
@@ -242,6 +243,7 @@ function yearEnd(s: GameState, quiet: boolean): void {
     estuaryHealth: estuaryHealth(s), meanHealth: meanHealth(s), reefHealth: meanReefHealth(s),
   };
   a2.yearly.push(rec);
+  recordOutlook(s);
   a2.yearEm = emptyEmissions();
   a2.stressSum = 0;
   a2.yearSeasons = 0;
