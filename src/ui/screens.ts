@@ -55,7 +55,7 @@ export function showTitle(hd: TitleHandlers, saved: { scenarioId: ScenarioId; ye
       h('div', { class: 'title-foot' },
         h('button', { class: 'btn small ghost', onclick: () => hd.settings() }, svg(UI_ICONS.gear), 'Settings'),
         h('a', { class: 'btn small ghost', href: `${import.meta.env.BASE_URL}teacher.html`, target: '_blank', rel: 'noopener' }, svg(UI_ICONS.info), 'For teachers'),
-        h('span', { class: 'muted', style: 'font-size:12px;margin-left:auto;align-self:center' }, 'Year 9 Science · Environmental sustainability')),
+        h('span', { class: 'muted tagline' }, 'Year 9 Science · Environmental sustainability')),
     ].filter((x): x is HTMLButtonElement | HTMLDivElement => x !== null));
   };
   const pick = (): void => {
@@ -207,6 +207,10 @@ export function showTurningPoint(s: GameState, onBegin: () => void, storyOnly = 
         h('div', { class: 'stat' }, h('small', null, waterLabel), h('b', null, `${Math.round(waterVal)}`), h('span', { class: 'd muted' }, '/100')),
         h('div', { class: 'stat' }, h('small', null, 'Bush remaining'), h('b', null, `${Math.round(tp.stats.bushRemaining * 100)}%`)),
         h('div', { class: 'stat' }, h('small', null, 'Warming'), h('b', null, `+${fmt1(tp.stats.tempC)} °C`))),
+      // A town that kept its own runoff away from the water still meets the crisis: say why, so the numbers and the story agree.
+      waterVal >= 80 && s.scenarioId === 'coal-coast'
+        ? h('p', { class: 'muted', style: 'font-size:13px;margin:4px 0 0' }, 'Your town kept most of its sewage and runoff away from the estuary, so its water readings are good. This time the heat did the damage, and warming is something no town can fix on its own.')
+        : null,
       h('div', { class: 'fact' }, portrait(sci, 40), h('p', null, h('b', null, sci.name), sci.role ? h('span', { class: 'muted' }, ` · ${sci.role}`) : null, h('br'), degC(tp.scientistNote))),
       h('p', null, h('b', null, 'Act 2: Transition. '), `Time now runs by itself, season by season, to ${getScenario(s.scenarioId).act2.endYear}. Clean up the power, heal the land and water, and keep people with you.`),
       (() => {

@@ -75,6 +75,6 @@ Green Valley → Coal Coast → River Town and Reef Island → Red Dirt → Net 
 
 ## Deployment
 
-`.github/workflows/deploy.yml` builds, tests and publishes `dist/` to GitHub Pages, but it is **manual only**
-(`workflow_dispatch`; the push trigger is commented out) and the repository is **private**. Going public is the
-owner's decision; see `docs/HANDOVER.md`.
+`.github/workflows/deploy.yml` runs `npm ci`, `npm test` and `npm run build`, then publishes `dist/` to GitHub Pages
+on every push to `main` (and on manual dispatch). The owner approved going live on 2026-10-21 (commit 1f5244d) and the
+repository is public, so **anything pushed to `main` goes live**. See `docs/HANDOVER.md` for the content caveat.

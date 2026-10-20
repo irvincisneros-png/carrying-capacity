@@ -180,7 +180,10 @@ kbd { font: 700 11px/1 var(--font); background: var(--paper-3); border-radius: 5
 .scen p { margin: 2px 0 0; font-size: 13px; color: var(--ink-2); line-height: 1.35; }
 .badge { font: 900 11px/1 var(--font); text-transform: uppercase; letter-spacing: .06em; padding: 4px 8px; border-radius: 8px; color: #fff; }
 .badge.tutorial { background: #8a7868; } .badge.easy { background: var(--good); } .badge.medium { background: var(--sky); } .badge.hard { background: var(--rust); } .badge.expert { background: #5a3a7a; }
-.title-foot { margin-top: 14px; display: flex; gap: 8px; }
+.title-foot { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px; }
+.title-foot a.btn { text-decoration: none; }
+.title-card .title-foot .btn { width: auto; flex: 1 1 0; font-size: 15px; padding: 10px; }
+.title-foot .tagline { flex-basis: 100%; text-align: center; font-size: 12px; }
 
 /* ---------- side panels */
 .side { position: fixed; z-index: 19; display: flex; flex-direction: column; }

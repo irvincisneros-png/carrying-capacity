@@ -77,7 +77,7 @@ then `docs/GAMEPLAY.md` (the design) and `docs/reviews/qa-playthrough.md` (three
 
 ## Known issues
 
-- **Content consultation** (above) is the blocker for public release.
+- **Content consultation** (above) is still outstanding now that the game is public.
 - Act 2 money: Coal Coast and Reef Island still bank money in the last decades; community projects now give it a
   use (about $1.7M of rounds in all), but the scripted balance players do not use them, so their effect on balance is
   untested beyond unit tests.
@@ -99,10 +99,13 @@ then `docs/GAMEPLAY.md` (the design) and `docs/reviews/qa-playthrough.md` (three
 
 ## Deployment
 
-- `.github/workflows/deploy.yml` runs `npm ci`, `npm test`, `npm run build` and deploys `dist/` to GitHub Pages.
-- It is **manual only** (`workflow_dispatch`; the `push` trigger is commented out), and the repository
-  `irvincisneros-png/carrying-capacity` is **private**. GitHub Pages on a private repo needs a paid plan, and going
-  public exposes the draft cultural content, so **the owner must approve making the repository public** (and ideally
-  wait for consultation) before enabling the push trigger or running the workflow.
-- `vite.config.ts` sets `base: '/carrying-capacity/'`, so the site expects to live at
-  `https://<user>.github.io/carrying-capacity/`; `teacher.html` sits beside `index.html`.
+- `.github/workflows/deploy.yml` runs `npm ci`, `npm test`, `npm run build` and deploys `dist/` to GitHub Pages on
+  every push to `main` and on manual dispatch. `vitest.config.ts` gives the scripted playthroughs a 60 s timeout for
+  slower CI runners.
+- The owner approved going live on 2026-10-21 (commit 1f5244d switched the push trigger on) and the repository
+  `irvincisneros-png/carrying-capacity` is public. **Pushing to `main` publishes to students**, so run the three
+  checks first and keep work-in-progress on a branch.
+- The Aboriginal and Torres Strait Islander content is still a draft pending consultation (see above); the teacher page
+  says so, and it should stay flagged until the consultation is done.
+- `vite.config.ts` sets `base: '/carrying-capacity/'`, so the site lives at
+  `https://irvincisneros-png.github.io/carrying-capacity/`; `teacher.html` sits beside `index.html`.

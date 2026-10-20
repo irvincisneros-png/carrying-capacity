@@ -334,3 +334,70 @@ estimate, not driver time (driver time: 11–16 minutes per Act 2).
 6. Report card grades a species that was never present (Coal Coast platypus "D, 0 animals, started with 0").
 7. Carried over: toasts slide in from beyond the right edge; one 50–75 ms frame on season ticks under heavy CPU
    throttling.
+
+## Round 3: final polish and regression (2026-10-21)
+
+### What changed
+
+| Round 2 issue | Change | Commit |
+|---|---|---|
+| 1. Late-game surplus | Community projects (Innovations and projects drawer, open with the circular tier): Adopt a habitat (plants weedy ground beside bush), Climate aid for a neighbouring town (60 kt off the world total per round), Cool refuges, Junior rangers. 2–3 rounds each at ×1.5 cost, about $1.7M in all; one nudge when savings pass $400k; a Report Card line. | 6c3876d |
+| 2. River Town seed 47 | Drought plan policy ($4k/yr): banks half the flow above the river's own share in normal seasons; in a declared drought, town restrictions (−20%), deficit irrigation (−30%), an environmental-flow floor and banked water to the farms. A "Drought declared" banner offers it in one click. River goal judged on a 10-year mean (like the estuary). Careful scripted player now 4/4 seeds; the same player ignoring the warning still loses seed 47. | cdcdad7 |
+| 3. Net Zero City bonus and slack | Build tooltips show "cuts about N kt a year · $X per kt" at today's town (light rail $22/kt, retrofits $25/kt, solar farm $58/kt; batteries show nothing until there is spare solar). Bonus threshold $2,500k → $2,800k (scripted plan spends $2,627k; lean plan $2,185k; round-2 UI run $3,163k without the hints). City storms/heatwaves drag Society ×0.9 (worst scripted year 68 → 70); difficulty ordering unchanged. | d620f57 |
+| 4. Goals panel covers the city | Lever text and suggested order fold away (closed by default, remembered), four biggest sources only, compact rows for goals that are fine. At 1600×900 the Net Zero City panel ends above the build bar. Bubbles never lift over the HUD (they sit side by side); phones keep two toasts; warning banners use the full phone width. | 4530a72, bd1f42a |
+| 5. Reef Island 1920–1950 | "An airstrip for the war" card (1935–1955, fires 1940): clean-up condition +$30k, no condition +$45k with fuel in the lagoon, or a small depot +$12k. Makes the diesel station affordable in the 1940s. | 223b289 |
+| 6. Never-present species graded D | Census carries `seen`; the Report Card shows "–, never recorded here this game" and the species panel says "not here yet". | 753a7d8 |
+| 7. Toasts and season hitch | Toasts animate the individual `translate` property from 16 px (never from off-screen; centred banners no longer jump). The controller simulates the next season in idle time and uses it at the boundary; vegetation and ambient-life rebuilds run on later frames; yearly autosave in idle time. | 21cb0fc |
+| Teacher page | `teacher.html` (title screen "For teachers") and in-game Settings → Simplified!. | 1156b7f |
+| Docs | `README.md`, `docs/HANDOVER.md`. | cb740d4 |
+
+The title-screen layout and the turning-point estuary note are in the final commit of the round.
+
+### Performance (headless Chrome, 4× CPU throttle, Net Zero City at 4× speed, 20 s, Low tier)
+
+| | Avg | p99 | Worst | Frames > 33 ms | Frames > 50 ms |
+|---|---|---|---|---|---|
+| Before (round 2 build) | 17.0 ms | 16.8 ms | 100 ms | 10 | 5 |
+| After | 16.7 ms | 16.8 ms | 33 ms | 3–5 | 0 |
+| After, 6× throttle | 16.9 ms | 16.8 ms | 50 ms | 12 | 0 |
+
+### Regression via the real UI (1600×900)
+
+- **Green Valley, complete**: title → New game → Green Valley → every guide step by clicking build cards, map tiles,
+  Clear bush, Next decade, dilemma options (after opening "What does the evidence say?"), the Old sites chooser and
+  the speed buttons. Epilogue 2040, 4 of 4 goals (100% renewable, Environment 92, koalas 24, old sites 67%); bonus
+  missed because the driver built one wetland (the guide asks for a second). "Next: Coal Coast" offered.
+- **Coal Coast to the turning point**: from "Next: Coal Coast", Act 1 1850–2020 by clicking build cards and tiles
+  (always the first dilemma option, i.e. the cheap dirty one), consulting the significant places with Inspect →
+  Talk. Turning point showed the Transition Fund paragraph ($1.7M boom → $900k + $25k a year for 20 years). Then
+  six clean builds and Act 2 to 2031 (three dilemmas answered).
+  - Found: this town built away from the water, so the "fish kill" turning point showed estuary 100/100 under a
+    story about runoff. Added a line when the estuary reads 80+: "your town kept most of its sewage and runoff away
+    from the estuary... this time the heat did the damage".
+- **Mid-game screenshots** of River Town, Reef Island, Red Dirt and Net Zero City come from scripted thoughtful-player
+  saves (2045 / 2038) loaded through the title screen's Continue and run for a few seconds; they were not played by
+  hand this round.
+- Drought banner: forced a River Town drought, clicked "Start the drought plan": plan on, banner gone, toast shown.
+- Panel sweep at 1280×720 and 375×812 (River Town and Net Zero City, Act 2): every HUD button's panel opened; nothing
+  off-screen except rows inside scrollable drawers.
+- `teacher.html` at 1280 and 375 (no horizontal scroll), printed to PDF (18 A4 pages).
+- No console errors or uncaught exceptions in any of the above.
+
+Screens: `docs/screens/final-*.png` (title, scenario select, Green Valley mid-game and end, Coal Coast Act 2 and
+turning point, River Town, Reef Island, Red Dirt, Net Zero City, Simplified!, teacher page).
+
+### Checks
+
+`npx vitest run` 668 tests (38 files), `npx tsc --noEmit -p .` clean, `npx vite build` clean (main chunk size warning
+only, as before).
+
+### Remaining issues
+
+1. Community projects are unit-tested but the scripted balance players never fund them, so there is no balance band
+   for a player who spends late money on climate aid (−0.02 °C per three rounds in Coal Coast: small by design).
+2. The drought plan is reactive in the scripted player; banking only pays off if a player turns it on before dry
+   years. The policy text and teacher page say so, but no hint fires before the first drought.
+3. Goals panel at 1280×720 still scrolls inside itself in Net Zero City (it no longer covers the map).
+4. Debug-only: `__cc.game.debugTick` while paused leaves the clock widget showing the old year until the next tick.
+5. Aboriginal and Torres Strait Islander content remains draft pending consultation (the repository went public
+   during this round, commit 1f5244d, so it is now live).
