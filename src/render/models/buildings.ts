@@ -12,6 +12,7 @@ import { mulberry32, vnoise } from '../noise';
 import {
   G, GLASS, IRON, Kit, MATTE, PAINT, RUSTY, WALL, blobShape, buildAmbient, facets, ribbon, type V3,
 } from './ambient';
+import { mulgaGeo, palmGeo, saltbushGeo, spinifexGeo, streetTreeGeo } from './biomeveg';
 
 export interface Rotor { x: number; y: number; z: number; /** facing yaw (rad) about +Y; rotor disc normal = (sin yaw, 0, cos yaw) */ yaw: number; /** blade length scale (1 = 1.3 units blade) */ scale: number }
 export interface Stack { x: number; y: number; z: number; /** relative plume size 0.3..2 */ size: number; /** 0 = dark coal smoke, 1 = white steam */ steam: number }
@@ -870,49 +871,7 @@ function mCoalpower(k: Kit): void {
 }
 
 function mSuburb(k: Kit): void {
-  pad(k, 2, 2, LAWN2);
-  const road: [number, number][] = [];
-  const N = k.hi ? 12 : 7;
-  const rz = (x: number) => 0.06 * Math.sin(x * 2.4);
-  for (let i = 0; i <= N; i++) {
-    const x = -0.98 + (i / N) * 1.96;
-    road.push([x, rz(x)]);
-  }
-  k.add(ribbon(road, 0.34, G + 0.003), 0xd6cdb8, MATTE);
-  k.add(ribbon(road, 0.24, G + 0.006), ASPHALT, MATTE);
-  if (k.hi) {
-    k.add(ribbon(road, 0.25, G + 0.0055), 0xb8b0a0, MATTE);
-  }
-  const walls = [0xc98a5a, 0xa65a3c, 0xd9c4a0, 0x8a5a44, 0xc4a27a];
-  const roofs = [0xb5583a, 0x6e4a3e, 0x8b8e8f];
-  const sites: [number, number, number][] = [
-    [-0.7, -0.45, 0], [-0.22, -0.48, 0], [0.26, -0.5, 0], [0.72, -0.47, 0],
-    [-0.62, 0.5, Math.PI], [0.0, 0.52, Math.PI], [0.6, 0.48, Math.PI],
-  ];
-  sites.forEach(([x, z, ry], i) => {
-    const zz = z + rz(x);
-    k.group(x, G, zz, ry, (q) => {
-      brickHome(q, walls[i % walls.length], roofs[i % roofs.length], i);
-      // driveway to the street + backyard fence
-      const gx = i % 2 ? 0.205 : -0.205;
-      q.flat(gx, 0.004, 0.2, 0.08, 0.18, 0xc8c0b0, MATTE);
-      if (q.hi) {
-        q.box(0, 0, -0.36, 0.46, 0.05, 0.012, 0x9a9488, MATTE);
-        for (const sx of [-1, 1]) q.box(sx * 0.23, 0, -0.24, 0.012, 0.05, 0.24, 0x9a9488, MATTE);
-      }
-    });
-    // parked car
-    if (i % 3 !== 2) k.put(buildAmbient('car', k.d), x + (i % 2 ? 0.205 : -0.205) * Math.cos(ry), G + 0.004, zz + (ry ? -0.22 : 0.22), Math.PI / 2, [0xb3392b, 0x3d6fa5, 0xe8e4da, 0x4a7a5a, 0xd9a43a][i % 5], 0.85);
-  });
-  // backyard extras: Hills hoist, pool, shed, trees
-  k.put(buildAmbient('clothesline', k.d), -0.62, G, 0.82, 0.4);
-  k.put(buildAmbient('clothesline', k.d), 0.26, G, -0.82, 0.2);
-  k.box(0.05, G - 0.005, 0.8, 0.18, 0.012, 0.1, 0xe8e4da, MATTE);
-  k.flat(0.05, G + 0.008, 0.8, 0.15, 0.075, 0x5ac0d0, GLASS);
-  if (k.hi) k.put(buildAmbient('shed', 1), 0.68, G, 0.84, 0);
-  for (const [x, z, s] of [[-0.92, -0.85, 0.9], [-0.45, -0.88, 0.75], [0.62, -0.86, 0.8], [0.92, 0.82, 0.9], [-0.3, 0.86, 0.7]] as [number, number, number][]) k.tree(x, z, s, Math.round(x * 10 + z * 7 + 50));
-  // street trees
-  if (k.hi) for (const x of [-0.45, 0.48]) k.tree(x, rz(x) - 0.2, 0.55, 60 + Math.round(x * 10), G, [0x6f8a4a, 0x7f9a56]);
+  suburbScene(k, false);
 }
 
 function mCarpark(k: Kit): void {
@@ -2047,6 +2006,482 @@ function mRecycler(k: Kit): void {
   fenceRect(k, -0.96, -0.96, 0.96, 0.96, 0x9a9e9a, 0.08, 0.24, true);
 }
 
+
+// ================================================================== Round 2: water, climate adaptation, biomes
+
+/** Add a biome vegetation geometry (strips its foliage-shader `sphn` so it merges with building parts). */
+function veg(k: Kit, g: BufferGeometry, x: number, y: number, z: number, s = 1, ry = 0): void {
+  g.deleteAttribute('sphn');
+  k.put(g, x, y, z, ry, 0xffffff, s);
+}
+
+/** Aussie windmill water pump (Southern Cross style), local origin at ground. */
+function windmill(q: Kit, H: number): void {
+  for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) q.beam([sx * 0.07, 0, sz * 0.07], [sx * 0.018, H, sz * 0.018], 0.01, 0.01, 0xb8b8b0, IRON);
+  if (q.hi) for (const yy of [H * 0.26, H * 0.54, H * 0.8]) {
+    const r = 0.07 + (0.018 - 0.07) * (yy / H);
+    q.box(0, yy, r, r * 2, 0.006, 0.006, 0xb8b8b0, IRON);
+    q.box(r, yy, 0, 0.006, 0.006, r * 2, 0xb8b8b0, IRON);
+  }
+  q.box(0, H, 0, 0.05, 0.03, 0.08, 0x9a9a92, IRON);
+  const wheel = q.add(T(new CylinderGeometry(0.15, 0.15, 0.012, q.seg(16)), 0, H + 0.02, 0.06, Math.PI / 2, 0, 0), 0xe8e6de, IRON);
+  facets(wheel, (cx, cy) => (Math.floor(((Math.atan2(cy - H - 0.02, cx) + Math.PI) / (Math.PI * 2)) * 16) % 2 ? 0x9aa0a0 : undefined));
+  q.cyl(0, H + 0.02, 0.07, 0.03, 0.03, 0.012, 0x6f7575, 8);
+  q.rbox(0, H + 0.03, -0.14, 0.006, 0.08, 0.14, 0xd8d4c8, 0, 0, 0, IRON);
+}
+
+/** Corrugated steel tank on a timber stand. */
+function standTank(k: Kit, x: number, z: number, r: number, h: number, standH: number): void {
+  for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) k.box(x + sx * r * 0.7, G, z + sz * r * 0.7, 0.025, standH, 0.025, TIMBER, MATTE);
+  k.box(x, G + standH, z, r * 2.1, 0.02, r * 2.1, TIMBER, MATTE);
+  const t = k.cyl(x, G + standH + 0.02, z, r, r, h, 0xb7bdbd, 10, IRON, k.hi ? 4 : 1);
+  facets(t, (_x, cy, _z, _nx, ny) => (Math.abs(ny) < 0.5 && Math.floor((cy - standH) / (h / 4)) % 2 ? 0.86 : undefined));
+  k.cone(x, G + standH + 0.02 + h, z, r * 1.05, r * 0.4, 0xa7adad, 12, IRON);
+}
+
+/** Double-sided triangle (shade sails). */
+function sail(k: Kit, a: V3, b: V3, c: V3, col: ColorLike): void {
+  k.add(polys([{ p: [a, b, c], n: [0, 1, 0] }, { p: [a, b, c], n: [0, -1, 0] }]), col, MATTE);
+}
+
+function mReservoir(k: Kit): void {
+  pad(k, 2, 2, LAWN);
+  const cx = 0.05, cz = -0.08;
+  // earth embankment ring: grassy outer batter, gravel crest road, concrete-lined inner face
+  const prof: [number, number][] = [[0.88, 0], [0.74, 0.26], [0.66, 0.26], [0.5, 0.06]];
+  const emb = k.add(T(new LatheGeometry(prof.map(([r, y]) => new Vector2(r, y)), k.seg(24)), cx, G - 0.01, cz, 0, 0, 0, 1, 1, 0.92), 0xffffff, MATTE);
+  facets(emb, (x, y, z, nx, ny, nz) => {
+    if (ny > 0.95) return GRAVEL;
+    const out = nx * (x - cx) + nz * (z - cz) > 0;
+    return out ? (vnoise(x * 6, z * 6) > 0.5 ? 0x86a35a : 0x7a9850) : 0xbcb6a8;
+  });
+  k.add(T(new CylinderGeometry(0.6, 0.6, 0.02, k.seg(24)), cx, G + 0.18, cz, 0, 0, 0, 1, 1, 0.92), WATER, GLASS);
+  // intake tower in the water + access footbridge from the crest
+  k.cyl(cx + 0.18, G, cz - 0.05, 0.07, 0.08, 0.36, CONC_L, 10, WALL);
+  k.cyl(cx + 0.18, G + 0.36, cz - 0.05, 0.085, 0.085, 0.02, 0x5f7f7a, 10, IRON);
+  k.beam([cx + 0.18, G + 0.37, cz - 0.05], [cx + 0.68, G + 0.27, cz - 0.05], 0.04, 0.015, 0x8a8e90, IRON);
+  if (k.hi) for (const s of [-1, 1]) k.beam([cx + 0.24, G + 0.42, cz - 0.05 + s * 0.02], [cx + 0.68, G + 0.32, cz - 0.05 + s * 0.02], 0.004, 0.004, 0xe8c02a);
+  // inlet pipe from the river (comes in from the -x edge) over the embankment
+  k.pipe([-0.98, G + 0.05, 0.62], [-0.55, G + 0.05, 0.62], 0.035, 0x6f7a7c, 8, IRON);
+  k.pipe([-0.55, G + 0.05, 0.62], [-0.55, G + 0.28, 0.3], 0.035, 0x6f7a7c, 8, IRON);
+  k.pipe([-0.55, G + 0.28, 0.3], [-0.42, G + 0.2, 0.16], 0.035, 0x6f7a7c, 8, IRON);
+  for (const z of [0.62]) for (const x of [-0.85, -0.65]) k.box(x, G, z, 0.06, 0.04, 0.06, CONC, MATTE);
+  // valve house at the front with outlet main
+  k.group(0.55, G, 0.78, 0, (q) => {
+    q.box(0, 0, 0, 0.3, 0.17, 0.2, BRICK_L, WALL);
+    q.quad(0, 0.07, 0.1005 + 0.002, 0.06, 0.11, '+z', 0x3f6b8a, PAINT);
+    q.wins('-x', -0.15, 0.11, -0.05, 0.05, 1, 0.05, 0.04, GLASSC);
+    q.hip(0, 0.17, 0, 0.3, 0.2, 0.07, ROOF_GRN, IRON);
+  });
+  k.pipe([0.35, G + 0.05, 0.78], [-0.98, G + 0.05, 0.9], 0.03, 0x3f6b8a, 6, IRON);
+  if (k.hi) k.cyl(0.25, G + 0.02, 0.8, 0.03, 0.03, 0.06, 0xb3392b, 6, PAINT);
+  fenceRect(k, -0.96, -0.96, 0.96, 0.96, 0x9a9e9a, 0.08, 0.24, true);
+  k.tree(-0.85, -0.85, 0.85, 801);
+  k.tree(0.86, -0.82, 0.75, 802);
+}
+
+function mDripfarm(k: Kit): void {
+  pad(k, 2, 2, 0x8a6e4a);
+  // neat raised crop beds with black drip lines
+  const x0 = -0.92, x1 = 0.4;
+  const rows = k.hi ? 9 : 6;
+  for (let i = 0; i < rows; i++) {
+    const z = -0.88 + ((i + 0.5) * 1.76) / rows;
+    k.box((x0 + x1) / 2, G, z, x1 - x0, 0.03, 0.1, 0x6a4f34, MATTE);
+    const crop = k.sbox((x0 + x1) / 2, G + 0.03, z, x1 - x0 - 0.04, 0.035, 0.07, k.hi ? 14 : 4, 1, 1, 0x6fa040, MATTE);
+    facets(crop, (cx, _y, _z, _nx, ny) => (ny > 0.5 && Math.floor((cx - x0) / ((x1 - x0) / 14)) % 2 ? 0x82b04c : undefined));
+    for (const s of [-1, 1]) k.box((x0 + x1) / 2, G + 0.03, z + s * 0.042, x1 - x0, 0.008, 0.008, 0x1e1e1e, { rough: 0.4 });
+  }
+  // header main + soil-moisture sensor posts with tiny panels
+  k.pipe([x1 + 0.03, G + 0.02, -0.9], [x1 + 0.03, G + 0.02, 0.9], 0.018, 0x2a2a2a, 5, MATTE);
+  for (const [x, z] of [[-0.6, -0.5], [-0.2, 0.1], [0.15, 0.62], [-0.7, 0.45]] as [number, number][]) {
+    k.box(x, G + 0.03, z, 0.012, 0.12, 0.012, WHITE, PAINT);
+    k.rbox(x, G + 0.16, z, 0.04, 0.005, 0.03, PV, 0.5, 0, 0, GLASS);
+  }
+  // solar pump: array on a frame + pump box + header tank
+  k.group(0.72, G, -0.55, 0, (q) => {
+    const pv = q.add(T(new BoxGeometry(0.42, 0.012, 0.22, q.hi ? 4 : 1, 1, 2), 0, 0.16, 0, 0.45, 0, 0), PV, { rough: 0.2, metal: 0.4 });
+    facets(pv, (cx, _y, cz, _nx, ny) => (ny > 0.5 ? ((Math.floor((cx + 0.21) / 0.105) + (cz > 0 ? 1 : 0)) % 2 ? PV2 : undefined) : 0x7a8a96));
+    for (const x of [-0.17, 0.17]) {
+      q.box(x, 0, -0.06, 0.016, 0.21, 0.016, 0x8a8e90, IRON);
+      q.box(x, 0, 0.06, 0.016, 0.12, 0.016, 0x8a8e90, IRON);
+    }
+    q.box(0, 0, 0.22, 0.12, 0.09, 0.08, 0x3f6b8a, PAINT);
+  });
+  k.put(buildAmbient('watertank', k.d), 0.82, G, -0.08, 0, 0xffffff, 1.2);
+  // tidy colorbond shed
+  k.group(0.68, G, 0.48, 0, (q) => {
+    q.box(0, 0, 0, 0.42, 0.22, 0.32, 0x5f7f6a, { ao: 0.8, rough: 0.5, metal: 0.4 });
+    q.quad(0, 0.09, 0.1605, 0.2, 0.17, '+z', 0xc8ccc8, IRON);
+    q.gable(0, 0.22, 0, 0.42, 0.32, 0.08, 0xd8dcd8, IRON);
+    q.rbox(0, 0.32, 0.07, 0.34, 0.01, 0.14, PV, Math.atan2(0.08, 0.19), 0, 0, GLASS);
+  });
+  k.put(buildAmbient('truck', k.d), 0.65, G, 0.85, 0, 0xe8e4da, 0.8);
+  k.tree(0.9, 0.12, 0.75, 811);
+}
+
+function mFishway(k: Kit): void {
+  // River tile at a weir. y = 0 is the crest / upstream water level; flow runs toward +Z (the lower river tile).
+  const crestZ = 0.18, dropY = -0.3;
+  // weir wall across the river, footing down into the bed
+  k.box(0, -0.7, crestZ, 1.0, 0.72, 0.1, CONC, WALL);
+  // stepped downstream face (water sheets over the left part)
+  for (let i = 0; i < 3; i++) {
+    const y = -0.1 - i * 0.1, z = crestZ + 0.08 + i * 0.08;
+    k.box(-0.13, -0.7, z, 0.74, 0.7 + y, 0.08, CONC_L, MATTE);
+    k.box(-0.15, y, z, 0.68, 0.012, 0.081, 0xeef6f4, GLASS);
+    k.quad(-0.15, y - 0.05, z + 0.041, 0.68, 0.1, '+z', 0xd8eeea, GLASS);
+  }
+  // overflow sheet on the crest + upstream water skin
+  k.box(-0.15, 0.005, crestZ, 0.68, 0.01, 0.1, 0xd8eeea, GLASS);
+  k.flat(-0.15, -0.004, -0.17, 0.68, 0.6, WATER, GLASS);
+  // vertical-slot fishway along the +x bank: stepped pools descending downstream
+  const fx0 = 0.22, fx1 = 0.47, n = k.hi ? 6 : 4;
+  const za = -0.45, zb = 0.5;
+  for (const x of [fx0, fx1]) k.box(x, -0.7, (za + zb) / 2, 0.035, 0.76, zb - za, CONC, WALL);
+  for (let i = 0; i < n; i++) {
+    const t0 = i / n, t1 = (i + 1) / n;
+    const z0 = za + (zb - za) * t0, z1 = za + (zb - za) * t1;
+    const wy = -0.02 + (dropY + 0.02) * (i / (n - 1));
+    k.box((fx0 + fx1) / 2, -0.7, (z0 + z1) / 2, fx1 - fx0 - 0.035, 0.7 + wy - 0.06, z1 - z0, CONC_D, MATTE);
+    k.flat((fx0 + fx1) / 2, wy, (z0 + z1) / 2, fx1 - fx0 - 0.04, z1 - z0, i % 2 ? WATER : 0x5aa8a4, GLASS);
+    if (i < n - 1) {
+      // baffle with a vertical slot near the inner wall
+      const bw = fx1 - fx0 - 0.035;
+      const slot = 0.035;
+      k.box(fx0 + 0.0175 + (bw - slot) / 2 + slot, wy - 0.08, z1, bw - slot, 0.14, 0.02, CONC_L, MATTE);
+      k.quad(fx0 + 0.0175 + slot / 2, wy - 0.01, z1 + 0.011, slot, 0.05, '+z', 0xd8eeea, GLASS);
+    }
+  }
+  // handrail along the outer wall + walkway on the weir crest
+  const hy = 0.06 + 0.1;
+  for (let i = 0; i <= (k.hi ? 6 : 3); i++) {
+    const z = za + ((zb - za) * i) / (k.hi ? 6 : 3);
+    k.box(fx1, 0.06, z, 0.01, 0.1, 0.01, 0xe8c02a, PAINT);
+  }
+  k.beam([fx1, hy, za], [fx1, hy, zb], 0.008, 0.008, 0xe8c02a, PAINT);
+  k.box(0.0, 0.0, crestZ - 0.07, 1.0, 0.04, 0.05, CONC_L, MATTE);
+  // abutments at the banks
+  for (const x of [-0.48]) k.box(x, -0.7, crestZ, 0.06, 0.86, 0.3, CONC, WALL);
+  if (k.hi) for (let i = 0; i < 3; i++) k.blobAt(-0.4 + i * 0.12, dropY - 0.02, 0.45, 0.05, 820 + i, 0x8a8478, 0.4, 0.6);
+}
+
+function mSeawall(k: Kit): void {
+  // landward pad only (x < 0.14); the seaward strip is the stepped wall itself
+  const lp = k.box(-0.18, -0.3, 0, 0.64, 0.3 + G, 0.98, 0xd9c99a, MATTE);
+  facets(lp, (_x, _y, _z, _nx, ny) => (ny < 0.5 ? 0.72 : undefined));
+  // promenade: paved path + lawn strip behind
+  k.box(-0.32, G, 0, 0.3, 0.01, 0.98, LAWN, MATTE);
+  const path = k.sbox(-0.02, G, 0, 0.3, 0.012, 0.98, 1, 1, k.hi ? 10 : 1, 0xd6cdb8, MATTE);
+  facets(path, (_x, _y, cz, _nx, ny) => (ny > 0.5 && Math.floor((cz + 0.49) / 0.098) % 2 ? 0.93 : undefined));
+  // stepped concrete wall down to the sea (+x)
+  const steps: [number, number][] = [[0.18, -0.04], [0.28, -0.14], [0.38, -0.24]];
+  for (const [x, y] of steps) k.box(x, -0.5, 0, 0.1, 0.5 + y, 0.98, CONC_L, { ao: 0.75 });
+  k.box(0.14, G, 0, 0.03, 0.06, 0.98, CONC, WALL);
+  // rock armour at the toe
+  const n = k.hi ? 9 : 5;
+  for (let i = 0; i < n; i++) k.blobAt(0.46 + (i % 2) * 0.04, -0.3, -0.45 + (i * 0.9) / (n - 1), 0.07 + (i % 3) * 0.012, 830 + i, [0x8a8478, 0x9a9288, 0x7a746a][i % 3], 0.45, 0.65);
+  // railing, benches, lamp, a pine
+  for (let i = 0; i <= (k.hi ? 6 : 3); i++) k.box(0.12, G + 0.01, -0.45 + (i * 0.9) / (k.hi ? 6 : 3), 0.01, 0.09, 0.01, 0x5f8a7a, IRON);
+  k.beam([0.12, G + 0.1, -0.46], [0.12, G + 0.1, 0.46], 0.008, 0.008, 0x5f8a7a, IRON);
+  for (const z of [-0.25, 0.3]) {
+    k.box(-0.18, G + 0.03, z, 0.05, 0.01, 0.14, TIMBER_L, MATTE);
+    k.box(-0.2, G + 0.04, z, 0.01, 0.04, 0.14, TIMBER_L, MATTE);
+    for (const dz of [-0.05, 0.05]) k.box(-0.18, G, z + dz, 0.04, 0.03, 0.01, 0x5a5a5a, IRON);
+  }
+  k.put(buildAmbient('streetlight', k.d), -0.17, G, 0.02, Math.PI);
+  k.tree(-0.36, -0.38, 0.75, 840, G, [0x5f7a48, 0x6f8a50]);
+  if (k.hi) k.put(buildAmbient('bin', 1), -0.2, G, 0.45, 0);
+}
+
+function thatchHut(k: Kit, w: number, d: number, h: number): void {
+  // timber hut on stilts with a steep thatched hip roof
+  for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) k.box(sx * (w / 2 - 0.02), 0, sz * (d / 2 - 0.02), 0.02, 0.06, 0.02, TIMBER, MATTE);
+  k.box(0, 0.06, 0, w + 0.06, 0.015, d + 0.08, TIMBER_L, MATTE);
+  k.box(0, 0.075, 0, w, h, d, 0xd8b884, WALL);
+  k.quad(0, 0.075 + h * 0.45, d / 2 + 0.003, w * 0.5, h * 0.7, '+z', 0x6a4a2e, PAINT);
+  const r = k.hip(0, 0.075 + h, 0, w, d, h * 1.3, 0xc9a060, { rough: 0.95 }, 0, 0.06);
+  facets(r, (_x, cy) => (Math.floor(cy * 70) % 2 ? 0.86 : undefined));
+}
+
+function mResort(k: Kit): void {
+  pad(k, 2, 2, 0xb8c070);
+  k.box(0, G, 0.62, 1.96, 0.005, 0.7, SAND, MATTE);
+  // main lodge
+  k.group(-0.45, G, -0.48, 0, (q) => thatchHut(q, 0.6, 0.4, 0.16));
+  // bungalows
+  for (const [x, z, ry] of [[0.35, -0.62, 0.2], [0.78, -0.3, -0.3], [0.8, 0.22, -0.6], [-0.85, 0.15, 0.4]] as [number, number, number][]) k.group(x, G, z, ry, (q) => thatchHut(q, 0.24, 0.22, 0.1));
+  // freeform pool + timber deck
+  k.shape(blobShape(0.36, 0.2, 21, k.hi ? 16 : 9, 0.15), -0.05, G + 0.01, 0.12, TIMBER_L, MATTE);
+  const pool = k.shape(blobShape(0.3, 0.15, 21, k.hi ? 16 : 9, 0.15), -0.05, G + 0.013, 0.12, 0x56c8d0, GLASS);
+  facets(pool, (cx, _y, cz) => (vnoise(cx * 10, cz * 10) > 0.6 ? 0x7ad8dc : undefined));
+  // umbrellas + loungers on the sand
+  const ucol = [0xd9534f, 0xe8c547, 0x3f9a96, 0xf2f2ea];
+  for (let i = 0; i < (k.hi ? 4 : 2); i++) {
+    const x = -0.65 + i * 0.42, z = 0.7;
+    k.cyl(x, G, z, 0.004, 0.004, 0.13, 0xe8e4da, 4);
+    k.cone(x, G + 0.12, z, 0.08, 0.035, ucol[i], 8, MATTE);
+    k.rbox(x + 0.07, G + 0.025, z + 0.03, 0.11, 0.01, 0.04, 0xf2f2ea, 0, 0.3, 0.15, MATTE);
+  }
+  // boardwalk path lodge→beach
+  k.add(ribbon([[-0.45, -0.25], [-0.35, -0.05], [-0.4, 0.3], [-0.3, 0.55]], 0.07, G + 0.006), TIMBER_L, MATTE);
+  // palms
+  const palms: [number, number, number, number][] = [[-0.82, -0.82, 0.9, 0.3], [0.05, -0.85, 0.75, 2.1], [0.55, 0.62, 0.85, 4.2], [-0.92, 0.62, 0.8, 1.0], [0.38, 0.05, 0.7, 5.2]];
+  palms.slice(0, k.hi ? 5 : 3).forEach(([x, z, s, ry], i) => veg(k, palmGeo(k.d, (i % 2) as 0 | 1), x, G, z, s * 0.55, ry));
+}
+
+function mCoralnursery(k: Kit): void {
+  // Sea tiles: y = 0 is the water surface. PVC "coral trees" hang mid-water, tethered to the seabed.
+  const CORAL = [0xf08a7a, 0xe8b04a, 0xb48ad8, 0x6ad0c0, 0xf2a0c8, 0xe86a5a];
+  const rnd = mulberry32(851);
+  const trees: [number, number][] = k.hi ? [[-0.55, -0.5], [0.0, -0.55], [0.55, -0.45], [-0.5, 0.1], [0.05, 0.05], [0.55, 0.15]] : [[-0.5, -0.45], [0.4, -0.4], [-0.3, 0.15], [0.45, 0.2]];
+  for (const [x, z] of trees) {
+    k.pipe([x, -1.6, z], [x, -0.42, z], 0.004, 0x3a3a3a, 3, MATTE);
+    k.cyl(x, -1.62, z, 0.05, 0.06, 0.05, CONC_D, 6, MATTE);
+    k.cyl(x, -0.45, z, 0.008, 0.008, 0.37, 0xf2f2ea, 5, PAINT);
+    k.sph(x, -0.06, z, 0.035, 0xe8c02a, 8, 1, 1, 1, PAINT);
+    for (const y of [-0.38, -0.26, -0.14]) {
+      const a = rnd() * Math.PI;
+      for (const s of [-1, 1]) {
+        const ex = x + Math.cos(a) * 0.12 * s, ez = z + Math.sin(a) * 0.12 * s;
+        k.beam([x, y, z], [ex, y, ez], 0.008, 0.008, 0xf2f2ea, PAINT);
+        for (let j = 0; j < (k.hi ? 2 : 1); j++) {
+          const t = 0.45 + j * 0.45;
+          k.blobAt(x + (ex - x) * t, y - 0.03, z + (ez - z) * t, 0.022, 860 + Math.floor(rnd() * 100), CORAL[Math.floor(rnd() * CORAL.length)], 0.5, 0.9);
+        }
+      }
+    }
+  }
+  // marker buoys at the corners
+  for (const [x, z] of [[-0.88, -0.88], [0.88, -0.88], [-0.88, 0.88], [0.88, 0.88]] as [number, number][]) {
+    k.sph(x, 0.0, z, 0.05, 0xe8c02a, 8, 1, 0.8, 1, PAINT);
+    k.cyl(x, 0.03, z, 0.006, 0.006, 0.09, 0x2a2a2a, 4);
+    k.box(x, 0.12, z, 0.03, 0.03, 0.004, 0xe8c02a, PAINT);
+    k.pipe([x, -1.6, z], [x, -0.03, z], 0.003, 0x3a3a3a, 3, MATTE);
+  }
+  // dive boat on a mooring
+  k.put(buildAmbient('boat', k.d), -0.1, 0, 0.68, 0.15, 0xe8f0ee, 1.1);
+  k.sph(0.35, 0.0, 0.7, 0.03, 0xd9534f, 6, 1, 0.8, 1, PAINT);
+  k.beam([0.35, 0.01, 0.7], [0.17, 0.03, 0.7], 0.003, 0.003, 0x3a3a3a);
+  if (k.hi) {
+    k.box(-0.12, 0.1, 0.62, 0.04, 0.012, 0.012, 0xd9534f, PAINT);
+    k.box(-0.12, 0.1, 0.6, 0.006, 0.05, 0.006, 0xe8e4da);
+  }
+}
+
+function mBore(k: Kit): void {
+  pad(k, 1, 1, 0xb5653a);
+  const p = k.box(0, G, 0, 0.9, 0.003, 0.9, 0xb5653a, MATTE);
+  void p;
+  k.group(-0.22, G, -0.2, 0.6, (q) => windmill(q, 0.62));
+  k.box(-0.22, G, -0.2, 0.12, 0.03, 0.12, CONC, MATTE);
+  // small solar pump head next to the bore
+  k.group(-0.25, G, 0.18, 0.2, (q) => {
+    q.rbox(0, 0.13, 0, 0.18, 0.01, 0.12, PV, 0.5, 0, 0, GLASS);
+    q.box(-0.06, 0, 0.03, 0.016, 0.12, 0.016, 0x8a8e90, IRON);
+    q.box(0.06, 0, 0.03, 0.016, 0.12, 0.016, 0x8a8e90, IRON);
+    q.box(0.0, 0, -0.08, 0.05, 0.05, 0.05, 0x3f6b8a, PAINT);
+  });
+  standTank(k, 0.22, -0.2, 0.13, 0.17, 0.2);
+  void saltbushGeo;
+  k.pipe([-0.15, G + 0.03, -0.2], [0.22, G + 0.03, -0.2], 0.012, 0x6f7a7c, 5, IRON);
+  // trough + overflow mud
+  k.shape(blobShape(0.2, 0.12, 31, k.hi ? 12 : 7, 0.25), 0.2, G + 0.004, 0.25, 0x7a4a2e, MATTE);
+  k.box(0.22, G, 0.22, 0.32, 0.05, 0.08, 0x8a9090, IRON);
+  k.flat(0.22, G + 0.048, 0.22, 0.29, 0.06, WATER, GLASS);
+  k.pipe([0.22, G + 0.2, -0.1], [0.22, G + 0.06, 0.2], 0.01, 0x6f7a7c, 5, IRON);
+  // outback flora
+  veg(k, mulgaGeo(0), 0.36, G, -0.38, 0.45, 0.4);
+  veg(k, spinifexGeo(), -0.38, G, 0.38, 0.6, 0);
+  k.put(buildAmbient('cow', k.d), 0.0, G, 0.32, 2.6);
+}
+
+function mCoolingcentre(k: Kit): void {
+  pad(k, 2, 2, 0xd6cdb8);
+  // hall: timber + glazing, cool white roof with deep eaves
+  k.group(-0.3, G, -0.45, 0, (q) => {
+    const W = 1.0, D = 0.6, H = 0.28;
+    const w = q.sbox(0, 0, 0, W, H, D, q.hi ? 20 : 1, 1, 1, 0xc08a5a, WALL);
+    if (q.hi) facets(w, (cx, _y, _z, _nx, _ny, nz) => (Math.abs(nz) > 0.5 && Math.floor((cx + W / 2) / (W / 20)) % 2 ? 0.9 : undefined));
+    q.quad(0.05, 0.13, D / 2 + 0.003, 0.7, 0.2, '+z', 0x3a5a6a, GLASS);
+    if (q.hi) for (const x of [-0.25, -0.05, 0.15, 0.35]) q.box(x, 0, D / 2 + 0.004, 0.012, 0.23, 0.006, 0x3a3a3a, IRON);
+    q.wins('-x', -W / 2, 0.15, -0.2, 0.2, 2, 0.1, 0.14, 0x3a5a6a);
+    q.gable(0, H, 0, W, D, 0.1, 0xf4f3ee, { rough: 0.5 }, 0, 0.1);
+    q.box(0.38, H + 0.1, -0.05, 0.05, 0.04, 0.05, 0xb8bcbc, IRON);
+  });
+  // shade sails over the plaza
+  const sails: [V3, V3, V3, number][] = [
+    [[-0.85, 0.36, 0.12], [0.1, 0.28, 0.12], [-0.4, 0.33, 0.62], 0xf2efe6],
+    [[0.1, 0.28, 0.12], [0.85, 0.38, 0.2], [0.45, 0.3, 0.7], 0x3f9a96],
+    [[-0.4, 0.33, 0.62], [0.45, 0.3, 0.7], [0.0, 0.36, 0.9], 0xe0b84a],
+  ];
+  const masts = new Set<string>();
+  for (const [a, b, c, col] of sails) {
+    sail(k, a, b, c, col);
+    for (const p of [a, b, c]) {
+      const key = p.join(',');
+      if (masts.has(key)) continue;
+      masts.add(key);
+      k.box(p[0], G, p[2], 0.022, p[1] + 0.03 - G, 0.022, 0x6a6e70, IRON);
+    }
+  }
+  // misting fans
+  for (const [x, z] of [[-0.55, 0.3], [0.5, 0.42]] as [number, number][]) {
+    k.cyl(x, G, z, 0.008, 0.01, 0.2, 0x8a8e90, 5, IRON);
+    k.add(T(new CylinderGeometry(0.05, 0.05, 0.025, k.seg(10)), x, G + 0.21, z + 0.02, 1.2, 0, 0), 0xe8ecec, PAINT);
+    k.blobAt(x, G + 0.19, z + 0.12, 0.05, 870 + Math.round(x * 10), 0xeef6f8, 0.4, 0.6, 0, { rough: 0.2 });
+  }
+  // trees, benches, water fountain, sign
+  for (const [x, z, s] of [[0.75, -0.6, 0.85], [-0.88, 0.85, 0.8], [0.88, 0.82, 0.75]] as [number, number, number][]) veg(k, streetTreeGeo(k.d), x, G, z, s * 0.55);
+  k.put(buildAmbient('picnic', k.d), -0.2, G, 0.4, 0.2);
+  k.put(buildAmbient('picnic', k.d), 0.25, G, 0.55, -0.4);
+  k.cyl(0.15, G, 0.2, 0.025, 0.03, 0.09, 0x5f8a7a, 8, PAINT);
+  k.group(-0.82, G, 0.5, 0.3, (q) => {
+    for (const x of [-0.08, 0.08]) q.box(x, 0, 0, 0.015, 0.16, 0.015, TIMBER, MATTE);
+    q.box(0, 0.11, 0.005, 0.22, 0.08, 0.012, TEAL, PAINT);
+    q.quad(0, 0.15, 0.0115, 0.16, 0.02, '+z', WHITE, PAINT);
+  });
+}
+
+function mTransitline(k: Kit): void {
+  pad(k, 1, 3, 0x86a35a, 0.0);
+  const L = 3;
+  // red bus lane + general lane (west), light-rail on a green track bed (centre-east), stop platform (east)
+  k.box(-0.38, G - 0.012, 0, 0.2, 0.016, L, 0xa8453a, MATTE);
+  k.box(-0.17, G - 0.012, 0, 0.2, 0.016, L, ASPHALT, MATTE);
+  for (let i = 0; i < 4; i++) k.flat(-0.38, G + 0.0045, -1.2 + i * 0.8, 0.1, 0.05, 0xf2ecdc, MATTE);
+  for (let i = 0; i < (k.hi ? 12 : 6); i++) k.flat(-0.275, G + 0.0045, -1.375 + i * (2.75 / ((k.hi ? 12 : 6) - 1)), 0.006, 0.09, 0xf2ecdc, MATTE);
+  k.box(-0.06, G - 0.005, 0, 0.03, 0.02, L, CONC_L, MATTE);
+  k.box(0.13, G - 0.01, 0, 0.3, 0.016, L, 0x6f9a48, MATTE);
+  for (const x of [0.07, 0.19]) for (const s of [-1, 1]) k.box(x + s * 0.025, G + 0.006, 0, 0.008, 0.008, L, 0x8a8a8a, IRON);
+  k.box(0.38, G - 0.005, 0, 0.2, 0.04, L, 0xd6cdb8, MATTE);
+  // overhead wire poles + catenary
+  const np = k.hi ? 5 : 3;
+  for (let i = 0; i < np; i++) {
+    const z = -1.35 + (i * 2.7) / (np - 1);
+    k.cyl(0.0, G, z, 0.01, 0.013, 0.42, 0x6a6e70, 6, IRON);
+    k.box(0.07, G + 0.39, z, 0.15, 0.01, 0.01, 0x6a6e70, IRON);
+  }
+  for (const x of [0.07, 0.19]) k.beam([x - (x > 0.1 ? 0.0 : 0), G + 0.38, -1.48], [x, G + 0.38, 1.48], 0.003, 0.003, 0x2a2a2a);
+  // tram (3 sections) on the east track
+  k.group(0.07, G + 0.014, 0.1, 0, (q) => {
+    const segs = [-0.34, 0, 0.34];
+    segs.forEach((z, i) => {
+      q.box(0, 0.0, z, 0.1, 0.12, 0.32, 0xf2f3f0, { ao: 0.85, rough: 0.4 });
+      q.box(0, 0.015, z, 0.102, 0.025, 0.32, TEAL, PAINT);
+      for (const s of [-1, 1]) q.quad(s * 0.0515, 0.08, z, 0.28, 0.04, s > 0 ? '+x' : '-x', 0x2a3a46);
+      q.box(0, 0.12, z, 0.08, 0.015, 0.26, 0xd8dcdc, IRON);
+      if (i === 1) {
+        q.beam([0, 0.135, z - 0.04], [0, 0.36, z], 0.006, 0.006, 0x3a3a3a);
+        q.box(0, 0.355, z, 0.06, 0.006, 0.01, 0x3a3a3a);
+      }
+    });
+    q.quad(0, 0.08, 0.5105, 0.08, 0.05, '+z', 0x2a3a46);
+    q.quad(0, 0.08, -0.5105, 0.08, 0.05, '-z', 0x2a3a46);
+  });
+  // tram stop shelter
+  k.group(0.38, G + 0.035, -0.6, 0, (q) => {
+    q.box(0.06, 0, 0, 0.01, 0.16, 0.32, 0x8fb3c4, GLASS);
+    for (const z of [-0.15, 0.15]) q.box(0.06, 0, z, 0.012, 0.17, 0.012, 0x5a5e60, IRON);
+    q.rbox(0.0, 0.18, 0, 0.16, 0.012, 0.36, TEAL, 0, 0, -0.15, PAINT);
+    q.box(0.03, 0.03, 0, 0.04, 0.01, 0.22, TIMBER_L, MATTE);
+    q.box(-0.06, 0, 0.2, 0.01, 0.2, 0.01, 0x5a5e60, IRON);
+    q.box(-0.06, 0.2, 0.2, 0.012, 0.04, 0.05, 0x3f9a96, PAINT);
+  });
+  // a bus and a car
+  k.group(-0.38, G + 0.004, 0.7, 0, (q) => {
+    q.box(0, 0.025, 0, 0.11, 0.1, 0.36, 0x3f9a96, { ao: 0.85, rough: 0.5 });
+    for (const s of [-1, 1]) q.quad(s * 0.0555, 0.09, 0, 0.3, 0.04, s > 0 ? '+x' : '-x', 0x2a3a46);
+    q.quad(0, 0.09, 0.1805, 0.09, 0.05, '+z', 0x2a3a46);
+    q.box(0, 0.125, 0, 0.1, 0.012, 0.3, 0xe8ecec, PAINT);
+    for (const z of [-0.12, 0.12]) for (const s of [-1, 1]) q.cylX(s * 0.05, 0.024, z, 0.024, 0.016, 0x1f1f22, 8);
+  });
+  k.put(buildAmbient('car', k.d), -0.17, G + 0.004, -0.8, Math.PI / 2, 0xd9a43a, 0.85);
+  k.put(buildAmbient('car', k.d), -0.17, G + 0.004, 0.9, Math.PI / 2, 0xe8e4da, 0.85);
+  for (const z of [-1.2, 0.2, 1.25]) veg(k, streetTreeGeo(k.d), 0.42, G + 0.035, z, 0.42);
+}
+
+/** Shared brick-suburb layout; `green` = retrofitted (cool roofs, PV, heat pumps, more trees). */
+function suburbScene(k: Kit, green: boolean): void {
+  pad(k, 2, 2, green ? LAWN : LAWN2);
+  const road: [number, number][] = [];
+  const N = k.hi ? 12 : 7;
+  const rz = (x: number) => 0.06 * Math.sin(x * 2.4);
+  for (let i = 0; i <= N; i++) {
+    const x = -0.98 + (i / N) * 1.96;
+    road.push([x, rz(x)]);
+  }
+  k.add(ribbon(road, 0.34, G + 0.003), 0xd6cdb8, MATTE);
+  k.add(ribbon(road, 0.24, G + 0.006), ASPHALT, MATTE);
+  if (k.hi) k.add(ribbon(road, 0.25, G + 0.0055), 0xb8b0a0, MATTE);
+  const walls = [0xc98a5a, 0xa65a3c, 0xd9c4a0, 0x8a5a44, 0xc4a27a];
+  const roofs = green ? [0xe4e1da, 0xcfd6d4, 0xdcd8cc] : [0xb5583a, 0x6e4a3e, 0x8b8e8f];
+  const sites: [number, number, number][] = [
+    [-0.7, -0.45, 0], [-0.22, -0.48, 0], [0.26, -0.5, 0], [0.72, -0.47, 0],
+    [-0.62, 0.5, Math.PI], [0.0, 0.52, Math.PI], [0.6, 0.48, Math.PI],
+  ];
+  sites.forEach(([x, z, ry], i) => {
+    const zz = z + rz(x);
+    k.group(x, G, zz, ry, (q) => {
+      brickHome(q, walls[i % walls.length], roofs[i % roofs.length], i);
+      const gx = i % 2 ? 0.205 : -0.205;
+      q.flat(gx, 0.004, 0.2, 0.08, 0.18, 0xc8c0b0, MATTE);
+      if (green) {
+        // PV on both main roof slopes (front + back) so it reads from any side, heat pump by the wall
+        const slope = Math.atan2(0.085, 0.13);
+        for (const s of [1]) {
+          const pv = q.add(T(new BoxGeometry(0.2, 0.008, 0.08, q.hi ? 2 : 1, 1, 1), 0, 0.13 + 0.042 + 0.006, s * 0.062, s * slope, 0, 0), PV, { rough: 0.2, metal: 0.4 });
+          facets(pv, (cx, _y, _z, _nx, ny) => (Math.abs(ny) > 0.5 && Math.floor((cx + 0.1) / 0.1) % 2 ? PV2 : undefined));
+        }
+        q.box(-gx * 0.85, 0, -0.06, 0.05, 0.045, 0.03, WHITE, PAINT);
+        if (q.hi) q.quad(-gx * 0.85, 0.022, -0.0445, 0.026, 0.026, '-z', 0x5a5e60, IRON);
+      }
+      if (q.hi) {
+        q.box(0, 0, -0.36, 0.46, 0.05, 0.012, 0x9a9488, MATTE);
+        for (const sx of [-1, 1]) q.box(sx * 0.23, 0, -0.24, 0.012, 0.05, 0.24, 0x9a9488, MATTE);
+      }
+    });
+    if (i % 3 !== 2) k.put(buildAmbient('car', k.d), x + (i % 2 ? 0.205 : -0.205) * Math.cos(ry), G + 0.004, zz + (ry ? -0.22 : 0.22), Math.PI / 2, green ? [TEAL, 0xe8e4da, 0x3d6fa5][i % 3] : [0xb3392b, 0x3d6fa5, 0xe8e4da, 0x4a7a5a, 0xd9a43a][i % 5], 0.85);
+  });
+  k.put(buildAmbient('clothesline', k.d), -0.62, G, 0.82, 0.4);
+  k.put(buildAmbient('clothesline', k.d), 0.26, G, -0.82, 0.2);
+  k.box(0.05, G - 0.005, 0.8, 0.18, 0.012, 0.1, 0xe8e4da, MATTE);
+  k.flat(0.05, G + 0.008, 0.8, 0.15, 0.075, 0x5ac0d0, GLASS);
+  if (k.hi) k.put(buildAmbient('shed', 1), 0.68, G, 0.84, 0);
+  for (const [x, z, s] of [[-0.92, -0.85, 0.9], [-0.45, -0.88, 0.75], [0.62, -0.86, 0.8], [0.92, 0.82, 0.9], [-0.3, 0.86, 0.7]] as [number, number, number][]) k.tree(x, z, green ? Math.min(s, 0.85) : s, Math.round(x * 10 + z * 7 + 50));
+  if (green) {
+    // street trees all along both verges
+    const xs = k.hi ? [-0.85, -0.45, -0.05, 0.38, 0.8] : [-0.6, 0.0, 0.6];
+    for (const x of xs) for (const s of [-1, 1]) veg(k, streetTreeGeo(0), x + s * 0.05, G, rz(x) + s * 0.185, 0.38, x * 3);
+  } else if (k.hi) for (const x of [-0.45, 0.48]) k.tree(x, rz(x) - 0.2, 0.55, 60 + Math.round(x * 10), G, [0x6f8a4a, 0x7f9a56]);
+}
+
+function mGreensuburb(k: Kit): void {
+  suburbScene(k, true);
+}
+
+function mParkland(k: Kit): void {
+  pad(k, 1, 1, 0x86a35a);
+  k.add(ribbon([[-0.5, 0.3], [-0.15, 0.12], [0.15, 0.05], [0.5, -0.15]], 0.08, G + 0.004), 0xd6cdb8, MATTE);
+  const trees: [number, number, number][] = [[-0.3, -0.28, 0.55], [0.3, -0.36, 0.5], [0.3, 0.32, 0.48]];
+  trees.forEach(([x, z, s], i) => veg(k, streetTreeGeo(k.d), x, G, z, s, i * 1.7));
+  // bench + bin + bubbler
+  k.box(-0.08, G + 0.03, 0.25, 0.14, 0.01, 0.05, TIMBER_L, MATTE);
+  k.box(-0.08, G + 0.04, 0.275, 0.14, 0.04, 0.008, TIMBER_L, MATTE);
+  for (const dx of [-0.05, 0.05]) k.box(-0.08 + dx, G, 0.25, 0.01, 0.03, 0.04, 0x5a5a5a, IRON);
+  k.put(buildAmbient('bin', k.d), 0.06, G, 0.27, 0);
+  k.cyl(0.08, G, -0.05, 0.015, 0.02, 0.07, 0x5f8a7a, 6, PAINT);
+  // playground on soft-fall
+  k.group(-0.28, G, 0.05, 0.3, (q) => {
+    q.shape(blobShape(0.16, 0.12, 41, q.hi ? 12 : 7, 0.15), 0, 0.005, 0, 0xc98a5a, MATTE);
+    q.box(-0.05, 0, -0.03, 0.06, 0.12, 0.06, 0xe8c02a, PAINT);
+    q.rbox(0.04, 0.07, -0.03, 0.14, 0.01, 0.05, 0x3f9a96, 0, 0, -0.6, PAINT);
+    for (const x of [-0.1, 0.06]) q.box(x, 0, 0.07, 0.01, 0.12, 0.01, 0xd9534f, PAINT);
+    q.box(-0.02, 0.12, 0.07, 0.17, 0.01, 0.01, 0xd9534f, PAINT);
+    if (q.hi) q.box(-0.02, 0.04, 0.07, 0.04, 0.006, 0.02, 0x2a2a2a);
+  });
+}
+
 // ------------------------------------------------------------------ public API
 const BUILDERS: Partial<Record<ModelId, (k: Kit) => void>> = {
   cottage: mCottage,
@@ -2083,6 +2518,17 @@ const BUILDERS: Partial<Record<ModelId, (k: Kit) => void>> = {
   batteryhub: mBatteryhub,
   communityhub: mCommunityhub,
   recycler: mRecycler,
+  reservoir: mReservoir,
+  dripfarm: mDripfarm,
+  fishway: mFishway,
+  seawall: mSeawall,
+  resort: mResort,
+  coralnursery: mCoralnursery,
+  bore: mBore,
+  coolingcentre: mCoolingcentre,
+  transitline: mTransitline,
+  greensuburb: mGreensuburb,
+  parkland: mParkland,
 };
 
 export const MODEL_IDS = Object.keys(BUILDERS) as ModelId[];

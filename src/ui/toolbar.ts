@@ -9,19 +9,19 @@ import { bIcon, UI_ICONS } from './icons';
 import type { Tip } from './modal';
 import { sfx } from '../audio/sfx';
 
-export type UtilTool = 'demolish' | 'clear' | 'inspect' | 'comanage' | 'burn' | 'dispose';
+export type UtilTool = 'demolish' | 'clear' | 'inspect' | 'comanage' | 'burn' | 'dispose' | 'rehab';
 export type Tool = BuildingId | UtilTool | null;
-export const UTIL_TOOLS: readonly string[] = ['demolish', 'clear', 'inspect', 'comanage', 'burn', 'dispose'];
+export const UTIL_TOOLS: readonly string[] = ['demolish', 'clear', 'inspect', 'comanage', 'burn', 'dispose', 'rehab'];
 
 interface Cat { id: string; name: string; icon: string; ids: BuildingId[] }
 
 const CATS: Cat[] = [
-  { id: 'homes', name: 'Homes', icon: UI_ICONS.people, ids: ['cottage', 'suburb', 'rooftopsolar'] },
-  { id: 'work', name: 'Industry', icon: bIcon('factory'), ids: ['farm', 'coalmine', 'factory', 'steelworks'] },
-  { id: 'move', name: 'Transport', icon: bIcon('road'), ids: ['road', 'rail', 'port', 'carpark'] },
+  { id: 'homes', name: 'Homes', icon: UI_ICONS.people, ids: ['cottage', 'suburb', 'rooftopsolar', 'greensuburb'] },
+  { id: 'work', name: 'Industry', icon: bIcon('factory'), ids: ['farm', 'dripfarm', 'coalmine', 'factory', 'steelworks', 'resort'] },
+  { id: 'move', name: 'Transport', icon: bIcon('road'), ids: ['road', 'rail', 'port', 'carpark', 'transitline'] },
   { id: 'energy', name: 'Energy', icon: UI_ICONS.bolt, ids: ['coalpower', 'gaspower', 'solarfarm', 'windfarm', 'offshorewind', 'hydro', 'pumpedhydro', 'battery', 'tidal'] },
-  { id: 'waste', name: 'Waste & water', icon: bIcon('landfill'), ids: ['landfill', 'outfall', 'sewagetreatment'] },
-  { id: 'restore', name: 'Restore', icon: UI_ICONS.sprout, ids: ['nursery', 'phytoremediation', 'wetland', 'excavation', 'wildlifecrossing', 'groundstation'] },
+  { id: 'waste', name: 'Waste & water', icon: bIcon('landfill'), ids: ['landfill', 'outfall', 'sewagetreatment', 'reservoir', 'bore', 'seawall', 'fishway'] },
+  { id: 'restore', name: 'Restore', icon: UI_ICONS.sprout, ids: ['nursery', 'phytoremediation', 'wetland', 'excavation', 'wildlifecrossing', 'coralnursery', 'parkland', 'coolingcentre', 'groundstation'] },
 ];
 
 const POWER_LABEL = (p: number, energy: boolean): string => (energy ? `+${p} power` : p < 0 ? `uses ${-p} power` : '');
@@ -88,9 +88,11 @@ export class Toolbar {
       for (const id of cat?.ids ?? []) {
         if (!ids.includes(id)) continue;
         const d = BUILDINGS[id];
-        const card = h('button', { class: 'tool', 'aria-label': d.name, onclick: () => this.select(this.tool === id ? null : id) },
+        const av0 = availability(s.scenarioId, id);
+        const label = av0.name ?? d.name;
+        const card = h('button', { class: 'tool', 'aria-label': label, onclick: () => this.select(this.tool === id ? null : id) },
           h('span', { class: 'key' }, String(n++)),
-          svg(bIcon(id)), h('span', { class: 'nm' }, shortName(id)), h('span', { class: 'cost' }, '$0'));
+          svg(bIcon(id)), h('span', { class: 'nm' }, label !== d.name ? label : shortName(id)), h('span', { class: 'cost' }, '$0'));
         card.addEventListener('pointerenter', () => this.showTip(id, card));
         card.addEventListener('pointerleave', () => this.tip.hide());
         card.addEventListener('focus', () => this.showTip(id, card));
@@ -108,6 +110,7 @@ export class Toolbar {
       };
       util('inspect', 'Inspect', UI_ICONS.info, 'Click a tile to see what is there. Shortcut: <kbd>I</kbd>');
       util('demolish', 'Demolish', UI_ICONS.demolish, 'Knock a building down (refunds 25%). Shortcut: <kbd>X</kbd>');
+      if (s.phase === 'act2' && (getScenario(s.scenarioId).mechanics ?? []).includes('outback')) util('rehab', 'Rehab mine', UI_ICONS.sprout, 'Rehabilitate the old mine pit in three steps: reshape, topsoil, seed with the Traditional Owners.');
       if (s.phase === 'act2' && s.circular?.unlocked) util('dispose', 'Old sites', UI_ICONS.demolish, 'Choose a future for an old Act 1 building: repurpose, recycle or landfill. Shortcut: <kbd>O</kbd>');
       if (s.phase === 'act2' && this.countryOn?.(s)) util('comanage', 'Co-manage', UI_ICONS.sprout, 'Return a patch of bushland to shared care with the Traditional Owners.');
       if (s.phase === 'act2' && s.country?.unlocked.culturalBurning) util('burn', 'Cool burn', UI_ICONS.fire, 'A small, cool mosaic burn on co-managed bush (autumn or winter). Cuts wildfire risk and helps regrowth.');
@@ -148,6 +151,17 @@ export class Toolbar {
     this.onTool?.(t);
   }
 
+  /** Tutorial: the element to highlight for a building or tool (switching to its tab if it is in another one). */
+  elementFor(key: string): HTMLElement | null {
+    const card = this.cards.get(key);
+    if (card) return card;
+    const s = this.state;
+    if (!s) return null;
+    const cat = CATS.find((c) => c.ids.includes(key as BuildingId));
+    if (!cat) return null;
+    return [...this.tabsEl.querySelectorAll('.tab')].find((t) => t.textContent?.includes(cat.name)) as HTMLElement | null ?? null;
+  }
+
   /** Number-key selection within the current tab. */
   selectIndex(i: number): void {
     const keys = [...this.cards.keys()].filter((k) => !UTIL_TOOLS.includes(k));
@@ -172,7 +186,7 @@ export class Toolbar {
     const where = d.placement.nearTerrain?.reason ?? d.placement.nearBuilding?.reason ?? d.placement.exposed?.reason ?? d.placement.drop?.reason ?? d.placement.cableTo?.reason ?? (d.replaces ? `Build on top of a ${BUILDINGS[d.replaces].name}` : '');
     const size = `${d.w}×${d.h}${d.w !== d.h ? ' (R to rotate)' : ''}`;
     this.tip.show(r.left + r.width / 2, r.top,
-      `<b>${d.name}</b> · $${av.cost}k · ${size}<br>${d.blurb}` +
+      `<b>${av.name ?? d.name}</b> · $${av.cost}k · ${size}<br>${av.blurb ?? d.blurb}` +
       `<div class="row">${facts.map((f) => `<span>${f}</span>`).join('')}</div>` +
       (where ? `<div class="row"><span>📍 ${where}</span></div>` : '') +
       (s.year < av.unlock ? `<div class="row"><span>🔒 Unlocks in ${av.unlock}</span></div>` : ''));
@@ -185,7 +199,9 @@ function shortName(id: BuildingId): string {
     suburb: 'Brick suburb', carpark: 'Highway', gaspower: 'Gas power', rooftopsolar: 'Rooftop solar', solarfarm: 'Solar farm',
     windfarm: 'Wind turbines', offshorewind: 'Offshore wind', hydro: 'Hydro dam', pumpedhydro: 'Pumped hydro', battery: 'Battery',
     tidal: 'Tidal', phytoremediation: 'Phyto garden', excavation: 'Excavation', wetland: 'Wetland', sewagetreatment: 'Sewage plant',
-    nursery: 'Plant nursery',
+    nursery: 'Plant nursery', reservoir: 'Water storage', dripfarm: 'Drip farm', coolingcentre: 'Cooling centre',
+    transitline: 'Light rail', greensuburb: 'Retrofit homes', parkland: 'Pocket park', coralnursery: 'Coral nursery',
+    wildlifecrossing: 'Wildlife crossing', groundstation: 'Ground station',
   };
   return map[id] ?? BUILDINGS[id].name;
 }

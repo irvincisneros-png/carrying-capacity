@@ -1,7 +1,7 @@
 // Dev-only model viewer: every building (and ambient prop) on a ground plane, toon-shaded like the game.
 // Query params: ?only=<id>[,<id>]  ?cam=close  ?detail=0  ?stats=1  ?ambient=0  ?labels=0  ?yaw=<deg>
 import {
-  AmbientLight, BoxGeometry, BufferGeometry, Color, DataTexture, DirectionalLight, Float32BufferAttribute, HemisphereLight,
+  AmbientLight, BoxGeometry, DoubleSide, BufferGeometry, Color, DataTexture, DirectionalLight, Float32BufferAttribute, HemisphereLight,
   LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, MeshToonMaterial, NearestFilter, PCFSoftShadowMap, PerspectiveCamera,
   PlaneGeometry, RedFormat, Scene, SphereGeometry, Vector3, WebGLRenderer,
 } from 'three';
@@ -9,6 +9,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { BUILDINGS } from '../../sim/buildings';
 import { MODEL_IDS, buildBuildingModel, rotorGeo, type ModelId } from './buildings';
 import { AMBIENT_IDS, buildAmbient, type AmbientId } from './ambient';
+import { mulgaGeo, palmGeo, redGumGeo, reedsGeo, saltbushGeo, spinifexGeo, streetTreeGeo } from './biomeveg';
 
 const q = new URLSearchParams(location.search);
 const only = q.get('only')?.split(',').filter(Boolean) ?? null;
@@ -19,8 +20,8 @@ const showLabels = q.get('labels') !== '0';
 const camYaw = (Number(q.get('yaw') ?? '0') * Math.PI) / 180;
 if (q.get('stats') === '1') document.body.classList.add('showstats');
 
-const WATER_IDS = new Set(['offshorewind', 'tidal']);
-const SEA_EAST = new Set(['port', 'outfall', 'windport']);
+const WATER_IDS = new Set(['offshorewind', 'tidal', 'coralnursery']);
+const SEA_EAST = new Set(['port', 'outfall', 'windport', 'seawall']);
 
 const app = document.getElementById('app')!;
 const renderer = new WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
@@ -84,6 +85,18 @@ if (showAmbient) {
   AMBIENT_IDS.forEach((id, i) => ambPlaced.push({ id, x: 0.4 + i * 0.75, z }));
   maxZ = z + 0.5;
   maxX = Math.max(maxX, 0.4 + AMBIENT_IDS.length * 0.75);
+}
+const VEG: [string, (d: 0 | 1) => BufferGeometry][] = [
+  ['palmA', (d) => palmGeo(d, 0)], ['palmB', (d) => palmGeo(d, 1)], ['redGumA', (d) => redGumGeo(d, 0)], ['redGumB', (d) => redGumGeo(d, 1)],
+  ['mulga', (d) => mulgaGeo(d)], ['spinifex', () => spinifexGeo()], ['saltbush', () => saltbushGeo()], ['reeds', () => reedsGeo()], ['streetTree', (d) => streetTreeGeo(d)],
+];
+const showVeg = q.get('veg') === '1' || (!only && q.get('veg') !== '0');
+const vegPlaced: { id: string; fn: (d: 0 | 1) => BufferGeometry; x: number; z: number }[] = [];
+if (showVeg) {
+  const z = maxZ + 1.4;
+  VEG.forEach(([id, fn], i) => vegPlaced.push({ id, fn, x: 0.6 + i * 1.5, z }));
+  maxZ = z + 0.8;
+  maxX = Math.max(maxX, 0.6 + VEG.length * 1.5);
 }
 const ctr = new Vector3(maxX / 2, 0, maxZ / 2);
 
@@ -168,6 +181,21 @@ for (const a of ambPlaced) {
     el.textContent = a.id;
     document.body.appendChild(el);
     labels.push({ el, pos: new Vector3(a.x, 0.75, a.z) });
+  }
+}
+for (const v of vegPlaced) {
+  const g1 = v.fn(1), g0 = v.fn(0);
+  stats.push(`*${v.id.padEnd(16)} ${String(Math.round(triCount(g1))).padStart(5)} / ${String(Math.round(triCount(g0))).padStart(5)} tris`);
+  const mesh = new Mesh(detail ? g1 : g0, new MeshToonMaterial({ vertexColors: true, gradientMap: ramp, side: DoubleSide }));
+  mesh.position.set(v.x, 0, v.z);
+  mesh.castShadow = mesh.receiveShadow = true;
+  scene.add(mesh);
+  if (showLabels) {
+    const el = document.createElement('div');
+    el.className = 'lbl';
+    el.textContent = v.id;
+    document.body.appendChild(el);
+    labels.push({ el, pos: new Vector3(v.x, 1.7, v.z) });
   }
 }
 document.getElementById('stats')!.textContent = `detail ${detail}  (tris d1 / d0)\n` + stats.join('\n');

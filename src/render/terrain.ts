@@ -3,31 +3,37 @@ import {
   BufferGeometry, ClampToEdgeWrapping, Color, DataTexture, Float32BufferAttribute, LinearFilter, RedFormat, UnsignedByteType,
 } from 'three';
 import { TileKind } from '../sim/types';
-import { MapGeo, RES } from './mapgeo';
+import { MapGeo } from './mapgeo';
 import { fbm, hash2, smoothstep, vnoise } from './noise';
-import { GROUND } from './palette';
+import { ZONE_GROUND, type BiomeLook, type GroundSet } from './biome';
 
 const C = (h: number): Color => new Color(h);
-const G = {
-  grass: C(GROUND.grass), grass2: C(GROUND.grass2), dryGold: C(GROUND.dryGold),
-  sand: C(GROUND.sand), sandWet: C(GROUND.sandWet), dune: C(GROUND.dune),
-  sandstone: C(GROUND.sandstone), sandstone2: C(GROUND.sandstone2),
-  bare: C(GROUND.bare), bare2: C(GROUND.bare2), dirt: C(GROUND.dirt),
-  seaSand: C(GROUND.seaSand), deepBed: C(GROUND.deepBed), reefBed: C(GROUND.reefBed),
-  estMud: C(GROUND.estMud), estMud2: C(GROUND.estMud2), riverBed: C(GROUND.riverBed),
-};
+type GC = Record<keyof GroundSet, Color>;
+const cache = new Map<string, GC>();
+function groundColours(look: BiomeLook): GC {
+  let g = cache.get(look.id);
+  if (!g) {
+    g = Object.fromEntries(Object.entries(look.ground).map(([k, v]) => [k, C(v)])) as GC;
+    cache.set(look.id, g);
+  }
+  return g;
+}
+const DUNE = C(0xc9c58a);
+const ZONES: Record<number, Color> = Object.fromEntries(Object.entries(ZONE_GROUND).map(([k, v]) => [Number(k), C(v)]));
+const SEEDED = C(0x9a8a4e);
+const SIGNED = C(0xa8955a);
 
 const _a = new Color();
 const _b = new Color();
 
 /** Lush + bare colours for one tile kind at a world point. */
-function kindColours(kind: number, x: number, z: number, h: number, lush: Color, bare: Color): void {
+function kindColours(G: GC, look: BiomeLook, kind: number, stage: number, zone: number, x: number, z: number, h: number, lush: Color, bare: Color): void {
   const n1 = fbm(x * 0.45 + 11, z * 0.45 + 3, 3);
   const n2 = fbm(x * 1.3 - 4, z * 1.3 + 8, 3);
   switch (kind) {
     case TileKind.Sea:
     case TileKind.Reef: {
-      lush.copy(G.seaSand).lerp(G.deepBed, smoothstep(-0.3, -1.3, h));
+      lush.copy(G.seaBed).lerp(G.deepBed, smoothstep(-0.3, -1.3, h));
       if (kind === TileKind.Reef) lush.lerp(G.reefBed, 0.75);
       bare.copy(lush).lerp(G.estMud2, 0.35);
       return;
@@ -37,25 +43,51 @@ function kindColours(kind: number, x: number, z: number, h: number, lush: Color,
       bare.copy(G.estMud2).multiplyScalar(0.9);
       return;
     case TileKind.River:
+      if (look.dryCreeks) {
+        lush.copy(G.creekBed).lerp(G.sand, smoothstep(0.4, 0.7, n2) * 0.5);
+        bare.copy(lush);
+        return;
+      }
       lush.copy(G.riverBed);
       bare.copy(G.estMud2);
       return;
+    case TileKind.Wetland:
+      lush.copy(G.wetlandBed).lerp(G.estMud, smoothstep(0.4, 0.7, n1) * 0.5);
+      bare.copy(G.estMud2);
+      return;
+    case TileKind.Pit: {
+      const base = stage <= 0 ? G.pit : stage === 1 ? G.pitReshaped : G.topsoil;
+      lush.copy(base).lerp(stage <= 0 ? G.pit2 : base, smoothstep(0.4, 0.7, n2));
+      bare.copy(lush);
+      return;
+    }
     case TileKind.Beach:
       lush.copy(G.sand).lerp(G.sandWet, smoothstep(0.2, 0.0, h));
-      lush.lerp(G.dune, smoothstep(0.6, 0.75, n2) * 0.5);
+      lush.lerp(DUNE, smoothstep(0.6, 0.75, n2) * 0.5);
       bare.copy(G.sand).lerp(G.sandWet, smoothstep(0.2, 0.0, h) * 0.6);
       return;
     case TileKind.Rock:
-      lush.copy(G.sandstone).lerp(G.sandstone2, smoothstep(0.45, 0.7, n2));
-      lush.lerp(G.grass2, smoothstep(0.62, 0.75, n1) * 0.45);
-      bare.copy(G.sandstone).lerp(G.sandstone2, smoothstep(0.45, 0.7, n2));
+      lush.copy(G.rock).lerp(G.rock2, smoothstep(0.45, 0.7, n2));
+      lush.lerp(G.grass2, smoothstep(0.62, 0.75, n1) * (look.id === 'arid' ? 0.1 : 0.45));
+      bare.copy(G.rock).lerp(G.rock2, smoothstep(0.45, 0.7, n2));
       return;
     default:
       lush.copy(G.grass).lerp(G.grass2, smoothstep(0.35, 0.65, n1));
-      lush.lerp(G.dryGold, smoothstep(0.6, 0.78, n2) * 0.6);
+      lush.lerp(G.dry, smoothstep(0.6, 0.78, n2) * 0.6);
       bare.copy(G.bare).lerp(G.bare2, smoothstep(0.4, 0.7, n1));
       bare.lerp(G.dirt, smoothstep(0.62, 0.78, n2) * 0.6);
-      bare.lerp(G.dryGold, smoothstep(0.3, 0.5, n2) * 0.35);
+      bare.lerp(G.dry, smoothstep(0.3, 0.5, n2) * 0.35);
+      if (zone > 0 && ZONES[zone] && look.id === 'urban') {
+        const zc = ZONES[zone]!;
+        lush.lerp(zc, zone === 2 ? 0.35 : 0.75);
+        bare.lerp(zc, zone === 2 ? 0.5 : 0.85);
+      } else if (zone === 1 && look.id === 'arid') {
+        lush.copy(G.pitReshaped).lerp(G.dirt, 0.3);
+        bare.copy(lush);
+      } else if (zone >= 100 && look.id === 'arid') {
+        // rehabilitated mine ground: honeycomb of young seedlings, then signed off
+        lush.lerp(zone >= 250 ? SIGNED : SEEDED, 0.35);
+      }
   }
 }
 
@@ -73,11 +105,14 @@ const INSET = 0.8;
 
 export function buildTerrain(map: MapGeo): TerrainBuild {
   const { vx, vz, w: W, h: H } = map;
+  const RES = map.res;
   const pos = new Float32Array(vx * vz * 3);
   const colA = new Float32Array(vx * vz * 3);
   const colB = new Float32Array(vx * vz * 3);
   const lush = new Color();
   const bare = new Color();
+  const look = map.look;
+  const GC = groundColours(look);
   const wp = { x: 0, z: 0 };
   for (let j = 0; j < vz; j++) {
     for (let i = 0; i < vx; i++) {
@@ -100,14 +135,15 @@ export function buildTerrain(map: MapGeo): TerrainBuild {
       ];
       for (const [ti, tj, wgt] of corners) {
         if (wgt <= 0) continue;
-        kindColours(map.kinds[tj * W + ti] ?? TileKind.Land, x, z, h, _a, _b);
+        const ti2 = tj * W + ti;
+        kindColours(GC, look, map.kinds[ti2] ?? TileKind.Land, map.stages[ti2] ?? 0, map.zones[ti2] ?? 0, x, z, h, _a, _b);
         lush.r += _a.r * wgt; lush.g += _a.g * wgt; lush.b += _a.b * wgt;
         bare.r += _b.r * wgt; bare.g += _b.g * wgt; bare.b += _b.b * wgt;
       }
       // wet sand band right at the waterline
       const wet = 1 - smoothstep(0.0, 0.1, Math.abs(h - 0.02));
-      lush.lerp(G.sandWet, wet * 0.5);
-      bare.lerp(G.sandWet, wet * 0.4);
+      lush.lerp(GC.sandWet, wet * 0.5);
+      bare.lerp(GC.sandWet, wet * 0.4);
       const n3 = 0.92 + 0.16 * vnoise(x * 3.1, z * 3.1);
       lush.multiplyScalar(n3);
       bare.multiplyScalar(n3);

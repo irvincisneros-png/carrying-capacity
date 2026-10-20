@@ -73,7 +73,7 @@ export function waterUniforms(heightTex: Texture, map: MapGeo): Record<string, I
     uShallowR: { value: new Color(W.shallowR) }, uDeepR: { value: new Color(W.deepR) },
     uShallowP: { value: new Color(W.shallowP) }, uDeepP: { value: new Color(W.deepP) },
     uFoam: { value: W.foam }, uSpec: { value: W.spec }, uShine: { value: W.shine }, uRefl: { value: W.refl },
-    uAmp: { value: W.amp }, uClarity: { value: W.clarity },
+    uAmp: { value: W.amp }, uClarity: { value: W.clarity }, uLevel: { value: 0 },
   };
 }
 
@@ -81,7 +81,7 @@ const WATER_COMMON = /* glsl */ `
 uniform sampler2D uHeightTex;
 uniform vec3 uHMap; uniform vec3 uHSeg;
 uniform vec3 uShallowR; uniform vec3 uDeepR; uniform vec3 uShallowP; uniform vec3 uDeepP;
-uniform float uFoam; uniform float uSpec; uniform float uShine; uniform float uRefl; uniform float uAmp; uniform float uClarity;
+uniform float uFoam; uniform float uSpec; uniform float uShine; uniform float uRefl; uniform float uAmp; uniform float uClarity; uniform float uLevel;
 float groundAt(vec2 xz){ vec2 uv = ((xz + 0.5 * uHMap.xy) / uHMap.xy * uHSeg.xy + 0.5) / (uHSeg.xy + 1.0); return texture(uHeightTex, uv).r * 3.0 - 2.0; }
 float wav(vec2 p, float t){
   return sin(p.x * 1.7 + t * 1.3) * 0.5 + sin(p.y * 2.3 - t * 1.1 + p.x * 0.6) * 0.35 + sin((p.x + p.y) * 3.7 + t * 2.0) * 0.15;
@@ -91,7 +91,7 @@ float cleanAt(vec2 xz){ float b = ccTile(xz).b + (ccFbm3(xz * 0.7) - 0.5) * 0.18
 `;
 
 export function makeWater(shared: Record<string, IUniform>, wu: Record<string, IUniform>, skyU: Record<string, IUniform>, map: MapGeo): { geo: PlaneGeometry; mat: ShaderMaterial } {
-  const geo = new PlaneGeometry(map.w + 0.18, map.h + 0.18, Math.min(128, map.w * 3), Math.min(128, map.h * 3));
+  const geo = new PlaneGeometry(map.w + 0.18, map.h + 0.18, Math.min(64, map.w * 2), Math.min(64, map.h * 2));
   geo.rotateX(-Math.PI / 2);
   const hx = (map.w / 2).toFixed(2);
   const hz = (map.h / 2).toFixed(2);
@@ -123,7 +123,7 @@ export function makeWater(shared: Record<string, IUniform>, wu: Record<string, I
         vec2 xz = vW.xz;
         float ground = groundAt(xz);
         float depth = max(vW.y - ground, 0.0);
-        if (ground > 0.06) discard;
+        if (ground > uLevel + 0.06) discard;
         float m = cleanAt(xz);
         float t = uTime;
         float e = 0.06;
@@ -134,7 +134,7 @@ export function makeWater(shared: Record<string, IUniform>, wu: Record<string, I
         vec3 n = normalize(vec3((r0 - rx) * wa * 2.0, e, (r0 - rz) * wa * 2.0));
         if (n.y < 0.0) n = -n;
         vec3 V = normalize(cameraPosition - vW);
-        float absorb = mix(3.4, 1.55, m);
+        float absorb = mix(3.4, 1.55, m) / max(0.3, uClarity);
         float tt = 1.0 - exp(-depth * absorb);
         vec3 base = mix(mix(uShallowP, uShallowR, m), mix(uDeepP, uDeepR, m), tt);
         float alpha = mix(mix(0.8, 0.36, m), 0.96, tt);

@@ -231,7 +231,7 @@ export function objectiveRow(o: ObjectiveResult): HTMLElement {
     else pct = o.current <= o.target ? 1 : Math.max(0, 1 - (o.current - o.target) / Math.max(0.5, o.target));
   }
   const unit = o.metric === 'warming' ? ' °C' : '';
-  const val = o.current === null ? (o.pendingTier ? `Comes with a later update (${o.pendingTier})` : 'Not measured yet') : `Now ${o.metric === 'warming' ? fmt1(o.current) : Math.round(o.current)}${unit} · target ${o.op === '<=' ? '≤' : '≥'} ${o.target}${unit}`;
+  const val = o.metric === 'netZeroYear' && o.current !== null && o.current >= 9000 ? `Not reached yet · target by ${o.target}` : o.current === null ? (o.pendingTier ? `Comes with a later update (${o.pendingTier})` : 'Not measured yet') : `Now ${o.metric === 'warming' ? fmt1(o.current) : Math.round(o.current)}${unit} · target ${o.op === '<=' ? '≤' : '≥'} ${o.target}${unit}`;
   const label = { 'on-track': 'On track', 'at-risk': 'At risk', met: 'Met', missed: 'Missed', pending: 'Later' }[o.status];
   return h('div', { class: `obj ${o.status} ${o.bonus ? 'bonus' : ''}` }, svg(icon),
     h('div', { style: 'flex:1;min-width:0' }, h('div', { class: 'lab' }, degC(o.label)), h('div', { class: 'val' }, `${label} · ${val}`), h('div', { class: 'bar' }, h('i', { style: `width:${pct * 100}%` }))));

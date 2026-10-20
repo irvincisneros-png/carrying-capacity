@@ -1,6 +1,7 @@
 // GameRenderer: builds the diorama for a scenario's map and keeps it in sync with the simulation state.
 // Owns the WebGL renderer, scene, lights, layers, post-processing, graphics tiers and the frame loop.
 import {
+  ConeGeometry, DoubleSide, MeshBasicMaterial, RingGeometry,
   Color, DirectionalLight, Group, HemisphereLight, Mesh, NoToneMapping, PCFShadowMap, Scene, SRGBColorSpace, Vector3,
   WebGLRenderer, type BufferGeometry, type IUniform,
 } from 'three';
@@ -15,7 +16,10 @@ import { makeClouds } from './clouds';
 import { Cursor, type CursorMode, type PickResult } from './cursor';
 import { Fx } from './fx';
 import { Parts } from './geo';
-import { MapGeo } from './mapgeo';
+import { MapGeo, terrainSignature } from './mapgeo';
+import { biomeLook, type BiomeLook } from './biome';
+import { getScenario } from '../sim/scenarios';
+import { seaRiseM } from '../sim/mechanics';
 import { MatLib, type SharedUniforms } from './materials';
 import { LOOK } from './palette';
 import { buildPipeline, type Pipeline } from './post';
@@ -56,6 +60,15 @@ interface World {
   rig: CameraRig;
   overlay: Overlay;
   grid: Mesh;
+  terrainMesh: Mesh;
+  slabMesh: Mesh;
+  waterMesh: Mesh;
+  waterSide: Mesh;
+  heightTex: import('three').DataTexture;
+  wu: Record<string, IUniform>;
+  sig: number;
+  seaLevel: boolean;
+  level: number;
   dispose(): void;
 }
 
@@ -95,6 +108,8 @@ export class GameRenderer {
   onFrame: ((dt: number) => void) | null = null;
   onTierChange: ((t: Tier, auto: boolean) => void) | null = null;
   private pendingFires: { x: number; z: number; until: number }[] = [];
+  private levelT = 0;
+  look: BiomeLook = biomeLook(undefined);
 
   constructor(readonly container: HTMLElement) {
     const r = new WebGLRenderer({ antialias: false, powerPreference: 'high-performance', stencil: false, depth: true });
@@ -160,9 +175,16 @@ export class GameRenderer {
     }
     const prevCam = this.world?.rig;
     this.world?.dispose();
+    this.state = s;
+    this.levelT = 0;
+    if (this.marker) this.marker.visible = false;
     const group = new Group();
     group.name = 'world';
-    const map = new MapGeo(s.grid);
+    const look = biomeLook(getScenario(s.scenarioId).biome);
+    this.look = look;
+    this.lib.setPoll(look.poll);
+    this.sun.color.set(look.sunColor);
+    const map = new MapGeo(s.grid, look);
     const tb = buildTerrain(map);
     const tiles = new TileData(s.grid.w, s.grid.h);
     this.shared.uTile.value = tiles.tex;
@@ -176,6 +198,11 @@ export class GameRenderer {
     slab.name = 'slab';
     group.add(terrain, slab);
     const wu = waterUniforms(tb.heightTex, map);
+    (wu.uShallowR!.value as Color).set(look.water.shallowR);
+    (wu.uDeepR!.value as Color).set(look.water.deepR);
+    (wu.uShallowP!.value as Color).set(look.water.shallowP);
+    (wu.uDeepP!.value as Color).set(look.water.deepP);
+    wu.uClarity!.value = look.water.clarity;
     const water = makeWater(this.shared as unknown as Record<string, IUniform>, wu, this.skyU, map);
     const waterMesh = new Mesh(water.geo, water.mat);
     waterMesh.renderOrder = 2;
@@ -211,7 +238,8 @@ export class GameRenderer {
     this.clouds = makeClouds(this.shared as unknown as Record<string, IUniform>, Math.max(s.grid.w, s.grid.h));
     this.scene.add(this.clouds.mesh);
     this.world = {
-      key, map, group, tiles, veg, bld, amb, smoke, fx, cursor, rig, overlay, grid: gridMesh,
+      key, map, group, tiles, veg, bld, amb, smoke, fx, cursor, rig, overlay, grid: gridMesh, terrainMesh: terrain, slabMesh: slab, waterMesh, waterSide, heightTex: tb.heightTex, wu,
+      sig: terrainSignature(s.grid), seaLevel: (getScenario(s.scenarioId).mechanics ?? []).includes('reef'), level: 0,
       dispose: () => {
         this.scene.remove(group);
         group.traverse((o) => {
@@ -239,6 +267,8 @@ export class GameRenderer {
     if (!w) return;
     if (!snap && s.version === this.lastVersion) return;
     this.lastVersion = s.version;
+    const sig = terrainSignature(s.grid);
+    if (sig !== w.sig) this.rebuildTerrain(s, sig);
     w.tiles.sync(s, snap);
     if (snap) w.veg.snapNext();
     w.veg.rebuild(s, this.shared.uTime.value);
@@ -246,13 +276,49 @@ export class GameRenderer {
     w.amb.sync(s);
     w.smoke.rebuild(w.bld.emitters);
     this.updateAtmosphereTargets(s);
+    if (w.seaLevel) this.levelT = this.seaLevelWorld(s);
     if (snap) {
+      w.level = this.levelT;
       this.haze = this.hazeT;
       this.clean = this.cleanT;
     }
     // wind from Act 2 weather (deterministic per season)
     const a2 = s.a2;
     w.bld.wind = a2?.lastGrid ? 0.8 + (((a2.lastGrid.seasonIndex * 0.618) % 1) * 0.6) : 1;
+  }
+
+  /** Terrain changed shape (mine pits reshaped, zones seeded): rebuild the surface in place. */
+  private rebuildTerrain(s: GameState, sig: number): void {
+    const w = this.world;
+    if (!w) return;
+    w.sig = sig;
+    w.map.update(s.grid);
+    const tb = buildTerrain(w.map);
+    const oldT = w.terrainMesh.geometry;
+    w.terrainMesh.geometry = tb.terrain;
+    w.overlay.mesh.geometry = tb.terrain;
+    w.grid.geometry = tb.terrain;
+    oldT.dispose();
+    w.slabMesh.geometry.dispose();
+    w.slabMesh.geometry = tb.slab;
+    w.waterSide.geometry.dispose();
+    w.waterSide.geometry = tb.waterSide;
+    (w.heightTex.image.data as Uint8Array).set(tb.heightTex.image.data as Uint8Array);
+    w.heightTex.needsUpdate = true;
+    tb.heightTex.dispose();
+  }
+
+  /** Metres of sea-level rise -> world height (sim tile heights 0 / 0.9 / 1.8 / 4.0 m map onto our terraces). */
+  private seaLevelWorld(s: GameState): number {
+    let m = 0;
+    try { m = seaRiseM(s); } catch { m = 0; }
+    const pts: [number, number][] = [[0, 0], [0.9, 0.34], [1.8, 0.7], [4, 1.55]];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [a, ya] = pts[i]!;
+      const [b, yb] = pts[i + 1]!;
+      if (m <= b) return ya + ((m - a) / (b - a)) * (yb - ya);
+    }
+    return 1.55;
   }
 
   private updateAtmosphereTargets(s: GameState): void {
@@ -383,6 +449,40 @@ export class GameRenderer {
     else w.cursor.hideRing();
   }
 
+  private marker: Group | null = null;
+  private markerAt: { x: number; y: number } | null = null;
+
+  /** Guide marker (tutorial): pulsing gold ring + bobbing arrow over a tile; null hides it. */
+  markTile(tx: number | null, ty = 0): void {
+    const w = this.world;
+    if (!w) return;
+    if (tx === null) {
+      if (this.marker) this.marker.visible = false;
+      this.markerAt = null;
+      return;
+    }
+    if (!this.marker) {
+      const g = new Group();
+      const ringMat = new MeshBasicMaterial({ color: 0xffc83a, transparent: true, opacity: 0.85, depthTest: false, toneMapped: false, side: DoubleSide });
+      const ring = new Mesh(new RingGeometry(0.5, 0.62, 40), ringMat);
+      ring.rotation.x = -Math.PI / 2;
+      ring.renderOrder = 9;
+      const arrow = new Mesh(new ConeGeometry(0.18, 0.4, 12), new MeshBasicMaterial({ color: 0xffc83a, depthTest: false, toneMapped: false }));
+      arrow.rotation.x = Math.PI;
+      arrow.position.y = 1.4;
+      arrow.renderOrder = 9;
+      arrow.name = 'arrow';
+      g.add(ring, arrow);
+      g.name = 'marker';
+      this.marker = g;
+      this.scene.add(g);
+    }
+    this.markerAt = { x: tx, y: ty };
+    const p = this.tileWorld(tx, ty);
+    this.marker.position.set(p.x, p.y + 0.05, p.z);
+    this.marker.visible = true;
+  }
+
   /** Tile grid while a build tool is active. */
   setGrid(on: boolean): void {
     if (this.world) this.world.grid.visible = on;
@@ -451,7 +551,7 @@ export class GameRenderer {
       w.bld.setDetail(d.detail, this.state);
       w.bld.setOutlines(d.outlines);
       w.amb.setDetail(d.detail);
-      w.amb.density = d.props;
+      w.amb.density = d.props * (w.map.w > 40 && this.tier === 0 ? 0.2 : 1);
       w.smoke.density = d.smoke;
       this.ghostGeos.clear();
       if (this.state) {
@@ -509,6 +609,11 @@ export class GameRenderer {
     w.fx.update(dt);
     w.cursor.update(dt);
     w.overlay.update(dt);
+    if (this.marker?.visible) {
+      const k = 1 + 0.15 * Math.sin(time * 5);
+      this.marker.children[0]!.scale.set(k, k, k);
+      this.marker.children[1]!.position.y = 1.3 + 0.18 * Math.sin(time * 3);
+    }
     if (this.pendingFires.length && this.pendingFires[0]!.until < time) {
       this.pendingFires = this.pendingFires.filter((f) => f.until >= time);
       this.refreshFireSmoke();
@@ -518,11 +623,16 @@ export class GameRenderer {
     this.haze += (this.hazeT - this.haze) * k;
     this.clean += (this.cleanT - this.clean) * k;
     this.shared.uHaze.value = this.haze;
-    _c1.set(LOOK.sky.top); _c2.set(LOOK.skySmog.top);
+    if (w.seaLevel) {
+      w.level += (this.levelT - w.level) * Math.min(1, dt * 0.8);
+      w.waterMesh.position.y = w.level;
+      w.wu.uLevel!.value = w.level;
+    }
+    _c1.set(this.look.sky.top); _c2.set(LOOK.skySmog.top);
     (this.skyU.uSkyTop!.value as Color).copy(_c1).lerp(_c2, this.haze * 0.85);
-    _c1.set(LOOK.sky.horizon); _c2.set(LOOK.skySmog.horizon);
+    _c1.set(this.look.sky.horizon); _c2.set(LOOK.skySmog.horizon);
     (this.skyU.uSkyHorizon!.value as Color).copy(_c1).lerp(_c2, this.haze * 0.85);
-    _c1.set(LOOK.sky.bottom); _c2.set(LOOK.skySmog.bottom);
+    _c1.set(this.look.sky.bottom); _c2.set(LOOK.skySmog.bottom);
     (this.skyU.uSkyBottom!.value as Color).copy(_c1).lerp(_c2, this.haze * 0.8);
     _c1.set(LOOK.sky.cloudCol); _c2.set(LOOK.skySmog.cloudCol);
     (this.skyU.uCloudCol!.value as Color).copy(_c1).lerp(_c2, this.haze * 0.8);

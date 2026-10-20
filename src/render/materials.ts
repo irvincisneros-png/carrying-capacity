@@ -140,6 +140,13 @@ export class MatLib {
     });
   }
 
+  /** Biome: colours used for contaminated ground (salt crust inland, ochre/rust on the coast). */
+  setPoll(cols: readonly [number, number, number]): void {
+    (this.styleU.uPollA!.value as Color).set(cols[0]);
+    (this.styleU.uPollB!.value as Color).set(cols[1]);
+    (this.styleU.uPollC!.value as Color).set(cols[2]);
+  }
+
   all(): Material[] {
     return [...this.cache.values(), ...this.depthCache.values()];
   }

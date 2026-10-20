@@ -16,6 +16,8 @@ import { clear, degC, fmt1, h, svg } from './dom';
 import { showDilemma, SpeciesPanel, Voices } from './empathy';
 import { beatChoice, dilemmaCard, reportCard, speciesList, storyLine } from './adapters';
 import { CountryPanel, ResearchPanel, SatellitePanel, showDisposal, siteName } from './layers';
+import { PolicyPanel, Readouts, TutorialOverlay } from './scenario';
+import { loadProgressSafe } from './screens';
 import type { DilemmaCard } from './types';
 import { GraphsPanel } from './graphs';
 import { Hud } from './hud';
@@ -63,6 +65,11 @@ export class App {
   private dilemmaQueue: { card: DilemmaCard; kind: 'dilemma' | 'beat' }[] = [];
   private act2Buttons: HTMLElement;
   private speciesYear = -1;
+  readouts = new Readouts();
+  policies = new PolicyPanel();
+  tutorial: TutorialOverlay;
+  private policyBtn: HTMLButtonElement;
+  private resultRecorded = false;
   country: CountryPanel;
   research: ResearchPanel;
   sats: SatellitePanel;
@@ -127,6 +134,20 @@ export class App {
       sats: lb('Satellites', UI_ICONS.target, () => this.sats.open(this.game.state)),
     };
     this.hud.el.querySelector('.hud-right')?.prepend(this.layerBtns.country, this.layerBtns.research, this.layerBtns.sats);
+    this.policies.onChange = (id, value) => {
+      const r = this.game.dispatch({ type: 'policy', id, value } as unknown as SIM.Action);
+      if (!r.ok) toast('Not possible', degC(r.reason ?? ''), 'warn', UI_ICONS.info, 4000);
+    };
+    this.policyBtn = h('button', { class: 'iconbtn hidden', title: 'Town policies', 'aria-label': 'Town policies', onclick: () => this.policies.open(this.game.state) }, svg(UI_ICONS.gear));
+    this.policyBtn.innerHTML = '';
+    this.policyBtn.appendChild(svg('<svg viewBox="0 0 32 32"><path d="M6 9 H26 M6 16 H26 M6 23 H26" stroke="#3a2a22" stroke-width="2.4"/><circle cx="12" cy="9" r="3.4" fill="#f2c230" stroke="#3a2a22" stroke-width="1.4"/><circle cx="21" cy="16" r="3.4" fill="#5fb8c8" stroke="#3a2a22" stroke-width="1.4"/><circle cx="10" cy="23" r="3.4" fill="#c0583a" stroke="#3a2a22" stroke-width="1.4"/></svg>'));
+    this.hud.el.querySelector('.hud-right')?.prepend(this.policyBtn);
+    this.tutorial = new TutorialOverlay({
+      find: (key) => this.tutorialTarget(key),
+      tile: (x, y) => this.renderer.markTile(x, y),
+      clearTile: () => this.renderer.markTile(null),
+      onComplete: () => this.tutorialDone(),
+    });
     const frame = h('button', { class: 'iconbtn', title: 'Frame the whole map (F)', 'aria-label': 'Frame the whole map', onclick: () => { sfx('click'); this.renderer.rig?.home(true); } }, svg(UI_ICONS.home));
     this.hud.el.querySelector('.hud-right')?.append(frame);
     this.warnEl = h('div', { class: 'toast panel bad hidden', style: 'position:fixed;top:140px;left:50%;transform:translateX(-50%);z-index:44;max-width:420px' });
@@ -143,7 +164,7 @@ export class App {
     document.body.appendChild(this.logDrawer);
     this.inspectEl = h('div', { class: 'inspect panel hidden' });
     document.body.appendChild(this.inspectEl);
-    this.ui.append(this.hud.el, this.toolbar.el, this.graphs.el, this.clock.el, this.energy.el, this.objectives.el, this.action, this.undoBtn, this.act2Buttons);
+    this.ui.append(this.hud.el, this.readouts.el, this.tutorial.el, this.toolbar.el, this.graphs.el, this.clock.el, this.energy.el, this.objectives.el, this.action, this.undoBtn, this.act2Buttons);
     if (DEBUG) {
       this.debugEl = h('div', { class: 'debug' });
       document.body.appendChild(this.debugEl);
@@ -169,7 +190,12 @@ export class App {
       continueGame: () => this.startPlaying(false),
       newGame: (id) => this.newGame(id),
       settings: () => showSettings(this.renderer, GameController.hasSave() ? () => this.resetToTitle() : null),
-    }, GameController.savedSummary(), TEACHER);
+      skipTutorial: () => {
+        const p = SIM.skipTutorial(loadProgressSafe());
+        try { SIM.saveProgress(localStorage, p); } catch { /* ignore */ }
+        return p;
+      },
+    }, GameController.savedSummary(), TEACHER, loadProgressSafe());
     document.body.appendChild(this.title);
   }
 
@@ -193,8 +219,15 @@ export class App {
     }
     const s = this.game.state;
     this.syncUi(s, true);
-    if (fresh) showIntro(s, () => {});
-    else this.checkPhase(s);
+    this.resultRecorded = false;
+    if (fresh) {
+      const act2Start = s.phase === 'act2';
+      if (act2Start) this.game.setSpeed(0);
+      showIntro(s, () => {
+        if (act2Start && s.turningPoint) showTurningPoint(this.game.state, () => { this.game.setSpeed(1); sfx('good'); }, true);
+        else if (act2Start) this.game.setSpeed(1);
+      });
+    } else this.checkPhase(s);
   }
 
   private resetToTitle(): void {
@@ -229,7 +262,25 @@ export class App {
       this.game.setSpeed(0);
       const rig = this.renderer.rig;
       if (rig) rig.idleSpin = 0.06;
-      showEnding(s, () => this.resetToTitle(), reportCard(s));
+      const rc = reportCard(s);
+      let note = '';
+      let next: { label: string; go: () => void } | null = null;
+      if (!this.resultRecorded) {
+        this.resultRecorded = true;
+        try {
+          const stars = (s.phase === 'failed' ? 0 : rc?.stars ?? (s.a2.outcome?.success ? 1 : 0)) as SIM.Stars;
+          const { progress, newlyUnlocked } = SIM.recordResult(loadProgressSafe(), s.scenarioId, stars);
+          SIM.saveProgress(localStorage, progress);
+          if (newlyUnlocked.length) note = newlyUnlocked.map((id) => SIM.getScenario(id).name).join(' and ');
+        } catch { /* storage unavailable */ }
+      }
+      const prog = loadProgressSafe();
+      const order = SIM.SCENARIO_IDS;
+      const nextId = SIM.unlockedScenarios(prog, TEACHER).find((id) => id !== s.scenarioId && !SIM.starsOf(prog, id)) ?? null;
+      if (nextId && s.phase !== 'failed') next = { label: `Next: ${SIM.getScenario(nextId).name}`, go: () => { closeAllModals(); this.newGame(nextId); } };
+      else if (s.phase === 'failed') next = { label: 'Try again', go: () => { closeAllModals(); this.newGame(s.scenarioId); } };
+      void order;
+      showEnding(s, () => { closeAllModals(); this.resetToTitle(); }, rc, next, note);
     }
   }
 
@@ -387,6 +438,10 @@ export class App {
       } else if (!show) this.warnEl.replaceChildren();
     } catch { /* layer state missing in old saves */ }
     if (this.overlayFn) this.renderer.setOverlay(this.overlayFn(s), this.overlayRamp);
+    this.readouts.update(s);
+    this.policyBtn.classList.toggle('hidden', !this.policies.has(s) || s.phase === 'turning-point');
+    if (this.policies.el.classList.contains('open')) this.policies.render(s);
+    this.tutorial.update(s, this.playing);
     if (s.year !== this.speciesYear) {
       this.speciesYear = s.year;
       const sp = speciesList(s);
@@ -552,6 +607,14 @@ export class App {
       this.tip.show(px, py, live ? `<b>${BUILDINGS[live.type].name}</b><br>Click to choose its future` : 'Point at an old Act 1 building', live ? 'ok' : 'bad');
       return;
     }
+    if (t === 'rehab') {
+      let plan: ReturnType<typeof SIM.rehabPlan> = null;
+      try { plan = SIM.rehabPlan(s, hv.tx, hv.ty); } catch { plan = null; }
+      this.renderer.showCursor('inspect', hv.tx, hv.ty, 0, !!plan && !plan.reason, { x: hv.tx, y: hv.ty, w: 1, h: 1 });
+      if (!plan) this.tip.show(px, py, 'Point at the open mine pit (orange-red ground)', 'bad');
+      else this.tip.show(px, py, `<b>${plan.name}</b> · ${plan.tiles} tiles · $${plan.cost}k${plan.reason ? `<br>${degC(plan.reason)}` : '<br>Click to start this step'}`, plan.reason ? 'bad' : 'ok');
+      return;
+    }
     if (t === 'comanage' || t === 'burn') {
       const k = s.grid.kind[hv.ty * s.grid.w + hv.tx];
       const ok = (k === TileKind.Bush || k === TileKind.Land) && !buildingAt(s, hv.tx, hv.ty);
@@ -598,6 +661,19 @@ export class App {
     }
     if (t === 'dispose') {
       this.openDisposal(tx, ty);
+      return;
+    }
+    if (t === 'rehab') {
+      const r = this.game.dispatch({ type: 'rehab', x: tx, y: ty } as unknown as SIM.Action);
+      if (r.ok) {
+        sfx('good');
+        this.renderer.dust(tx, ty, 2, 2);
+        setTimeout(() => this.renderer.sparkle(tx, ty, 2, 2, true), 400);
+        if (r.spent) floater(cx, cy - 20, `-$${r.spent}k`, 'cost');
+      } else {
+        sfx('error');
+        floater(cx, cy - 30, degC(r.reason ?? ''), 'bad');
+      }
       return;
     }
     if (t === 'comanage' || t === 'burn') {
@@ -697,6 +773,41 @@ export class App {
     sfx('click');
   }
 
+  /** Tutorial highlight key -> element. */
+  private tutorialTarget(key: string): HTMLElement | null {
+    const [kind, name = ''] = key.split(':');
+    if (kind === 'build' || kind === 'tool') return this.toolbar.elementFor(name);
+    if (kind === 'button') {
+      switch (name) {
+        case 'next-decade': return this.nextBtn;
+        case 'start-transition': return document.querySelector('[data-tut="start-transition"]');
+        case 'play': case 'speed': return this.clock.el.querySelector('.speeds');
+        case 'objectives': return this.objectives.el;
+        case 'animals': return this.hud.speciesBtn.classList.contains('hidden') ? null : this.hud.speciesBtn;
+        default: return null;
+      }
+    }
+    if (kind === 'panel') {
+      if (name === 'graphs') return this.hud.graphsBtn;
+      if (name === 'grid') return this.energy.el;
+      if (name === 'voices') return this.hud.voicesBtn;
+    }
+    return null;
+  }
+
+  private tutorialDone(): void {
+    sfx('good');
+    for (let i = 0; i < 4; i++) setTimeout(() => {
+      const s = this.game.state;
+      this.renderer.sparkle(Math.floor(s.grid.w * Math.random()), Math.floor(s.grid.h * Math.random()), 3, 3, true);
+    }, i * 250);
+    try {
+      const { progress } = SIM.recordResult(loadProgressSafe(), 'green-valley', 1);
+      SIM.saveProgress(localStorage, progress);
+    } catch { /* ignore */ }
+    toast('Tutorial complete!', 'Coal Coast is unlocked. Play on to see the valley through to 2000, or head back to the title.', 'good', UI_ICONS.star, 9000);
+  }
+
   private openDisposal(tx: number, ty: number): void {
     const ok = showDisposal(this.game.state, tx, ty, (plan) => {
       const r = this.game.dispatch({ type: 'dispose', x: tx, y: ty, how: plan.how, into: plan.how === 'repurpose' ? plan.id : undefined });
@@ -787,6 +898,18 @@ export class App {
           out.push({ tier: t, fps: Math.round((n / dt) * 10) / 10, calls: maxCalls, tris: maxTris, cpuMs: Math.round(this.renderer.stats.cpuMs * 10) / 10, dpr: this.renderer.renderer.getPixelRatio() });
         }
         return out;
+      },
+      /** Debug: skip the rest of Act 1 (no building) and begin Act 2. */
+      skipToAct2: () => {
+        closeAllModals();
+        for (let i = 0; i < 30 && this.game.state.phase === 'act1'; i++) this.game.nextDecade();
+        closeAllModals();
+        this.dilemmaQueue.length = 0;
+        if (this.game.state.phase === 'turning-point') this.game.beginAct2();
+        closeAllModals();
+        this.dilemmaQueue.length = 0;
+        this.game.setSpeed(0);
+        return `${this.game.state.phase} ${this.game.state.year}`;
       },
       closeModals: () => { closeAllModals(); this.dilemmaQueue.length = 0; },
       /** Place `type` at the first valid anchor (scan order), for testing. */

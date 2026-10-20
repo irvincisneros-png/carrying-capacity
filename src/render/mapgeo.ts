@@ -3,22 +3,26 @@
 // z in [ty - H/2, ty - H/2 + 1]; grid row y grows toward +z (south). Water level is y = 0.
 import { TileKind, type TileGrid } from '../sim/types';
 import { fbm, hash2, smoothstep } from './noise';
+import type { BiomeLook } from './biome';
 
-export const RES = 4; // terrain vertices per tile edge
+/** Terrain vertices per tile edge (fewer on big maps to keep the triangle budget). */
+export const resFor = (w: number, h: number): number => (Math.max(w, h) > 40 ? 3 : 4);
 
 const K = TileKind;
 
 export function isWaterKind(k: number): boolean {
-  return k === K.Sea || k === K.Reef || k === K.Estuary || k === K.River;
+  return k === K.Sea || k === K.Reef || k === K.Estuary || k === K.River || k === K.Wetland;
 }
 
 /** Per-tile target top height (before smoothing). */
-function tileHeight(k: number, elev: number, seaDist: number, x: number, y: number): number {
+function tileHeight(k: number, elev: number, seaDist: number, x: number, y: number, dryCreeks: boolean, stage: number): number {
   switch (k) {
+    case K.Wetland: return -0.17;
+    case K.Pit: return stage <= 0 ? 0.04 + (hash2(x, y + 3) - 0.5) * 0.05 : stage === 1 ? 0.2 : 0.24;
     case K.Sea: return -0.32 - 1.15 * smoothstep(0, 4.5, seaDist) + (hash2(x, y) - 0.5) * 0.06;
-    case K.Reef: return -0.42 + (hash2(x + 7, y) - 0.5) * 0.1;
+    case K.Reef: return -0.28 + (hash2(x + 7, y) - 0.5) * 0.08;
     case K.Estuary: return -0.34;
-    case K.River: return -0.3;
+    case K.River: return dryCreeks ? 0.13 : elev >= 1 ? -0.06 : -0.3;
     case K.Beach: return 0.07;
     case K.Rock: return elev >= 3 ? 1.55 + (fbm(x * 0.4, y * 0.4, 2) - 0.5) * 0.3 : 1.05;
     default: return elev <= 0 ? 0.18 : elev === 1 ? 0.34 : elev === 2 ? 0.7 : 1.05;
@@ -28,6 +32,7 @@ function tileHeight(k: number, elev: number, seaDist: number, x: number, y: numb
 export class MapGeo {
   readonly w: number;
   readonly h: number;
+  readonly res: number;
   readonly segX: number;
   readonly segZ: number;
   readonly vx: number;
@@ -39,16 +44,21 @@ export class MapGeo {
   /** Tile kind of the tile nearest each vertex after warping (for colours). */
   readonly seaDist: Float32Array;
   readonly kinds: Uint8Array;
+  readonly stages: Uint8Array;
+  readonly zones: Uint8Array;
   private th: Float32Array;
 
-  constructor(grid: TileGrid) {
+  constructor(grid: TileGrid, readonly look: BiomeLook) {
     this.w = grid.w;
     this.h = grid.h;
-    this.segX = grid.w * RES;
-    this.segZ = grid.h * RES;
+    this.res = resFor(grid.w, grid.h);
+    this.segX = grid.w * this.res;
+    this.segZ = grid.h * this.res;
     this.vx = this.segX + 1;
     this.vz = this.segZ + 1;
     this.kinds = Uint8Array.from(grid.kind);
+    this.stages = Uint8Array.from(grid.stage);
+    this.zones = grid.zone ? Uint8Array.from(grid.zone) : new Uint8Array(grid.w * grid.h);
     const n = grid.w * grid.h;
     // distance (tiles, chamfer) from each sea tile to the nearest non-sea tile
     const sd = new Float32Array(n);
@@ -82,18 +92,30 @@ export class MapGeo {
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
         const i = y * W + x;
-        this.th[i] = tileHeight(grid.kind[i] ?? 0, grid.elevation[i] ?? 0, sd[i]!, x, y);
+        this.th[i] = tileHeight(grid.kind[i] ?? 0, grid.elevation[i] ?? 0, sd[i]!, x, y, look.dryCreeks, grid.stage[i] ?? 0);
       }
     }
     this.tileTop = Float32Array.from(this.th);
     this.heights = new Float32Array(this.vx * this.vz);
     for (let j = 0; j < this.vz; j++) {
       for (let i = 0; i < this.vx; i++) {
-        const x = -W / 2 + i / RES;
-        const z = -H / 2 + j / RES;
+        const x = -W / 2 + i / this.res;
+        const z = -H / 2 + j / this.res;
         this.heights[j * this.vx + i] = this.sampleTiles(x, z);
       }
     }
+  }
+
+  /** Recompute everything from a changed grid (same size), in place so layers holding this map stay valid. */
+  update(grid: TileGrid): void {
+    const fresh = new MapGeo(grid, this.look);
+    this.kinds.set(fresh.kinds);
+    this.stages.set(fresh.stages);
+    this.zones.set(fresh.zones);
+    this.seaDist.set(fresh.seaDist);
+    this.th.set(fresh.th);
+    this.tileTop.set(fresh.tileTop);
+    this.heights.set(fresh.heights);
   }
 
   /** Domain warp so coastlines and river banks are organic rather than square. */
@@ -126,14 +148,14 @@ export class MapGeo {
     const c = this.th[(j0 + 1) * W + i0]!;
     const d = this.th[(j0 + 1) * W + i0 + 1]!;
     let hgt = (a + (b - a) * fu) * (1 - fv) + (c + (d - c) * fu) * fv;
-    if (hgt > 0.12) hgt += (fbm(x * 0.7 + 3, z * 0.7 - 1, 3) - 0.5) * 0.07;
+    if (hgt > 0.12) hgt += (fbm(x * 0.7 + 3, z * 0.7 - 1, 3) - 0.5) * (this.look.id === 'urban' ? 0.025 : 0.07);
     return hgt;
   }
 
   /** Bilinear height of the terrain mesh at a world point. */
   heightAt(x: number, z: number): number {
-    const fx = Math.max(0, Math.min(this.segX - 1e-4, (x + this.w / 2) * RES));
-    const fz = Math.max(0, Math.min(this.segZ - 1e-4, (z + this.h / 2) * RES));
+    const fx = Math.max(0, Math.min(this.segX - 1e-4, (x + this.w / 2) * this.res));
+    const fz = Math.max(0, Math.min(this.segZ - 1e-4, (z + this.h / 2) * this.res));
     const i = Math.floor(fx);
     const j = Math.floor(fz);
     const tx = fx - i;
@@ -173,4 +195,18 @@ export class MapGeo {
 
 function plateau(f: number): number {
   return smoothstep(0.2, 0.8, f);
+}
+
+/** Signature of everything that shapes the terrain mesh (kinds except bush/land, pit stages, zones). */
+export function terrainSignature(grid: TileGrid): number {
+  let h = 2166136261;
+  const n = grid.kind.length;
+  for (let i = 0; i < n; i++) {
+    let k = grid.kind[i] ?? 0;
+    if (k === K.Bush) k = K.Land;
+    const st = k === K.Pit ? (grid.stage[i] ?? 0) : 0;
+    const z = grid.zone ? (grid.zone[i] ?? 0) : 0;
+    h = Math.imul(h ^ (k | (st << 4) | (z << 8)), 16777619);
+  }
+  return h >>> 0;
 }

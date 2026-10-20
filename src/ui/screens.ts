@@ -1,7 +1,12 @@
 // Full-screen flows: title + scenario select, intro (Acknowledgement of Country), decade report, present-day
 // summary + turning point story, epilogue / failure, settings.
 import { objectiveStatus } from '../sim/objectives';
-import { SCENARIOS, SCENARIO_IDS, getScenario, type ScenarioDef } from '../sim/scenarios';
+import { SCENARIOS, SCENARIO_IDS, getScenario } from '../sim/scenarios';
+import { MAX_STARS, isScenarioUnlocked, loadProgress, lockedReason, starsOf, totalStars, type Progress } from '../sim/progress';
+
+export function loadProgressSafe(): Progress {
+  try { return loadProgress(localStorage); } catch { return loadProgress(null); }
+}
 import { EMISSION_CATEGORIES, type DecadeReport, type GameState, type ScenarioId } from '../sim/types';
 import type { GameRenderer } from '../render/renderer';
 import { TIER_NAMES, type Tier } from '../render/quality';
@@ -32,9 +37,10 @@ export interface TitleHandlers {
   continueGame(): void;
   newGame(id: ScenarioId): void;
   settings(): void;
+  skipTutorial(): Progress;
 }
 
-export function showTitle(hd: TitleHandlers, saved: { scenarioId: ScenarioId; year: number; phase: string } | null, teacher: boolean): HTMLElement {
+export function showTitle(hd: TitleHandlers, saved: { scenarioId: ScenarioId; year: number; phase: string } | null, teacher: boolean, progress: Progress): HTMLElement {
   const root = h('div', { class: 'title' });
   const logo = h('div', { class: 'logo' }, h('h1', null, 'Carrying Capacity'), h('p', null, 'Build a town. Watch the air. Then help the land heal.'));
   const card = h('div', { class: 'title-card panel' });
@@ -48,20 +54,29 @@ export function showTitle(hd: TitleHandlers, saved: { scenarioId: ScenarioId; ye
     ].filter((x): x is HTMLButtonElement | HTMLDivElement => x !== null));
   };
   const pick = (): void => {
-    const unlocked = (sc: ScenarioDef): boolean => teacher || sc.id === 'green-valley' || sc.id === 'coal-coast';
+    const names = Object.fromEntries(SCENARIO_IDS.map((id) => [id, SCENARIOS[id].name])) as Record<ScenarioId, string>;
     const order = [...SCENARIO_IDS].sort((a, b) => (a === 'green-valley' ? -1 : b === 'green-valley' ? 1 : 0));
-    card.replaceChildren(
-      h('h2', { style: 'font-size:22px' }, 'Choose a place'),
+    const starRow = (n: number): HTMLElement => h('span', { class: 'stars-s' }, ...[0, 1, 2].map((i) => svg(i < n ? UI_ICONS.star : UI_ICONS.starOff)));
+    card.replaceChildren(...[
+      h('div', { class: 'panel-head' }, h('h2', { style: 'font-size:22px' }, 'Choose a place'),
+        h('span', { class: 'star-total', title: 'Stars earned' }, svg(UI_ICONS.star), `${totalStars(progress)} / ${MAX_STARS}`)),
       h('div', { class: 'scen-list' }, ...order.map((id) => {
         const sc = SCENARIOS[id];
-        const ok = unlocked(sc);
+        const ok = isScenarioUnlocked(progress, id, teacher);
+        const why = ok ? null : lockedReason(progress, id, names, teacher);
+        const mins = sc.playMinutes ? `${sc.playMinutes[0]}–${sc.playMinutes[1]} min` : '';
         return h('button', { class: 'scen', disabled: !ok, onclick: () => { sfx('click'); hd.newGame(id); } },
           svg(ok ? SCEN_ICON[id] : UI_ICONS.lock),
-          h('div', null, h('h3', null, sc.name, h('span', { class: `badge ${sc.difficulty}` }, sc.difficulty)),
-            h('p', null, sc.blurb), !ok ? h('p', { style: 'font-weight:800' }, 'Finish Coal Coast to unlock') : null));
+          h('div', { style: 'flex:1' }, h('h3', null, sc.name, h('span', { class: `badge ${sc.difficulty}` }, sc.difficulty)),
+            h('p', null, sc.blurb),
+            h('div', { class: 'meta' }, mins ? h('span', null, `⏱ ${mins}`) : null, h('span', null, `${sc.mapW}×${sc.mapH} map`), starsOf(progress, id) > 0 ? starRow(starsOf(progress, id)) : null),
+            why ? h('p', { style: 'font-weight:800;margin-top:4px' }, why) : null));
       })),
+      !isScenarioUnlocked(progress, 'coal-coast', teacher)
+        ? h('button', { class: 'btn small ghost', onclick: () => { progress = hd.skipTutorial(); pick(); } }, 'I have played before: skip the tutorial')
+        : null,
       h('button', { class: 'btn ghost small', onclick: main }, '← Back'),
-    );
+    ].filter((x) => x !== null) as HTMLElement[]);
   };
   main();
   root.append(logo, card);
@@ -71,15 +86,21 @@ export function showTitle(hd: TitleHandlers, saved: { scenarioId: ScenarioId; ye
 // ---------------------------------------------------------------- intro
 export function showIntro(s: GameState, onGo: () => void): void {
   const sc = getScenario(s.scenarioId);
+  const act2Start = s.phase === 'act2';
   const m = openModal([
     h('div', { class: 'kicker' }, `${sc.name} · ${sc.startYear}`),
-    h('h2', null, `It's ${sc.startYear}.`),
-    h('p', null, `Your job: grow this coastal settlement into a thriving town, one decade at a time, all the way to ${sc.endYear}. People need homes, jobs and power. Every choice changes the land, the water and the air.`),
+    h('h2', null, act2Start ? `It's ${s.year}. The city is already here.` : `It's ${sc.startYear}.`),
+    h('p', null, sc.blurb),
+    act2Start
+      ? h('p', null, `There is no boom to play through: ${sc.name} starts in the transition. Time runs season by season to ${sc.act2.endYear}. Cut emissions fast, keep people safe in the heat, and keep the city on side.`)
+      : h('p', null, `Your job: grow this settlement into a thriving town, one decade at a time, all the way to ${sc.endYear}. People need homes, jobs and power. Every choice changes the land, the water and the air.`),
     h('p', null, h('b', null, 'Watch what happens to the air.'), ' The graphs track the CO₂ your town adds and how the world warms.'),
     h('div', { class: 'stat-grid' },
       h('div', { class: 'stat' }, h('small', null, 'Build'), h('div', { style: 'font-size:13px' }, 'Pick a building below, then click the map. ', h('kbd', null, 'R'), ' rotates.')),
       h('div', { class: 'stat' }, h('small', null, 'Look around'), h('div', { style: 'font-size:13px' }, 'Drag to pan, right-drag or ', h('kbd', null, 'Q'), h('kbd', null, 'E'), ' to turn, scroll to zoom.')),
-      h('div', { class: 'stat' }, h('small', null, 'Time'), h('div', { style: 'font-size:13px' }, 'Press ', h('b', null, 'Next decade'), ' when you are ready.'))),
+      act2Start
+        ? h('div', { class: 'stat' }, h('small', null, 'Time'), h('div', { style: 'font-size:13px' }, 'Pause with ', h('kbd', null, 'Space'), ' to plan; speed up with the clock buttons.'))
+        : h('div', { class: 'stat' }, h('small', null, 'Time'), h('div', { style: 'font-size:13px' }, 'Press ', h('b', null, 'Next decade'), ' when you are ready.'))),
     h('p', { class: 'ack' }, ACK),
     h('div', { class: 'modal-actions' }, h('button', { class: 'btn primary', onclick: () => { m.close(); } }, 'Let\'s build')),
   ], { onClose: onGo });
@@ -113,7 +134,7 @@ export function showDecadeReport(r: DecadeReport, onClose: () => void): ModalHan
 }
 
 // ---------------------------------------------------------------- present day + turning point
-export function showTurningPoint(s: GameState, onBegin: () => void): void {
+export function showTurningPoint(s: GameState, onBegin: () => void, storyOnly = false): void {
   const tp = s.turningPoint;
   const last = s.history[s.history.length - 1];
   const sources = last ? [...EMISSION_CATEGORIES].map((c) => ({ c, v: s.history.reduce((n, r) => n + r.emissionsKt[c], 0) })).sort((a, b) => b.v - a.v).slice(0, 3) : [];
@@ -152,15 +173,16 @@ export function showTurningPoint(s: GameState, onBegin: () => void): void {
         h('div', { class: 'stat' }, h('small', null, 'Bush remaining'), h('b', null, `${Math.round(tp.stats.bushRemaining * 100)}%`)),
         h('div', { class: 'stat' }, h('small', null, 'Warming'), h('b', null, `+${fmt1(tp.stats.tempC)} °C`))),
       h('div', { class: 'fact' }, portrait(sci, 40), h('p', null, h('b', null, `${sci.name}: `), degC(tp.scientistNote))),
-      h('p', null, h('b', null, 'Act 2: Transition. '), 'Time now runs by itself, season by season, to 2100. Clean up the power, heal the land and water, and keep people with you.'),
-      h('div', { class: 'modal-actions' }, h('button', { class: 'btn green', onclick: () => { m.close(); onBegin(); } }, svg(UI_ICONS.sprout), 'Begin the transition')),
+      h('p', null, h('b', null, 'Act 2: Transition. '), `Time now runs by itself, season by season, to ${getScenario(s.scenarioId).act2.endYear}. Clean up the power, heal the land and water, and keep people with you.`),
+      h('div', { class: 'modal-actions' }, h('button', { class: 'btn green', 'data-tut': 'start-transition', onclick: () => { m.close(); onBegin(); } }, svg(UI_ICONS.sprout), storyOnly ? 'Get to work' : 'Begin the transition')),
     ], { closable: false });
   };
-  step1();
+  if (storyOnly || s.history.length <= 1) step2();
+  else step1();
 }
 
 // ---------------------------------------------------------------- epilogue / failure
-export function showEnding(s: GameState, onTitle: () => void, card?: ReportCard): void {
+export function showEnding(s: GameState, onTitle: () => void, card?: ReportCard, next?: { label: string; go: () => void } | null, unlockedNote?: string): void {
   const failed = s.phase === 'failed';
   let objs: ReturnType<typeof objectiveStatus> = [];
   try { objs = s.a2.outcome?.objectives ?? objectiveStatus(s); } catch { objs = []; }
@@ -180,7 +202,10 @@ export function showEnding(s: GameState, onTitle: () => void, card?: ReportCard)
     h('h3', null, 'Think about it'),
     ...(rc.reflection?.length ? rc.reflection : ['What would you tell Sam and Jordan about the world you left them?']).map((q) =>
       h('div', { style: 'margin-top:8px' }, h('b', { style: 'font-size:14px' }, q), h('textarea', { class: 'reflect', rows: 2, placeholder: 'Your thoughts' }))),
-    h('div', { class: 'modal-actions' }, h('button', { class: 'btn primary', onclick: onTitle }, 'Back to title')),
+    unlockedNote ? h('div', { class: 'fact', style: 'background:#fff1c8' }, svg(UI_ICONS.star), h('p', null, h('b', null, 'Unlocked: '), unlockedNote)) : null,
+    h('div', { class: 'modal-actions' },
+      h('button', { class: `btn ${next ? '' : 'primary'}`, onclick: onTitle }, 'Back to title'),
+      next ? h('button', { class: 'btn primary', onclick: next.go }, svg(UI_ICONS.play), next.label) : null),
   ], { wide: true, closable: true });
   void objectiveRow;
 }

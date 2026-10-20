@@ -116,6 +116,7 @@ export class InstSet {
     m.receiveShadow = old.receiveShadow;
     m.customDepthMaterial = old.customDepthMaterial;
     m.renderOrder = old.renderOrder;
+    m.name = old.name;
     old.parent?.add(m);
     old.parent?.remove(old);
     old.geometry.dispose();

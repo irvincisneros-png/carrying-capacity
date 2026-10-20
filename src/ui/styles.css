@@ -329,3 +329,29 @@ kbd { font: 700 11px/1 var(--font); background: var(--paper-3); border-radius: 5
 .side.folded > :not(.panel-head) { display: none; }
 .dil-opt[disabled] { opacity: .62; cursor: not-allowed; }
 .dil-opt[disabled]:hover { border-color: var(--line); background: var(--paper-2); }
+
+/* ---------- scenario readouts, tutorial */
+.readouts { position: fixed; top: 86px; right: 10px; z-index: 19; display: flex; gap: 2px; padding: 6px 8px; }
+.readout { display: flex; align-items: center; gap: 6px; padding: 2px 8px; border-left: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.readout:first-child { border-left: 0; }
+.readout .ic { width: 22px; height: 22px; }
+.readout small { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-3); font-weight: 800; }
+.readout b { font-size: 15px; }
+.readout.g0 b { color: var(--bad); } .readout.g1 b { color: var(--warn); } .readout.g2 b { color: var(--good); }
+.graphs { top: 140px; }
+.tutorial { position: fixed; left: 10px; top: 86px; z-index: 22; width: 320px; padding: 12px 14px; border: 2px solid var(--gold); }
+.tutorial h3 { font-size: 18px; margin: 4px 0 2px; }
+.tutorial p { margin: 4px 0; font-size: 14px; }
+.tutorial.mini p, .tutorial.mini .tut-dots { display: none; }
+.tut-dots { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.tut-dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--paper-3); }
+.tut-dots i.done { background: var(--good); } .tut-dots i.cur { background: var(--gold); box-shadow: 0 0 0 3px rgba(242,182,50,.35); }
+.tut-pulse { position: relative; animation: tutpulse 1.2s ease-in-out infinite; outline: 3px solid var(--gold) !important; outline-offset: 2px; z-index: 5; }
+@keyframes tutpulse { 50% { box-shadow: 0 0 0 10px rgba(242,182,50,.0), 0 0 22px 6px rgba(242,182,50,.75); } }
+.scen .meta { display: flex; gap: 10px; flex-wrap: wrap; font-size: 12px; font-weight: 800; color: var(--ink-3); margin-top: 4px; }
+.scen .stars-s { display: inline-flex; gap: 2px; }
+.scen .stars-s .ic { width: 16px; height: 16px; }
+.star-total { display: flex; align-items: center; gap: 6px; font-weight: 900; }
+.star-total .ic { width: 22px; height: 22px; }
+@media (max-width: 900px) { .readouts { top: auto; bottom: 186px; right: auto; left: 6px; flex-wrap: wrap; max-width: 60vw; } .tutorial { top: 150px; width: min(320px, calc(100vw - 12px)); } }
+@media (max-width: 700px) { .readouts { bottom: 250px; } .tutorial { top: auto; bottom: 186px; left: 6px; } .tutorial p { font-size: 13px; } }
