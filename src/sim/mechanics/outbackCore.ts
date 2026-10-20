@@ -11,13 +11,13 @@ import { clamp, clamp01, flag } from './flags';
 export const OUTBACK = {
   startAquifer: 80,
   /** Aquifer points gained per season at rainfall 1 and average weather. */
-  recharge: 0.55,
+  recharge: 0.2,
   droughtRecharge: 0.3,
   /** Water the waterhole supplies per season when full. */
   waterholeSupply: 0.9,
   townPerPop: 0.0005,
   townSeason: [1.35, 0.9, 0.75, 1.1] as readonly number[],
-  mineUse: 0.5,
+  mineUse: 0.8,
   rehabUse: 0.012,
   boreSupply: 0.7,
   /** Aquifer points drawn per unit of water pumped. */
@@ -27,12 +27,16 @@ export const OUTBACK = {
   failBelow: 0.9,
   failFromYear: 2041,
   restrictCut: [0, 0.12, 0.25] as readonly number[],
-  stageCost: [3, 2, 1.2] as readonly number[],
+  stageCost: [2.4, 1.6, 1] as readonly number[],
   reshapeKt: 1.2,
   seedPartnership: 30,
   signoffPartnership: 45,
   monitorYears: 5,
+  /** Vegetation health a monitored tile needs to be signed off (shrubland of the right kind, not yet mature woodland). */
+  signoffHealth: 0.25,
   signedZone: 250,
+  /** Money the closed mine's rehabilitation bond releases to the town, per tile of mine site. */
+  bondPerTile: 6,
 } as const;
 
 export function seedZone(year: number): number {

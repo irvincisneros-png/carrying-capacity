@@ -9,7 +9,7 @@ export const RED_DIRT: ScenarioDef = {
   blurb: 'An outback mining town: go solar, make the water last, and give the mine ground back to Country with its Traditional Owners.',
   biome: 'arid',
   mechanics: ['outback', 'heat'],
-  playMinutes: [75, 115],
+  playMinutes: [75, 110],
   mapW: 32,
   mapH: 32,
   seed: 1893,
@@ -25,7 +25,7 @@ export const RED_DIRT: ScenarioDef = {
     seawall: { disabled: true },
     coalmine: { name: 'Open-cut mine', blurb: 'Digs minerals from the red ground. Lots of jobs, a lot of dust, a lot of water, and a pit to deal with later.' },
   },
-  modifiers: { budgetMult: 1, eventSeverity: 1.5, climateSensitivityMult: 1.1, remediationYears: 30, hintLevel: 0 },
+  modifiers: { budgetMult: 1.4, eventSeverity: 1.5, climateSensitivityMult: 1.1, remediationYears: 30, hintLevel: 0, emissionScale: 0.5 },
   policies: [
     {
       id: 'water.restrict', label: 'Water restrictions', min: 0, max: 2, step: 1, default: 0, unit: 'level',

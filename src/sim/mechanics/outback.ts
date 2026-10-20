@@ -6,7 +6,7 @@ import { TileKind } from '../types';
 import type { GameState } from '../types';
 import { addFlag, clamp, clamp01, eventActive, flag, setFlag } from './flags';
 import {
-  boreCount, minesOpen, OUTBACK, storageCapacity, townWaterDemand,
+  boreCount, minesOpen, OUTBACK, siteTiles, storageCapacity, townWaterDemand,
 } from './outbackCore';
 import { policyValue } from '../policyCore';
 
@@ -71,7 +71,7 @@ export function outbackYear(s: GameState): void {
     const seededYear = 2000 + (z - 100);
     if (s.year - seededYear < OUTBACK.monitorYears) continue;
     if (g.kind[i] === TileKind.Pit) continue;
-    const ok = (g.stage[i] ?? 0) >= 2 && (g.health[i] ?? 0) >= 0.38 && g.weed[i] === 0 && (g.soilContamination[i] ?? 0) <= 0.5;
+    const ok = (g.stage[i] ?? 0) >= 1 && (g.health[i] ?? 0) >= OUTBACK.signoffHealth && g.weed[i] === 0 && (g.soilContamination[i] ?? 0) <= 0.5;
     if (ok && partnership >= OUTBACK.signoffPartnership) {
       g.zone[i] = OUTBACK.signedZone;
       newly++;
@@ -82,5 +82,17 @@ export function outbackYear(s: GameState): void {
       channel: 'country', tone: 'joy', needsConsultation: true,
     }, 0.5);
   }
-  if (minesOpen(s) === 0) setFlag(s, 'o.mineClosedYear', flag(s, 'o.mineClosedYear', s.year));
+  if (minesOpen(s) === 0) {
+    setFlag(s, 'o.mineClosedYear', flag(s, 'o.mineClosedYear', s.year));
+    // Every mine posts a bond so the ground can be put right. When the last mine closes, the bond is released to the town.
+    const total = siteTiles(s).total;
+    if (flag(s, 'o.bond') === 0 && total > 0) {
+      const bond = Math.round(total * OUTBACK.bondPerTile);
+      s.budget += bond;
+      setFlag(s, 'o.bond', bond);
+      emitStory(s, `The last mine has closed, and its rehabilitation bond of ${bond} has been released to the town. It is set aside for putting the ground right: reshape, topsoil, seed, monitor.`, {
+        channel: 'town', tone: 'neutral',
+      }, 0.6);
+    }
+  }
 }
