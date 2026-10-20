@@ -497,25 +497,25 @@ const kids: ResidentDef = {
   beats: [
     {
       id: 'tia-ben-dish', title: 'The new dish',
-      when: { phase: ['act1'], years: [2000, 2020] },
+      when: { phase: ['act1'], years: [2015, 2020] },
       text: 'The new satellite dish came on Tuesday! Now our teacher is a face on the screen, not just a voice on the radio. Ben waved at her for five minutes. We usually learn from home through School of the Air, and we go to the waterhole whenever we can.',
       tone: 'joy',
     },
     {
       id: 'tia-ben-budgies', title: 'Budgie count',
-      when: { phase: ['act2'], years: [2026, 2100], all: [t('pop.budgerigar', '>=', 20)] },
+      when: { phase: ['act2'], years: [2026, 2045], all: [t('pop.budgerigar', '>=', 20)] },
       text: 'Today\'s budgie count at the waterhole was {budgies}! Tia counted in fives and I counted in tens and we still got the same answer. They drink at sunrise, in rows, like a green and yellow ribbon. Our teacher put the numbers on the board.',
       tone: 'joy',
     },
     {
       id: 'tia-ben-bilby', title: 'Fresh diggings',
-      when: { phase: ['act2'], years: [2030, 2100], all: [t('pop.bilby', '>=', 1)] },
+      when: { phase: ['act2'], years: [2030, 2050], all: [t('pop.bilby', '>=', 1)] },
       text: 'We found fresh bilby diggings by the mulga, with a tail drag next to them! Ben took a photo. The ranger said it means the shrubland is healing. We are writing a letter to the Flying Doctor to tell them the news.',
       tone: 'joy',
     },
     {
       id: 'tia-ben-shade', title: 'The hot playground',
-      when: { phase: ['act2'], years: [2026, 2075] },
+      when: { phase: ['act2'], years: [2026, 2042] },
       text: 'It was forty-four at our school gathering this term and the swings were too hot to use. Mum says we need shade trees and a rain tank in the yard. We wrote it in our class newsletter. Will you help us plant them?',
       tone: 'neutral',
       choice: {
@@ -533,12 +533,12 @@ const kids: ResidentDef = {
     {
       id: 'tia-ben-empty', title: 'Zero budgies',
       when: { phase: ['act2'], years: [2040, 2100], all: [t('pop.budgerigar', '<=', 0)] },
-      text: 'We counted {budgies} budgies at the waterhole at sunrise, and wrote down the date, the weather and how long we watched. Ben did not say anything for a long time. Then he asked if they would come back when it rained. Mum said she hoped so.',
+      text: 'We took our own kids to the waterhole at sunrise, the way Mum used to take us. We counted {budgies} budgies and wrote down the date, the weather and how long we watched. Ben\'s little girl asked if they would come back when it rained. We said we hoped so.',
       tone: 'loss',
     },
     {
       id: 'tia-ben-grown', title: 'Grown up on Country',
-      when: { phase: ['act2'], years: [2065, 2100], all: [t('wildlifeAlive', '>=', 2)] },
+      when: { phase: ['act2'], years: [2046, 2070], all: [t('wildlifeAlive', '>=', 2)] },
       text: 'We are grown now. Ben is a ranger and Tia studies desert animals at uni. We still count budgies when we are home, and the numbers are mostly good. We kept every letter we wrote to the Flying Doctor.',
       tone: 'warm',
     },

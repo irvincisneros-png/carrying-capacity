@@ -401,7 +401,7 @@ const twins: ResidentDef = {
     },
     {
       id: 'ruby-grown', title: 'Letter from the weir pool',
-      when: { phase: ['act2'], years: [2070, 2100], all: [t('riverHealth', '>=', 55)] },
+      when: { phase: ['act2'], years: [2045, 2075], all: [t('riverHealth', '>=', 55)] },
       text: 'We are grown up now, and Ruby is a river ranger. Eli is a teacher and takes his class to the weir pool every spring. The water is clear and the diary is on its eighth volume. The frogs are still going.',
       tone: 'joy',
     },
