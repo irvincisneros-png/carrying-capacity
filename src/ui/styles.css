@@ -290,6 +290,24 @@ kbd { font: 700 11px/1 var(--font); background: var(--paper-3); border-radius: 5
 .inspect .kv b { font-variant-numeric: tabular-nums; }
 
 /* ---------- narrow screens */
+/* Laptop widths: Act 2 adds up to six more HUD buttons, so tighten everything rather than push buttons off-screen. */
+@media (max-width: 1500px) and (min-width: 901px) {
+  .hud { gap: 8px; }
+  .iconbtn { width: 36px; height: 36px; border-radius: 10px; }
+  .iconbtn .ic { width: 20px; height: 20px; }
+  .hud-right { gap: 4px; }
+  .hud-meters { max-width: 420px; gap: 10px; padding: 8px 10px; }
+  .meter-top .lbl { display: none; }
+  .hud-year { font-size: 22px; padding: 2px 8px 2px 6px; }
+  .hud-year small { white-space: nowrap; }
+  .hud-stat { padding: 4px 8px; font-size: 15px; }
+  .hud-stat small { white-space: nowrap; }
+  .hud-climate { padding: 5px 6px; }
+}
+@media (max-width: 1300px) and (min-width: 901px) {
+  .hud-left .hud-stat small, .hud-climate .hud-stat small { display: none; }
+  .hud-meters { max-width: 360px; }
+}
 @media (max-width: 900px) {
   .hud-meters { order: 3; flex-basis: 100%; max-width: none; padding: 6px 10px; gap: 10px; }
   .hud { flex-wrap: wrap; }
@@ -356,3 +374,24 @@ kbd { font: 700 11px/1 var(--font); background: var(--paper-3); border-radius: 5
 .star-total .ic { width: 22px; height: 22px; }
 @media (max-width: 900px) { .readouts { top: auto; bottom: 186px; right: auto; left: 6px; flex-wrap: wrap; max-width: 60vw; } .tutorial { top: 150px; width: min(320px, calc(100vw - 12px)); } }
 @media (max-width: 700px) { .readouts { bottom: 250px; } .tutorial { top: auto; bottom: 186px; left: 6px; } .tutorial p { font-size: 13px; } }
+/* Short laptop screens: keep the power-grid panel clear of the build dock's tab row. */
+@media (max-height: 820px) and (min-width: 901px) {
+  .energy { bottom: 200px; }
+  .weather small { white-space: nowrap; }
+}
+
+/* Act 2 Goals / Power buttons (phones only). */
+.act2btns { bottom: 150px; }
+/* Phones: everything has to fit 375px. */
+@media (max-width: 700px) {
+  .iconbtn { width: 34px; height: 34px; border-radius: 10px; }
+  .iconbtn .ic { width: 20px; height: 20px; }
+  .hud-right { flex-wrap: wrap; gap: 4px; }
+  .tabs { justify-content: flex-start; overflow-x: auto; max-width: 100%; align-self: stretch; scrollbar-width: none; }
+  .tab { flex: 0 0 auto; padding: 6px 9px; }
+  .tab .badge { padding: 0 !important; width: 8px; height: 8px; border-radius: 50%; font-size: 0 !important; }
+  .clock { bottom: 214px; left: 6px; right: auto; max-width: calc(100vw - 120px); }
+  .clock .weather, .clock .hazards { display: none; }
+  .act2btns { bottom: 214px; right: 6px; flex-direction: column; }
+  .act2btns .btn { padding: 7px 10px; }
+}

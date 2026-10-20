@@ -156,7 +156,7 @@ export class App {
     this.nextBtn = h('button', { class: 'btn primary nextbtn', onclick: () => this.nextDecade() }, svg(UI_ICONS.clock), 'Next decade');
     this.action = h('div', { class: 'action' }, this.demand, this.nextBtn);
     this.undoBtn = h('button', { class: 'btn small undo hidden', onclick: () => this.undo(), title: 'Undo last building (Ctrl+Z)' }, svg(UI_ICONS.undo), 'Undo');
-    this.act2Buttons = h('div', { class: 'action hidden', style: 'bottom:150px' },
+    this.act2Buttons = h('div', { class: 'action act2btns hidden' },
       h('button', { class: 'btn small', onclick: () => this.objectives.el.classList.toggle('open') }, svg(UI_ICONS.target), 'Goals'),
       h('button', { class: 'btn small', onclick: () => this.energy.el.classList.toggle('open') }, svg(UI_ICONS.bolt), 'Power'));
     this.logList = h('div');
