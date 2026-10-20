@@ -99,7 +99,8 @@ describe('power', () => {
   });
   it('demand text has a fallback when nothing is short', () => {
     const s = sandbox(TileKind.Land, { year: 1850 });
-    expect(computeDemand(s).items).toHaveLength(1);
+    expect(computeDemand(s).items).toHaveLength(0);
+    expect(computeDemand(s).text).toMatch(/^Your town needs: nothing urgent/);
   });
 });
 

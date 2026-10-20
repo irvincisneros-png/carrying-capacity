@@ -40,7 +40,7 @@ export const GREEN_VALLEY_DILEMMAS: readonly DilemmaDef[] = [
     phase: 'act2',
     years: [2025, 2035],
     speaker: 'ali-rahman',
-    setup: 'The valley needs more solar power. Jo has offered her top paddock, which is flat and sunny. Ali points to the old landfill instead: it is already cleared, and nobody can grow food there. Rooftops are a third choice, though small.',
+    setup: 'The valley needs more solar power. Jo has offered her top paddock, which is flat and sunny. Ali points to ground that is already disturbed instead, like an old tip or mine edge: it is already cleared, and nobody can grow food there. Rooftops are a third choice, though small.',
     options: [
       {
         id: 'paddock', label: 'Put the panels on Jo\'s top paddock',
@@ -52,8 +52,8 @@ export const GREEN_VALLEY_DILEMMAS: readonly DilemmaDef[] = [
         },
       },
       {
-        id: 'landfill', label: 'Put the panels on the old landfill',
-        outcome: 'The old landfill gets a second life. The rubbish is capped and panels go on top, while the farmland stays green. It takes a bit more care to build.',
+        id: 'landfill', label: 'Put the panels on already-disturbed ground',
+        outcome: 'Worn-out ground gets a second life. Engineers check it is stable and capped, and panels go on top while the farmland stays green. It takes a bit more care to build.',
         effects: { budget: -16, society: 1, mood: { 'jo-marsh': 4, 'ali-rahman': 5 }, flags: { 'circular.landfillSolar': 1 } },
         evidenceBacked: true,
         preview: {

@@ -25,13 +25,31 @@ export interface Availability {
 }
 
 /** Building availability for a scenario (applies overrides). */
+/**
+ * Buildings made for one scenario's mechanics only appear in the places that use them (an island resort makes no
+ * sense in Green Valley, and a cooling centre does nothing where there is no heat-health model).
+ */
+const HOME_SCENARIOS: Partial<Record<BuildingId, readonly GameState['scenarioId'][]>> = {
+  resort: ['reef-island'],
+  coralnursery: ['reef-island'],
+  fishway: ['river-town'],
+  dripfarm: ['river-town', 'red-dirt'],
+  bore: ['river-town', 'red-dirt'],
+  coolingcentre: ['red-dirt', 'net-zero-city'],
+  seawall: ['coal-coast', 'reef-island'],
+  transitline: ['coal-coast', 'net-zero-city'],
+  greensuburb: ['coal-coast', 'net-zero-city'],
+  parkland: ['coal-coast', 'red-dirt', 'net-zero-city'],
+};
+
 export function availability(scenarioId: GameState['scenarioId'], id: BuildingId): Availability {
   const def = BUILDINGS[id];
   const o = getScenario(scenarioId).availability[id];
+  const home = HOME_SCENARIOS[id];
   return {
     unlock: o?.unlock ?? def.unlock,
     cost: o?.cost ?? def.cost,
-    disabled: o?.disabled ?? false,
+    disabled: o?.disabled ?? (home ? !home.includes(scenarioId) : false),
     name: o?.name ?? def.name,
     blurb: o?.blurb ?? def.blurb,
   };

@@ -357,6 +357,10 @@ function voiceMeta(s: GameState): { speakerId?: string; speaker?: string; portra
   return v ? { speakerId: v.id, speaker: v.name, portrait: v.portrait } : {};
 }
 
+const WATER_WORD: Partial<Record<GameState['scenarioId'], string>> = {
+  'coal-coast': 'estuary', 'green-valley': 'creek', 'river-town': 'river', 'reef-island': 'lagoon', 'red-dirt': 'country', 'net-zero-city': 'harbour',
+};
+
 /** Year end: opens the tier when 2050 arrives or the Clean objectives are met. */
 export function circularYear(s: GameState): void {
   if (!s.circular.unlocked) {
@@ -368,7 +372,7 @@ export function circularYear(s: GameState): void {
       s.flags['tier.circular'] = 1;
       const waiting = s.circular.items.filter((i) => i.status === 'standing' || i.status === 'rubble').length;
       emitStory(s, reason === 'clean'
-        ? `The town runs on clean power and the estuary is recovering. Now comes the next step: what to do with the old industrial sites. ${waiting} are waiting. Repurpose is best, recycling is next, landfill is last.`
+        ? `The town runs on clean power and the ${WATER_WORD[s.scenarioId] ?? 'water'} is recovering. Now comes the next step: what to do with the old industrial sites. ${waiting} are waiting. Repurpose is best, recycling is next, landfill is last.`
         : `It is ${s.year}. The old industrial sites can no longer be ignored: ${waiting} are waiting. The waste hierarchy says repurpose first, then recycle, and landfill only as a last resort.`,
       { channel: 'circular', ref: 'tier.unlocked', tone: 'neutral', ...voiceMeta(s) }, 0.5);
     }

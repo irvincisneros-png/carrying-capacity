@@ -53,7 +53,7 @@ export function doStep(state: GameState): GameState | null {
     }
     return null;
   }
-  if (hl === 'tool:demolish') {
+  if (hl === 'tool:demolish' || st.current.id === 'swap') {
     const b = state.buildings.find((o) => o.type === 'coalpower');
     if (!b) return null;
     // The graph has to show clean power covering the town first: add panels and batteries until it does.
@@ -61,7 +61,10 @@ export function doStep(state: GameState): GameState | null {
       const more = greenGridStep(state, { gen: 'solarfarm', storage: 'battery', maxBuys: 1, reserve: 0 });
       return more === state ? null : more;
     }
-    return applyAction(state, { type: 'demolish', x: b.x, y: b.y }).state;
+    // Retire it the way the guide says: through the Old sites tool (recycle), once the circular tier is open.
+    if (!state.circular.unlocked) return null;
+    const r = applyAction(state, { type: 'dispose', x: b.x, y: b.y, how: 'recycle' });
+    return r.result.ok ? r.state : null;
   }
   if (hl === 'tool:dispose') {
     const s2 = disposeLegacy(state, { reserve: 5 });

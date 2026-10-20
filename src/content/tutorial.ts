@@ -74,8 +74,8 @@ const GREEN_VALLEY_STEPS: readonly TutorialStep[] = [
     done: { all: [t('acts.built.battery', '>=', 1)] },
   },
   {
-    id: 'swap', title: 'Retire the coal', phase: ['act2'], highlight: 'tool:demolish',
-    instruction: 'When the grid graph shows clean power covering the town, demolish the Coal power station. Do it too early and the lights go out, too late and carbon keeps piling up.',
+    id: 'swap', title: 'Retire the coal', phase: ['act2'], highlight: 'tool:dispose',
+    instruction: 'When clean power covers the town by day and night, retire the Coal power station: pick the Old sites tool (it appears once the valley runs on clean power) and recycle or repurpose it. Plain Demolish means landfill, the worst choice. Too early and the lights go out.',
     done: { all: [t('acts.demolished.coalpower', '>=', 1)] },
   },
   {
@@ -100,7 +100,7 @@ const GREEN_VALLEY_STEPS: readonly TutorialStep[] = [
   },
   {
     id: 'recycle', title: 'Give an old site a second life', phase: ['act2'], highlight: 'tool:dispose',
-    instruction: 'From 2030 the old factory, mine, power station and tip can be dealt with by the waste hierarchy. Click one with the Repurpose tool. Repurposing is best, recycling next, and landfill is a last resort.',
+    instruction: 'From 2030 the old factory, mine, power station and tip can be dealt with by the waste hierarchy. Pick the Old sites tool (bottom bar) and click one to choose its future. Repurposing is best, recycling next, and landfill is a last resort.',
     done: { all: [t('legacyPct', '>=', 50)] },
   },
   {

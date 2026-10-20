@@ -237,7 +237,6 @@ export function computeDemand(state: GameState): Demand {
     items.push('plan for electricity - the grid starts in 1920');
   }
   if (s.unemployed > 20) items.push(`work for ${s.unemployed} people without jobs`);
-  if (items.length === 0) items.push('keep growing - what will your town build next?');
-  const text = `Your town needs: ${items.join('; ')}.`;
+  const text = items.length ? `Your town needs: ${items.join('; ')}.` : 'Your town needs: nothing urgent right now. What will you build next?';
   return { text, items };
 }
