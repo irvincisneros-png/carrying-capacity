@@ -215,7 +215,8 @@ describe('event system', () => {
     expect(s.events.length).toBeGreaterThan(0);
     for (const e of s.eventLog) {
       expect(e.text.length).toBeGreaterThan(15);
-      expect(e.year).toBeGreaterThanOrEqual(2020);
+      // Story events from Act 1 (residents, dilemma cards) are older; the hazards are all Act 2.
+      if (e.type !== 'story') expect(e.year).toBeGreaterThanOrEqual(2020);
     }
     const c = consumeEvents(s);
     expect(c.events.length).toBe(s.events.length);
@@ -330,8 +331,8 @@ describe('objectives', () => {
 });
 
 describe('save / load for Act 2', () => {
-  it('has bumped the save version to 2', () => {
-    expect(SAVE_VERSION).toBe(2);
+  it('has bumped the save version to 3 (empathy layers)', () => {
+    expect(SAVE_VERSION).toBe(3);
   });
   it('round-trips an Act 2 game exactly, including typed arrays, events and the clock', () => {
     let s = startAct2(dirtyEnd);
@@ -382,7 +383,7 @@ describe('save / load for Act 2', () => {
     s = advanceDecade(s).state;
     const back = deserialize(asV1(s));
     expect(back).not.toBeNull();
-    expect(back?.saveVersion).toBe(2);
+    expect(back?.saveVersion).toBe(SAVE_VERSION);
     expect(back?.phase).toBe('act1');
     expect(back?.year).toBe(1870);
     expect(back?.grid.health.length).toBe(s.grid.kind.length);

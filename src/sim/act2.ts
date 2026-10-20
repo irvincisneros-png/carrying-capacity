@@ -13,6 +13,8 @@ import {
 import type { RestoreCtx } from './restoration';
 import { MICRO, seasonIndexOf } from './season';
 import { getScenario } from './scenarios';
+import { beginAct2, layersSeason, layersYearEnd } from './layers';
+import { wasteEmissionsMult } from './circular';
 import { cloneState, emptyAct2, emptyEmissions } from './state';
 import { EMISSION_CATEGORIES, TileKind } from './types';
 import type { Season, SimEvent, GameState, Outcome, YearRecord } from './types';
@@ -70,6 +72,7 @@ export function startAct2(state: GameState): GameState {
   const rctx = buildRestoreCtx(s);
   let guard = 0;
   while (s.year < sc.act2.startYear && s.phase === 'act2' && guard++ < 4000) processSeason(s, rctx, true);
+  beginAct2(s);
   s.meters = computeMeters(s);
   for (const c of s.grid.chunkVersion.keys()) s.grid.chunkVersion[c] = ((s.grid.chunkVersion[c] ?? 0) + 1) >>> 0;
   s.version = state.version + 1;
@@ -113,6 +116,7 @@ export function processSeason(s: GameState, rctx: RestoreCtx, quiet: boolean, di
   const idx = seasonIndexOf(s);
   const season = a2.season;
   const emitted: SimEvent[] = [];
+  const firstId = a2.nextEventId;
   a2.active = a2.active.filter((e) => e.endsAt > idx);
 
   if (!quiet) emitted.push(...rollEvents(makeCtx(s, idx, null, rctx), 'pre'));
@@ -142,6 +146,7 @@ export function processSeason(s: GameState, rctx: RestoreCtx, quiet: boolean, di
 
   stepReef(s);
   stepSuccession(s, rctx, idx, season);
+  if (!quiet) layersSeason(s, emitted, idx);
 
   a2.stressSum += a2.stress;
   a2.yearSeasons += 1;
@@ -151,19 +156,21 @@ export function processSeason(s: GameState, rctx: RestoreCtx, quiet: boolean, di
   for (const c of bumpChangedChunks(s.grid, before)) dirty?.add(c);
   s.version += 1;
   if (season === 3) {
-    yearEnd(s);
+    yearEnd(s, quiet);
   } else {
     a2.season = (season + 1) as Season;
   }
-  return emitted;
+  // Everything raised this season, including story events from the empathy layers.
+  return a2.nextEventId > firstId ? s.eventLog.filter((e) => e.id >= firstId) : emitted;
 }
 
-function yearEnd(s: GameState): void {
+function yearEnd(s: GameState, quiet: boolean): void {
   const sc = getScenario(s.scenarioId);
   const a2 = s.a2;
   const em = a2.yearEm;
   em.land += s.pendingLandKt;
   s.pendingLandKt = 0;
+  em.waste *= wasteEmissionsMult(s);
   const total = EMISSION_CATEGORIES.reduce((n, c) => n + em[c], 0);
   const unmet = a2.yearSeasons > 0 ? a2.yearUnmetSum / a2.yearSeasons : 0;
   a2.lastUnmetFrac = unmet;
@@ -173,7 +180,8 @@ function yearEnd(s: GameState): void {
   s.population = Math.max(0, Math.round(s.population + (housing - s.population) * ACT2_POP_GROWTH));
   const snap = economySnapshot(s);
   const income = ((snap.filledJobs * INCOME_PER_JOB + BASE_GRANT) * sc.modifiers.budgetMult / 10) * ACT2_INCOME_MULT * (1 - 0.8 * unmet);
-  s.lastIncome = Math.round(income);
+  const incomeAdj = typeof s.flags['income.adj'] === 'number' ? s.flags['income.adj'] : 0;
+  s.lastIncome = Math.round(income + incomeAdj);
   s.budget += s.lastIncome;
 
   // Climate: emissions -> CO2 -> equilibrium temperature; actual temperature lags (committed warming).
@@ -185,6 +193,7 @@ function yearEnd(s: GameState): void {
   s.co2 = clim.co2;
   a2.eqTempC = clim.tempC;
   s.tempC += (clim.tempC - s.tempC) * (1 - Math.exp(-1 / WARMING_TAU_YEARS));
+  if (!quiet) layersYearEnd(s);
 
   s.meters = computeMeters(s);
   for (const k of ['economy', 'society', 'environment'] as const) {

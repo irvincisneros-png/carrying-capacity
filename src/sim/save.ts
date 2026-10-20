@@ -3,9 +3,12 @@ import { SAVE_VERSION, createGame } from './game';
 import { isScenarioId } from './scenarios';
 import { getScenario } from './scenarios';
 import { EMISSION_CATEGORIES } from './types';
-import { chunkCount } from './terrain';
+import { chunkCount, markSignificant } from './terrain';
 import { enterTurningPoint } from './act2';
 import { emptyAct2 } from './state';
+import { emptyLayers, reconcileLayers } from './layers';
+import { initCircular } from './circular';
+import { initWildlife } from './wildlife';
 import type {
   Act2State, GameState, GameStatus, HistoryRecord, Meters, Phase, PlacedBuilding, ScenarioId, SimEvent, TileGrid,
   TurningPoint,
@@ -32,6 +35,7 @@ interface SerialGrid {
   stage: number[];
   weed: number[];
   chunkVersion: number[];
+  significant: number[];
 }
 type SerialState = Omit<GameState, 'grid'> & { grid: SerialGrid };
 
@@ -50,6 +54,7 @@ export function serialize(state: GameState): string {
     stage: Array.from(g.stage),
     weed: Array.from(g.weed),
     chunkVersion: Array.from(g.chunkVersion),
+    significant: Array.from(g.significant),
   };
   const out: SerialState = { ...state, grid };
   return JSON.stringify(out);
@@ -68,6 +73,26 @@ function validEvent(e: unknown): boolean {
     isObj(e) && fin(e.id) && fin(e.year) && fin(e.season) && fin(e.seasonIndex) && fin(e.severity) &&
     typeof e.text === 'string' && typeof e.type === 'string'
   );
+}
+
+const recNums = (v: unknown): boolean => isObj(v) && Object.values(v).every(fin);
+const strArr = (v: unknown): v is string[] => Array.isArray(v) && v.every((x) => typeof x === 'string');
+
+/** Light structural checks on the v3 layer state; anything off rejects the save. */
+function validLayers(r: Record<string, unknown>): boolean {
+  const res = r.residents, dil = r.dilemmas, wl = r.wildlife, co = r.country, ci = r.circular, sa = r.satellites;
+  if (!isObj(res) || !isObj(res.list) || !recNums(res.fired) || !isObj(res.choices) || !strArr(res.pending)) return false;
+  if (!recNums(res.actions) || !fin(res.nudge) || !fin(res.applied) || !recNums(res.peaks) || !Array.isArray(res.history)) return false;
+  if (!Object.values(res.list).every((m) => isObj(m) && fin(m.mood) && fin(m.trend) && fin(m.lastBeatYear))) return false;
+  if (!isObj(dil) || !recNums(dil.offered) || !strArr(dil.pending) || !Array.isArray(dil.decisions) || !fin(dil.adjust)) return false;
+  if (!isObj(wl) || !isObj(wl.species) || typeof wl.initialised !== 'boolean' || !fin(wl.lastYear) || !fin(wl.roadKills)) return false;
+  if (!Object.values(wl.species).every((x) => isObj(x) && fin(x.pop) && fin(x.peak) && fin(x.startPop) && isObj(x.families) && Array.isArray(x.history))) return false;
+  if (!isObj(co) || !fin(co.partnership) || !Array.isArray(co.consulted) || !Array.isArray(co.disturbed) || !Array.isArray(co.comanaged)) return false;
+  if (!Array.isArray(co.burns) || !Array.isArray(co.boosts) || !isObj(co.unlocked) || !Array.isArray(co.log) || !fin(co.lastGrowthYear)) return false;
+  if (!isObj(ci) || !Array.isArray(ci.items) || typeof ci.unlocked !== 'boolean' || !strArr(ci.research) || !fin(ci.returnedBudget) || !fin(ci.disposalKt)) return false;
+  if (!ci.items.every((it) => isObj(it) && typeof it.type === 'string' && isBuildingId(it.type) && fin(it.uid) && fin(it.x) && fin(it.y) && fin(it.w) && fin(it.h) && typeof it.status === 'string')) return false;
+  if (!isObj(sa) || !isObj(sa.overlays) || !fin(sa.warningsGiven) || !fin(sa.mitigations) || !fin(sa.savedPct)) return false;
+  return true;
 }
 
 function validA2(a: unknown): a is Act2State {
@@ -98,7 +123,7 @@ export function deserialize(text: string | null): GameState | null {
     const raw: unknown = JSON.parse(text);
     if (!isObj(raw)) return null;
     const ver = raw.saveVersion;
-    if (ver !== 1 && ver !== SAVE_VERSION) return null;
+    if (ver !== 1 && ver !== 2 && ver !== SAVE_VERSION) return null;
     if (typeof raw.scenarioId !== 'string' || !isScenarioId(raw.scenarioId)) return null;
     const scenarioId: ScenarioId = raw.scenarioId;
     const sc = getScenario(scenarioId);
@@ -108,9 +133,10 @@ export function deserialize(text: string | null): GameState | null {
     if (!finArr(g.kind, n) || !finArr(g.elevation, n) || !finArr(g.building, n)) return null;
     if (!finArr(g.airPollution, n) || !finArr(g.waterPollution, n) || !finArr(g.soilContamination, n)) return null;
     const nChunks = chunkCount(sc.mapW, sc.mapH);
-    if (ver === SAVE_VERSION) {
+    if (ver >= 2) {
       if (!finArr(g.health, n) || !finArr(g.stage, n) || !finArr(g.weed, n) || !finArr(g.chunkVersion, nChunks)) return null;
     }
+    if (ver === SAVE_VERSION && !finArr(g.significant, n)) return null;
     if (g.kind.some((k) => !Number.isInteger(k) || k < 0 || k > 7)) return null;
     if (!fin(raw.seed) || !fin(raw.year) || !fin(raw.budget) || !fin(raw.population) || !fin(raw.lastIncome)) return null;
     if (!fin(raw.nextUid) || !fin(raw.pendingLandKt) || !fin(raw.cumulativeKt) || !fin(raw.co2) || !fin(raw.tempC)) return null;
@@ -161,18 +187,20 @@ export function deserialize(text: string | null): GameState | null {
       airPollution: Float32Array.from(g.airPollution),
       waterPollution: Float32Array.from(g.waterPollution),
       soilContamination: Float32Array.from(g.soilContamination),
-      health: ver === SAVE_VERSION ? Float32Array.from(g.health as number[]) : new Float32Array(n),
-      stage: ver === SAVE_VERSION ? Uint8Array.from(g.stage as number[]) : new Uint8Array(n),
-      weed: ver === SAVE_VERSION ? Uint8Array.from(g.weed as number[]) : new Uint8Array(n),
-      chunkVersion: ver === SAVE_VERSION ? Uint32Array.from(g.chunkVersion as number[]) : new Uint32Array(nChunks),
+      health: ver >= 2 ? Float32Array.from(g.health as number[]) : new Float32Array(n),
+      stage: ver >= 2 ? Uint8Array.from(g.stage as number[]) : new Uint8Array(n),
+      weed: ver >= 2 ? Uint8Array.from(g.weed as number[]) : new Uint8Array(n),
+      chunkVersion: ver >= 2 ? Uint32Array.from(g.chunkVersion as number[]) : new Uint32Array(nChunks),
+      significant: ver === SAVE_VERSION ? Uint8Array.from(g.significant as number[]) : new Uint8Array(n),
     };
+    if (ver !== SAVE_VERSION) markSignificant(grid);
 
     let a2: Act2State = emptyAct2(sc.act2.startYear, raw.tempC);
     let flags: Record<string, boolean | number> = {};
     let events: SimEvent[] = [];
     let eventLog: SimEvent[] = [];
     let turningPoint: TurningPoint | null = null;
-    if (ver === SAVE_VERSION) {
+    if (ver >= 2) {
       if (!validA2(raw.a2)) return null;
       a2 = raw.a2;
       if (!isObj(raw.flags) || !Object.values(raw.flags).every((v) => typeof v === 'boolean' || fin(v))) return null;
@@ -215,8 +243,24 @@ export function deserialize(text: string | null): GameState | null {
       events,
       eventLog,
       turningPoint,
+      ...emptyLayers(scenarioId),
     };
+    if (ver === SAVE_VERSION) {
+      if (!validLayers(raw)) return null;
+      state.residents = raw.residents as GameState['residents'];
+      state.dilemmas = raw.dilemmas as GameState['dilemmas'];
+      state.wildlife = raw.wildlife as GameState['wildlife'];
+      state.country = raw.country as GameState['country'];
+      state.circular = raw.circular as GameState['circular'];
+      state.satellites = raw.satellites as GameState['satellites'];
+    }
     if (ver === 1 && phase === 'turning-point') enterTurningPoint(state);
+    if (ver !== SAVE_VERSION && (phase === 'act2' || phase === 'epilogue' || phase === 'failed')) {
+      // Migrating a game that is already in Act 2: legacy sites are the buildings from before the transition.
+      initCircular(state, (b) => b.builtYear <= sc.endYear);
+      initWildlife(state);
+    }
+    reconcileLayers(state);
     return state;
   } catch {
     return null;

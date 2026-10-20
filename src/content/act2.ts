@@ -12,6 +12,8 @@ export const EVENT_TEXT = {
     ' Runoff has washed soil and farm chemicals into the river.',
   marineHeatwave: (pctLost: number): string =>
     `Marine heatwave: the sea stayed unusually hot for weeks and the reef bleached. About ${pctLost}% of the coral health was lost.`,
+  marineWarning: (): string =>
+    'Satellite warning: sea-surface temperature is climbing off the reef. A marine heatwave is expected to arrive next season. Cutting runoff from the town now would help the coral cope.',
   bushfire: (tiles: number, hot: boolean, homes: number): string =>
     `Bushfire: ${hot ? 'a hot, fast fire' : 'a lower-intensity fire'} burned ${tiles} tiles of bush${homes > 0 ? ` and threatened ${homes} home${homes > 1 ? 's' : ''}` : ''}. ${hot ? 'Hot fires leave bare ground - regrowth starts again from nothing.' : 'The bush will recover faster from a cooler burn.'}`,
   fishKill: (tiles: number): string =>

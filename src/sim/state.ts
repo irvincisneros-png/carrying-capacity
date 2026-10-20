@@ -43,7 +43,7 @@ export function cloneAct2(a: Act2State): Act2State {
   };
 }
 
-/** Structural copy: typed arrays copied, building / event / history records shared (treated as immutable). */
+/** Structural copy: typed arrays copied, building / event / history records shared (treated as immutable); layer state deep-copied. */
 export function cloneState(s: GameState): GameState {
   return {
     ...s,
@@ -55,5 +55,12 @@ export function cloneState(s: GameState): GameState {
     flags: { ...s.flags },
     events: s.events.slice(),
     eventLog: s.eventLog.slice(),
+    // The empathy layers are small plain data, so a deep copy keeps every action and tick pure.
+    residents: structuredClone(s.residents),
+    dilemmas: structuredClone(s.dilemmas),
+    wildlife: structuredClone(s.wildlife),
+    country: structuredClone(s.country),
+    circular: structuredClone(s.circular),
+    satellites: structuredClone(s.satellites),
   };
 }

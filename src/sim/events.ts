@@ -9,7 +9,9 @@ import { SEASON_NAMES, TileKind } from './types';
 import type { EventType, GameState, GridReport, Season, SimEvent } from './types';
 import type { Rng } from './rng';
 
-export const EVENT_LOG_CAP = 300;
+export const EVENT_LOG_CAP = 800;
+/** Share of the normal coral loss that remains after acting on a satellite warning. */
+export const MITIGATED_LOSS = 0.45;
 export const EVENT_QUEUE_CAP = 200;
 
 export interface EventCtx {
@@ -69,7 +71,8 @@ export function fireDanger(c: EventCtx): number {
   const dry = isActive(c.state, 'drought', c.idx) ? 2.5 : 1;
   const hot = isActive(c.state, 'heatwave', c.idx) ? 1.8 : 1;
   const burning = 1 - 0.6 * clamp(flagNum(c.state, 'culturalBurning'), 0, 1);
-  return clamp(base * warm(1.1, c.warming) * c.mult * sc.act2.fireProneness * fuel * dry * hot * burning, 0, 0.9);
+  const prep = 1 - 0.2 * clamp(flagNum(c.state, 'fire.prep'), 0, 1) - 0.1 * clamp(flagNum(c.state, 'fire.buyback'), 0, 1);
+  return clamp(base * warm(1.1, c.warming) * c.mult * sc.act2.fireProneness * fuel * dry * hot * burning * prep, 0, 0.9);
 }
 
 export const EVENTS: readonly EventDef[] = [
@@ -202,19 +205,38 @@ export const EVENTS: readonly EventDef[] = [
   {
     type: 'marine-heatwave', name: 'Marine heatwave', stage: 'post',
     chance: (c) => {
+      const w = c.state.satellites.warning;
+      if (w && w.arrivesAt === c.idx) return 1;
+      if (w && w.arrivesAt > c.idx) return 0;
       if (!hasReef(c.state) || c.state.tempC < 0.5) return 0;
       const base = [0.04, 0.01, 0, 0][c.season] ?? 0;
       return clamp(base * warm(1.6, c.warming) * c.mult, 0, 0.9);
     },
     fire: (c, rng) => {
-      const sev = (0.5 + rng.next() * 0.8) * (0.7 + 0.3 * c.mult);
+      const sat = c.state.satellites;
+      const due = sat.warning !== null && sat.warning.arrivesAt === c.idx;
+      const rolled = (0.5 + rng.next() * 0.8) * (0.7 + 0.3 * c.mult);
+      if (!due && sat.overlays.sst) {
+        // Satellites see the hot water coming: warn one season ahead, and let the player act.
+        sat.warning = { arrivesAt: c.idx + 1, severity: rolled, warnedYear: c.state.year, mitigated: false };
+        sat.warningsGiven++;
+        emit(c.state, {
+          type: 'story', year: c.state.year, season: c.season, seasonIndex: c.idx, severity: 0.8,
+          text: EVENT_TEXT.marineWarning(),
+          story: { channel: 'satellite', ref: 'marine-heatwave-warning', tone: 'concern', warning: { kind: 'marine-heatwave', arrivesSeasonIndex: c.idx + 1 } },
+        });
+        return null;
+      }
+      const sev = due && sat.warning ? sat.warning.severity : rolled;
+      const mitigated = due && sat.warning?.mitigated === true;
+      if (due) sat.warning = null;
       const g = c.state.grid;
       const heat = clamp(c.state.tempC / 1.2, 0.3, 1.6);
       let before = 0, after = 0, n = 0;
       for (let i = 0; i < g.kind.length; i++) {
         if (g.kind[i] !== TileKind.Reef) continue;
         const dirt = 1 + 0.15 * Math.min(4, g.waterPollution[i] ?? 0);
-        const loss = clamp(0.12 * sev * heat * dirt, 0, 0.6);
+        const loss = clamp(0.12 * sev * heat * dirt, 0, 0.6) * (mitigated ? MITIGATED_LOSS : 1);
         before += g.health[i] ?? 0;
         g.health[i] = (g.health[i] ?? 0) * (1 - loss);
         g.stage[i] = stageFromHealth(g.health[i] ?? 0);
@@ -222,8 +244,13 @@ export const EVENTS: readonly EventDef[] = [
         n++;
       }
       const pct = before > 0 ? Math.round((1 - after / before) * 100) : 0;
+      if (mitigated) sat.savedPct += Math.round((pct * (1 - MITIGATED_LOSS)) / MITIGATED_LOSS);
       c.state.a2.stress += clamp(pct / 4, 1, 15);
-      return { severity: sev, text: EVENT_TEXT.marineHeatwave(pct), data: { reefTiles: n, healthLostPct: pct } };
+      return {
+        severity: sev,
+        text: EVENT_TEXT.marineHeatwave(pct) + (mitigated ? ' Acting on the satellite warning saved a lot of coral.' : ''),
+        data: { reefTiles: n, healthLostPct: pct, warned: due ? 1 : 0, mitigated: mitigated ? 1 : 0 },
+      };
     },
   },
   {
@@ -232,7 +259,7 @@ export const EVENTS: readonly EventDef[] = [
       const last = c.state.a2.lastEventIdx['fish-kill'];
       if (last !== undefined && c.idx - last < 4) return 0;
       const idx = fishKillIndex(c);
-      return idx >= FISH_KILL_THRESHOLD ? clamp(0.4 + (idx - FISH_KILL_THRESHOLD) * 0.5, 0, 0.9) * Math.min(1.5, c.mult) : 0;
+      return idx >= FISH_KILL_THRESHOLD ? clamp(0.4 + (idx - FISH_KILL_THRESHOLD) * 0.5, 0, 0.9) * Math.min(1.5, c.mult) * (1 - 0.4 * clamp(flagNum(c.state, 'fishingProtocol'), 0, 1)) : 0;
     },
     fire: (c) => {
       const g = c.state.grid;

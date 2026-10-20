@@ -18,6 +18,7 @@ export function createGrid(w: number, h: number): TileGrid {
     stage: new Uint8Array(n),
     weed: new Uint8Array(n),
     chunkVersion: new Uint32Array(chunkCount(w, h)),
+    significant: new Uint8Array(n),
   };
 }
 
@@ -41,6 +42,7 @@ export function cloneGrid(g: TileGrid): TileGrid {
     stage: g.stage.slice(),
     weed: g.weed.slice(),
     chunkVersion: g.chunkVersion.slice(),
+    significant: g.significant.slice(),
   };
 }
 
@@ -165,7 +167,55 @@ export function generateTerrain(scenario: ScenarioDef, seed: number): TileGrid {
       }
     }
   }
+  markSignificant(grid);
   return grid;
+}
+
+/** Number of significant-site clusters markSignificant() lays down. */
+export const SIGNIFICANT_CLUSTERS = 3;
+
+/**
+ * Marks a few places of cultural significance (cluster ids 1..3) from the terrain alone, so older saves can be
+ * migrated by recomputing it. 1: the bank upstream of the estuary; 2: the foot of the escarpment; 3: the flat
+ * behind the beach south of the river. Each is a 3x3 patch of buildable ground.
+ */
+export function markSignificant(grid: TileGrid): void {
+  const { w, h, kind } = grid;
+  grid.significant.fill(0);
+  const open = (x: number, y: number): boolean => {
+    if (x < 0 || y < 0 || x >= w || y >= h) return false;
+    const k = kind[y * w + x];
+    return k === TileKind.Land || k === TileKind.Bush;
+  };
+  const nearest = (tx: number, ty: number, accept: (x: number, y: number) => boolean): [number, number] | null => {
+    let best: [number, number] | null = null;
+    let bd = Infinity;
+    for (let y = 1; y < h - 1; y++) {
+      for (let x = 1; x < w - 1; x++) {
+        if (!accept(x, y)) continue;
+        const d = Math.hypot(x - tx, y - ty);
+        if (d < bd) { bd = d; best = [x, y]; }
+      }
+    }
+    return best;
+  };
+  const kindAt = (x: number, y: number): number => (x < 0 || y < 0 || x >= w || y >= h ? -1 : kind[y * w + x] ?? -1);
+  const mark = (c: [number, number] | null, id: number): void => {
+    if (!c) return;
+    for (let y = c[1] - 1; y <= c[1] + 1; y++) {
+      for (let x = c[0] - 1; x <= c[0] + 1; x++) {
+        if (open(x, y) && grid.significant[y * w + x] === 0) grid.significant[y * w + x] = id;
+      }
+    }
+  };
+  // 1. Upstream bank: land two tiles north of the westmost estuary tile.
+  let ex = w, ey = Math.floor(h / 2);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (kind[y * w + x] === TileKind.Estuary && x < ex) { ex = x; ey = y; }
+  mark(nearest(ex - 2, ey - 3, (x, y) => open(x, y) && open(x - 1, y) && open(x + 1, y) && open(x, y - 1) && open(x, y + 1)), 1);
+  // 2. Foot of the escarpment, north of the river.
+  mark(nearest(4, h * 0.3, (x, y) => open(x, y) && open(x, y - 1) && open(x, y + 1) && open(x + 1, y) && kindAt(x - 1, y) === TileKind.Rock), 2);
+  // 3. Flat behind the beach, south of the river.
+  mark(nearest(w - 8, h * 0.8, (x, y) => open(x, y) && open(x - 1, y) && open(x, y - 1) && open(x, y + 1) && kindAt(x + 2, y) === TileKind.Beach), 3);
 }
 
 export function countKind(g: TileGrid, k: number): number {

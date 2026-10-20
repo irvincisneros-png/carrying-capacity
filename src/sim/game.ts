@@ -3,6 +3,7 @@ import { BUILDINGS, footprintFor, isBuildingId } from './buildings';
 import { climateAt, referenceCumulative } from './climate';
 import { computeDemand, computeMeters, decadeIncome, economySnapshot, growPopulation } from './economy';
 import { enterTurningPoint } from './act2';
+import { applyLayerAction, emptyLayers, layersDecadeMoods, layersDecadeStory, onDemolishedBuilding, onPlaced } from './layers';
 import { updatePollution } from './pollution';
 import { bumpRect } from './restoration';
 import { cloneState, emptyAct2, emptyEmissions } from './state';
@@ -13,11 +14,14 @@ import { getScenario, isScenarioId } from './scenarios';
 import { generateTerrain, inBounds } from './terrain';
 import { EMISSION_CATEGORIES, TileKind } from './types';
 import type {
-  Action, ActionResult, BuildingId, DecadeReport, EmissionsBySource, GameState, HistoryRecord, Meters, Rotation,
+  Action, ActionResult, BuildingId, DecadeReport, EmissionsBySource, GameState, HistoryRecord, Meters, PlacedBuilding, Rotation,
 } from './types';
 
-/** v2 adds Act 2 (phase, a2, flags, events, restoration grids). v1 saves are migrated in save.ts. */
-export const SAVE_VERSION = 2;
+/**
+ * v2 adds Act 2 (phase, a2, flags, events, restoration grids). v3 adds the empathy-and-care layers (residents, dilemmas,
+ * wildlife, Country, circular, satellites) and the significant-places grid. v1 and v2 saves are migrated in save.ts.
+ */
+export const SAVE_VERSION = 3;
 export const DECADE_YEARS = 10;
 
 export { cloneState, emptyEmissions };
@@ -66,6 +70,7 @@ export function createGame(scenarioId: GameState['scenarioId'], seed?: number): 
     events: [],
     eventLog: [],
     turningPoint: null,
+    ...emptyLayers(scenarioId),
   };
   const meters = computeMeters(base);
   base.meters = meters;
@@ -108,7 +113,8 @@ export function applyAction(state: GameState, action: Action): { state: GameStat
     state,
     result: { ok: false, code, reason } as ActionResult,
   });
-  if (!isPlayable(state)) return fail('game-over', 'This act is finished');
+  const storyAction = action.type === 'respond' || action.type === 'choose';
+  if (!isPlayable(state) && !(storyAction && state.phase === 'turning-point')) return fail('game-over', 'This act is finished');
 
   switch (action.type) {
     case 'place': {
@@ -120,9 +126,11 @@ export function applyAction(state: GameState, action: Action): { state: GameStat
       const def = BUILDINGS[action.building];
       const { w, h } = footprintFor(def, rot);
       const g = next.grid;
+      let replacedOld: PlacedBuilding | undefined;
       if (def.replaces) {
         const old = buildingAt(next, action.x, action.y);
         if (old) {
+          replacedOld = old;
           for (let yy: number = old.y; yy < old.y + old.h; yy++) {
             for (let xx: number = old.x; xx < old.x + old.w; xx++) g.building[yy * g.w + xx] = 0;
           }
@@ -130,7 +138,8 @@ export function applyAction(state: GameState, action: Action): { state: GameStat
         }
       }
       const uid = allocUid(next);
-      next.buildings.push({ uid, type: action.building, x: action.x, y: action.y, rotation: rot, w, h, builtYear: state.year });
+      const placed: PlacedBuilding = { uid, type: action.building, x: action.x, y: action.y, rotation: rot, w, h, builtYear: state.year };
+      next.buildings.push(placed);
       for (let yy: number = action.y; yy < action.y + h; yy++) {
         for (let xx: number = action.x; xx < action.x + w; xx++) {
           const i = yy * g.w + xx;
@@ -144,6 +153,7 @@ export function applyAction(state: GameState, action: Action): { state: GameStat
       bumpRect(g, action.x, action.y, w, h);
       next.pendingLandKt += chk.bushCleared * CLEAR_KT_PER_TILE;
       next.budget -= chk.cost;
+      onPlaced(next, placed, replacedOld);
       next.meters = computeMeters(next);
       next.version = state.version + 1;
       return { state: next, result: { ok: true, spent: chk.cost, uid } };
@@ -160,6 +170,7 @@ export function applyAction(state: GameState, action: Action): { state: GameStat
       next.buildings = next.buildings.filter((o) => o.uid !== b.uid);
       const refund = Math.floor(availability(state.scenarioId, b.type).cost * DEMOLISH_REFUND);
       next.budget += refund;
+      onDemolishedBuilding(next, b);
       next.meters = computeMeters(next);
       next.version = state.version + 1;
       return { state: next, result: { ok: true, refund } };
@@ -178,6 +189,8 @@ export function applyAction(state: GameState, action: Action): { state: GameStat
       next.version = state.version + 1;
       return { state: next, result: { ok: true, spent: CLEAR_COST } };
     }
+    default:
+      return applyLayerAction(state, action);
   }
 }
 
@@ -217,13 +230,16 @@ export function advanceDecade(state: GameState): { state: GameState; report: Dec
   next.co2 = clim.co2;
   next.tempC = clim.tempC;
 
-  // 5. Meters, history.
+  // 5. Meters, residents' moods (a light nudge to Society), history.
+  next.meters = computeMeters(next);
+  layersDecadeMoods(next);
   next.meters = computeMeters(next);
   next.history.push(record(next, em, total));
   if (next.year >= sc.endYear) {
     next.status = 'act1-complete';
     enterTurningPoint(next);
   }
+  layersDecadeStory(next);
   next.version = state.version + 1;
 
   const demand = computeDemand(next);

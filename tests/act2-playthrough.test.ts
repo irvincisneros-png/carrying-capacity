@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createGame, objectiveStatus, serialize, startAct2, tick } from '../src/sim';
+import { buildReportCard, createGame, objectiveStatus, serialize, startAct2, tick } from '../src/sim';
 import type { GameState } from '../src/sim';
 import { count } from './helpers/act2play';
 import { runScript } from './helpers/autoplay';
@@ -46,10 +46,13 @@ describe('scripted Act 2 playthroughs on coal-coast (dirty Act 1 start)', () => 
     expect(st.warming).toBe('met');
     expect(st.estuary).toBe('met');
     expect(st.society).toBe('met');
-    expect(st.repurpose).toBe('pending'); // waits for the circular tier
-    expect(st.wildlife).toBe('pending');
-    expect(good.a2.outcome?.success).toBe(true);
-    expect(good.a2.outcome?.pendingRequired).toEqual(['repurpose']);
+    // The circular tier and wildlife now supply their metrics. This script never repurposes anything, so it misses
+    // the circular objective (the full-marks run is in tests/full-run.test.ts).
+    expect(st.repurpose).toBe('missed');
+    expect(st.wildlife).toBe('missed');
+    expect(good.a2.outcome?.success).toBe(false);
+    expect(good.a2.outcome?.pendingRequired).toEqual([]);
+    expect(good.a2.outcome?.objectives.filter((o) => !o.bonus && o.status !== 'met').map((o) => o.id)).toEqual(['repurpose']);
   });
   it('good play shuts coal, runs a clean grid and keeps the lights on', () => {
     expect(count(good, 'coalpower')).toBe(0);
@@ -90,6 +93,15 @@ describe('scripted Act 2 playthroughs on coal-coast (dirty Act 1 start)', () => 
     expect(status(late).warming).toBe('missed');
     expect(late.tempC).toBeLessThan(idle.tempC);
   });
+  it('doing nothing leaves every resident\'s story ending badly (more in tests/full-run.test.ts)', () => {
+    const rc = buildReportCard(idle);
+    expect(rc.stars).toBe(0);
+    expect(rc.residents.every((r) => r.quality === 'bad')).toBe(true);
+    // Good play of the engine only (no listening, no waste hierarchy) is better, but cannot reach the stars either.
+    const goodCard = buildReportCard(good);
+    expect(goodCard.stars).toBe(0);
+    expect(goodCard.residents.filter((r) => r.quality === 'good').length).toBeGreaterThan(rc.residents.filter((r) => r.quality === 'good').length);
+  });
   it('a play-through is fully deterministic', () => {
     const again = playAct2(act2Start, goodPlayPlan());
     expect(serialize(again) === serialize(good)).toBe(true);
@@ -99,6 +111,8 @@ describe('scripted Act 2 playthroughs on coal-coast (dirty Act 1 start)', () => 
     const end = playAct2(startAct2(cautious), goodPlayPlan());
     expect(end.phase).toBe('epilogue');
     expect(end.tempC).toBeLessThan(1.2);
-    expect(end.a2.outcome?.success).toBe(true);
+    expect(status(end).warming).toBe('met');
+    expect(status(end).estuary).toBe('met');
+    expect(status(end).society).toBe('met');
   });
 });

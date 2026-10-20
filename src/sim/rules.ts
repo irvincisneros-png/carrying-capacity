@@ -107,6 +107,9 @@ export function canPlace(
       fp, av.cost,
     );
   }
+  if (def.repurposeOnly) {
+    return fail('locked', `${def.name} can only be made by repurposing an old industrial site`, fp, av.cost);
+  }
   if (def.requiresFeature && !getScenario(state.scenarioId).act2.features[def.requiresFeature]) {
     return fail('locked', `${def.name} needs a strong ${def.requiresFeature} resource, which this place doesn't have`, fp, av.cost);
   }

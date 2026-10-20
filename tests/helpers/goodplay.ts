@@ -47,6 +47,10 @@ export interface GoodPlayOpts {
   /** Years of delay before the first action (for the "late action" comparisons). */
   startDelay?: number;
   nurseries?: number;
+  /** Keep the steelworks until the transition program has been funded (so Mick is not left behind). */
+  holdSteel?: boolean;
+  /** Once the circular tier is open, never plain-demolish legacy sites (that would send them to landfill). */
+  circularSafe?: boolean;
 }
 
 /** Scripted "good player" for coal-coast. Called once per year before the year is simulated. */
@@ -60,11 +64,14 @@ export function goodPlayPlan(opts: GoodPlayOpts = {}): (s: GameState) => GameSta
     const near = toward(hub);
 
     // 1. Heavy industry that can go without the grid: close it straight away.
-    s = demolishAll(s, 'steelworks');
-    s = demolishAll(s, 'coalmine');
-    s = demolishAll(s, 'landfill');
-    s = demolishAll(s, 'carpark');
-    s = demolishAll(s, 'rail');
+    const sorting = opts.circularSafe === true && s.circular.unlocked;
+    if (!sorting) {
+      if (!opts.holdSteel || s.flags['transition.funded'] === 1) s = demolishAll(s, 'steelworks');
+      s = demolishAll(s, 'coalmine');
+      s = demolishAll(s, 'landfill');
+      s = demolishAll(s, 'carpark');
+      s = demolishAll(s, 'rail');
+    }
 
     // 2. Cheap water fixes.
     for (const b of s.buildings.filter((o) => o.type === 'outfall')) {
@@ -91,7 +98,12 @@ export function goodPlayPlan(opts: GoodPlayOpts = {}): (s: GameState) => GameSta
     }
     for (const b of s.buildings.filter((o) => o.type === 'coalpower')) {
       if (gridHoldsWithout(s, b.uid)) {
-        s = applyAction(s, { type: 'demolish', x: b.x, y: b.y }).state;
+        if (opts.circularSafe && s.circular.unlocked) {
+          const r = applyAction(s, { type: 'dispose', x: b.x, y: b.y, how: 'recycle' });
+          if (r.result.ok) s = r.state;
+        } else {
+          s = applyAction(s, { type: 'demolish', x: b.x, y: b.y }).state;
+        }
       }
     }
 

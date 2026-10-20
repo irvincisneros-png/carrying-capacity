@@ -202,7 +202,7 @@ export function computeMeters(state: GameState): Meters {
   const housed = clamp01(snap.population / popTarget);
   const employed = snap.population > 0 ? clamp01(snap.filledJobs / (snap.population * 0.5)) : 0;
   const clean = 1 - clamp01(m.housingAir / T.housingAirBad);
-  const society = 100 * (T.socHoused * housed + T.socEmployed * employed + T.socAir * clean);
+  const society = 100 * (T.socHoused * housed + T.socEmployed * employed + T.socAir * clean) + state.residents.nudge;
 
   const bushFrac = state.initialBushTiles > 0 ? m.bushTiles / state.initialBushTiles : 1;
   const pollutionScore = 1 - clamp01(m.meanPollution / T.pollutionBad);

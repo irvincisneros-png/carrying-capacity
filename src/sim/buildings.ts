@@ -95,6 +95,12 @@ export interface BuildingDef {
   replaces?: BuildingId;
   /** Scenario feature flag needed (see Act2Def.features). */
   requiresFeature?: 'tidal';
+  /** Wildlife crossing: counts as passable ground in the wildlife connectivity model. */
+  crossing?: boolean;
+  /** Satellite ground station: needed to subscribe to satellite overlays. */
+  groundStation?: boolean;
+  /** Only created by repurposing a legacy building (circular tier), never placed directly. */
+  repurposeOnly?: boolean;
 }
 
 const { Land, Bush, Beach } = TileKind;
@@ -127,6 +133,15 @@ export const BUILDING_IDS: readonly BuildingId[] = [
   'wetland',
   'sewagetreatment',
   'nursery',
+  'wildlifecrossing',
+  'groundstation',
+  'greensteel',
+  'makerspace',
+  'windport',
+  'solarlandfill',
+  'batteryhub',
+  'communityhub',
+  'recycler',
 ];
 
 /** Act 1 buildings that may still be built during the transition (everything else dirty is act1 only). */
@@ -347,6 +362,66 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
     co2: 0, localPollution: 0, pollutes: {}, unlock: 2025, category: 'land', phases: ACT2, nursery: { radius: 5 },
     placement: { on: [Land] },
     blurb: 'Grows local seedlings and sends out bush regenerators to weed. Restoration spreads from here.',
+  },
+
+  // ---- Act 2: wildlife and satellites ----
+  wildlifecrossing: {
+    id: 'wildlifecrossing', name: 'Wildlife crossing', w: 1, h: 1, cost: 30, jobs: 0, housing: 0, power: 0,
+    co2: 1, localPollution: 0, pollutes: {}, unlock: 2025, category: 'land', phases: ACT2, replaces: 'road', crossing: true,
+    placement: { on: [Land, Bush] },
+    blurb: 'An underpass or rope bridge built where a road cuts through bush, with fences that guide animals to it. Build it on an existing road.',
+  },
+  groundstation: {
+    id: 'groundstation', name: 'Satellite ground station', w: 2, h: 2, cost: 40, jobs: 5, housing: 0, power: -2,
+    co2: 2, localPollution: 0, pollutes: {}, unlock: 2025, category: 'land', phases: ACT2, groundStation: true,
+    placement: { on: [Land] },
+    blurb: 'Receives satellite data about sea temperature, sea level, forests and fires. Needed before you can subscribe to overlays.',
+  },
+
+  // ---- Circular tier: created by repurposing a legacy building ----
+  greensteel: {
+    id: 'greensteel', name: 'Green steel plant', w: 3, h: 3, cost: 0, jobs: 90, housing: 0, power: -8,
+    co2: 12, localPollution: 0.5, pollutes: { air: 0.3 }, unlock: 2025, category: 'industry', phases: ACT2, repurposeOnly: true,
+    placement: { on: [Land] },
+    blurb: 'Makes steel with hydrogen from renewable power instead of coal. Water is the main by-product.',
+  },
+  makerspace: {
+    id: 'makerspace', name: 'Steelworks museum and makerspace', w: 2, h: 2, cost: 0, jobs: 14, housing: 0, power: -1,
+    co2: 1, localPollution: 0, pollutes: {}, unlock: 2025, category: 'land', phases: ACT2, repurposeOnly: true,
+    placement: { on: [Land] },
+    blurb: 'The old works become a museum of the town\'s story and a workshop where people learn to repair, weld and build.',
+  },
+  windport: {
+    id: 'windport', name: 'Wind-turbine port', w: 2, h: 2, cost: 0, jobs: 30, housing: 0, power: -2,
+    co2: 4, localPollution: 0, pollutes: {}, unlock: 2025, category: 'transport', phases: ACT2, repurposeOnly: true,
+    placement: { on: [Land] },
+    blurb: 'The coal loader\'s deep berth now ships turbine blades and towers for offshore wind farms.',
+  },
+  solarlandfill: {
+    id: 'solarlandfill', name: 'Solar farm on a capped landfill', w: 2, h: 2, cost: 0, jobs: 2, housing: 0, power: 20,
+    co2: 3, localPollution: 0.3, pollutes: { soil: 0.3 }, unlock: 2025, category: 'power', phases: ACT2, repurposeOnly: true,
+    energy: { source: 'solar-farm', capacity: 20 },
+    placement: { on: [Land] },
+    blurb: 'Panels on weighted frames sit on the capped rubbish, so no digging disturbs it. Land that could not be used for anything else makes power.',
+  },
+  batteryhub: {
+    id: 'batteryhub', name: 'Battery site at the old power station', w: 2, h: 2, cost: 0, jobs: 3, housing: 0, power: 16,
+    co2: 0, localPollution: 0, pollutes: {}, unlock: 2025, category: 'power', phases: ACT2, repurposeOnly: true,
+    energy: { source: 'battery', capacity: 16, efficiency: 0.9 },
+    placement: { on: [Land] },
+    blurb: 'The power station already has a grid connection, cooling-water access and skilled staff. Batteries use the same connection.',
+  },
+  communityhub: {
+    id: 'communityhub', name: 'Community hub', w: 2, h: 2, cost: 0, jobs: 8, housing: 0, power: -2,
+    co2: 1, localPollution: 0, pollutes: {}, unlock: 2025, category: 'land', phases: ACT2, repurposeOnly: true,
+    placement: { on: [Land] },
+    blurb: 'A library, meeting rooms and a cool place in a heatwave, built inside the old power station\'s walls.',
+  },
+  recycler: {
+    id: 'recycler', name: 'Recycling and remanufacturing plant', w: 2, h: 2, cost: 0, jobs: 40, housing: 0, power: -3,
+    co2: 6, localPollution: 0.3, pollutes: { air: 0.2 }, unlock: 2025, category: 'waste', phases: ACT2, repurposeOnly: true,
+    placement: { on: [Land] },
+    blurb: 'Sorts and processes the town\'s glass, metals and plastics so they become new products instead of rubbish.',
   },
 
 };

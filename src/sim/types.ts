@@ -1,4 +1,10 @@
 /** Shared types for the pure-TS simulation. No DOM / three.js imports allowed in src/sim. */
+import type {
+  CircularState, CountryState, DilemmasState, ResidentsState, SatelliteOverlay, SatelliteState, StoryMeta,
+  WildlifeState,
+} from './layerTypes';
+
+export type { SatelliteOverlay } from './layerTypes';
 
 export const TileKind = {
   Sea: 0,
@@ -53,7 +59,18 @@ export type BuildingId =
   | 'excavation'
   | 'wetland'
   | 'sewagetreatment'
-  | 'nursery';
+  | 'nursery'
+  // Wildlife and satellites
+  | 'wildlifecrossing'
+  | 'groundstation'
+  // Circular tier: only created by repurposing a legacy building
+  | 'greensteel'
+  | 'makerspace'
+  | 'windport'
+  | 'solarlandfill'
+  | 'batteryhub'
+  | 'communityhub'
+  | 'recycler';
 
 export type EmissionCategory = 'power' | 'industry' | 'transport' | 'land' | 'waste';
 export const EMISSION_CATEGORIES: readonly EmissionCategory[] = [
@@ -107,6 +124,11 @@ export interface TileGrid {
    * draws from health / stage / weed / kind / building changes inside the chunk.
    */
   chunkVersion: Uint32Array;
+  /**
+   * Places of cultural significance (Caring for Country): 0 = none, otherwise the site cluster id (1..n).
+   * Fixed by the terrain; consulting the community about a cluster is what makes building there respectful.
+   */
+  significant: Uint8Array;
 }
 
 /** Edge length (tiles) of the chunks tracked by TileGrid.chunkVersion. */
@@ -187,6 +209,8 @@ export interface SimEvent {
   at?: { x: number; y: number };
   /** Numeric details (tilesAffected, unmetPct, ...). */
   data?: Record<string, number>;
+  /** Present on 'story' events from residents, dilemmas, wildlife, Country, the circular tier and satellites. */
+  story?: StoryMeta;
 }
 
 export interface ActiveEvent {
@@ -349,12 +373,44 @@ export interface GameState {
   /** Permanent human-readable log, oldest first. Capped. */
   eventLog: SimEvent[];
   turningPoint: TurningPoint | null;
+  /** Residents, their moods and story arcs. */
+  residents: ResidentsState;
+  /** Dilemma cards offered and decided. */
+  dilemmas: DilemmasState;
+  /** Species populations (Act 2). */
+  wildlife: WildlifeState;
+  /** Partnership with the local Aboriginal community. */
+  country: CountryState;
+  /** Waste-hierarchy tier: legacy buildings, disposal choices and recycling research. */
+  circular: CircularState;
+  /** Satellite overlays and the marine heatwave early warning. */
+  satellites: SatelliteState;
 }
+
+export type DisposalHow = 'repurpose' | 'recycle' | 'landfill';
 
 export type Action =
   | { type: 'place'; building: BuildingId; x: number; y: number; rotation?: Rotation }
   | { type: 'demolish'; x: number; y: number }
-  | { type: 'clear'; x: number; y: number };
+  | { type: 'clear'; x: number; y: number }
+  /** Answer a story beat that asked the player something. */
+  | { type: 'respond'; beatId: string; optionId: string }
+  /** Decide a dilemma card. */
+  | { type: 'choose'; dilemmaId: string; optionId: string }
+  /** Ask the community about a significant place before building (any tile of the site). */
+  | { type: 'consult'; x: number; y: number }
+  /** Return a patch of bushland to Traditional Owner co-management (any tile of the patch). */
+  | { type: 'comanage'; x: number; y: number }
+  /** Cool mosaic burn on a co-managed bush patch (cool season only). */
+  | { type: 'burn'; x: number; y: number }
+  /** Deal with a legacy Act 1 site once the circular tier is open. `into` picks the repurpose target. */
+  | { type: 'dispose'; x: number; y: number; how: DisposalHow; into?: string }
+  /** Buy a recycling innovation. */
+  | { type: 'research'; id: string }
+  /** Buy a satellite overlay (needs a ground station). */
+  | { type: 'subscribe'; overlay: SatelliteOverlay }
+  /** Act on a satellite early warning (cut runoff before the marine heatwave arrives). */
+  | { type: 'mitigate' };
 
 export type ActionFailCode =
   | 'game-over'
@@ -368,7 +424,11 @@ export type ActionFailCode =
   | 'no-funds'
   | 'nothing-here'
   | 'not-bush'
-  | 'bad-siting';
+  | 'bad-siting'
+  | 'invalid'
+  | 'not-open'
+  | 'wrong-season'
+  | 'already-done';
 
 export interface ActionResult {
   ok: boolean;
