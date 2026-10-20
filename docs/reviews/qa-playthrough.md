@@ -133,3 +133,126 @@ run at 4× with pauses to plan. Driver: `scratchpad/drv.mjs` (persistent CDP ser
 - Good: the satellite warning banner with a one-click "cut runoff" response feels like real early-warning science;
   Big Tilly and the kids' lines are charming.
 - Flat: losing the reef slowly over 40 years with $3M in the bank and nothing left to spend it on is frustrating.
+
+## Red Dirt (hard)
+
+- **Result:** ★★★ on the second attempt (net zero from 2036, mine site 100% signed off, aquifer 100, no tap
+  failures, 100% renewable grid). First attempt: 0 stars (aquifer 23, rehab stuck at 93%, net zero "reset" to 2064).
+  The second run's ending was first scored 0★ by the old net-zero rule and re-scored ★★★ after the fix below
+  (same save).
+- **Time:** in-game 1890–2100. Real: about 80–110 minutes for a student.
+- **Rehab sequence verified:** close the mines → Rehab mine on the pit: reshape ($120k, 50 tiles) → topsoil ($80k)
+  → seed with the Traditional Owners ($50k), then the small second pit (8 tiles). The pit visibly flattens and is
+  replaced by topsoiled ground; patches are signed off after 5 years of growth (needs nurseries beside them).
+  Partnership reached 80–100 through consultation and co-management.
+
+### Bugs found and fixed
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | Real players carried millions into Act 2 while the Red Dirt balance tests cap the carry-over at $350k, so the tested trade-offs never applied in the game. | `fix(balance)` (carry-over cap): `act2.carryOverCap` with a turning-point line |
+| 2 | Aquifer hint told players to "cap mine water in Town policies" — no such lever exists. The aquifer slid 80 → 11 by 2037 with no warning until too late. | `fix(red-dirt)` ca9207f: correct hint (mines drink the most), readouts show ▲/▼ per year, the goal row says "falling 5 a year, below 40 in about 4 years" while there's still time; trend fix in follow-ups |
+| 3 | Rehab sat at 7% for 20 years: nothing said seeded ground needs a nursery beside it. | ca9207f: hint explains nurseries and the 5-year sign-off |
+| 4 | **Permanent block**: a nursery built on seeded mine-site ground kept four tiles at zero growth forever; rehab stuck at 93% and the goal could never be met. | `fix(red-dirt)` (mine site): building on the rehabilitating site is refused with a reason |
+| 5 | **Unfair net-zero reset**: net zero held from 2036 (4–6 kt vs 12 kt line) until repurposing the old coal station (the *best* waste-hierarchy choice) added 8 kt of one-off work in 2063 → 12.5 kt, resetting "reached" to 2064 and failing the scenario. | `fix(sim)` b053784: one isolated spike between two years under the line, averaging under it, no longer resets the hold |
+| 6 | Demolish tooltip said "Coal mine" (scenario calls it Open-cut mine) and discouraged closing before the circular economy. | ca9207f |
+| 7 | Tia and Ben were Year 5 kids from 2000 yet asked about the school playground in the 2070s and were "grown, at uni" in their sixties. | `fix(content)` 761103d: childhood beats 2020s–2040s, "grown" 2046–2070, the empty-waterhole beat told by them as parents (successor voice); River Town's twins likewise |
+| 8 | Ending header said "You met 3 of 4 goals" next to four A grades (stale stored outcome). | ending header uses the same evaluation as the card |
+
+### Balance notes
+
+- With the cap, Act 2 money is genuinely tight (good): the reshape/topsoil/seed sequence waits on income, and the
+  rehabilitation bond then releases money.
+- The water goal is unforgiving: three open mines drain about 5 aquifer points a year and it refills by under 1,
+  so the aquifer is effectively decided by when the mines close. The new trend warning makes that visible.
+
+### Fun notes
+
+- Good: the rehab sequence is the most satisfying "repair" mechanic in the game; Shaz driving topsoil back to the
+  pit is a lovely epilogue.
+
+## Net Zero City (expert)
+
+- **Result:** not won (0 stars in three attempts). Best: Society ≥ 60 every year (min 65), heat deaths 8 (target
+  ≤ 20), but net zero reached in 2053/2058 instead of by 2050.
+- **Time:** in-game 2025–2100. Real: about 90–120 minutes for a student.
+- Why I missed: attempt 1 repurposed six factories in one year after reaching the line (two years over → reset to
+  2058); attempts 2–3 left the 31 brick suburbs un-retrofitted until the late 2040s because nothing pointed at
+  retrofits (the generic hint talked about mines and factories). The scripted thoughtful run (retrofits 3/year
+  from 2025, 130 rooftops, transit early) wins, so it is achievable; I didn't find that order from the UI alone.
+
+### Bugs found and fixed
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | Pocket park "wouldn't place": aiming street trees at a road or house gave only "Something is already built here". 720 valid tiles exist (open ground beside streets). | `fix(ui)` b50d58d: specific reason ("needs an empty tile beside the streets and homes") |
+| 2 | Disposing several sites in one year near the line silently tipped net zero over. | b50d58d + follow-up: the disposal chooser shows "this year is already at about N of 48 kt; spread the work out" once the town is at the line |
+| 3 | No hint mentioned retrofits/transit for the city's remaining emissions. | scenario-specific net-zero hints |
+| 4 | City blocks read as dark masses at whole-map zoom (ink outlines kept constant screen width). | `fix(render)`: outline width capped in world units |
+
+### Balance notes
+
+- "Tight budget" is only tight until ~2040; by 2070 the city had $2–4M unspent. The "under budget" bonus
+  (≤ $2,500k by 2050) was missed at $3,111–3,225k.
+- Expert difficulty is mostly about *order of operations*, which the UI only partly teaches. A turning-point line
+  listing the city's emission sources by sector (from the Graphs) would help.
+
+## Cross-cutting checks
+
+### Performance (headless Chrome, Apple GPU, CDP `Emulation.setCPUThrottlingRate`)
+
+| Scene | Tier | CPU throttle | Game speed | Avg fps | p99 frame | Worst frame |
+|---|---|---|---|---|---|---|
+| Net Zero City 2025 (48×48, 214 roads, 35 suburbs) | Low | 1× / 4× | paused | 60 / 60 | – | – |
+| Net Zero City | Medium | 4× | paused | 60 | 18 ms | – |
+| Net Zero City | Low | 4× / 6× | 4× | 59.7 / 60 | 19–20 ms | 34–75 ms (season tick) |
+| Coal Coast 2035 (built town) | Low / Medium | 4× | 4× | 59.8 / 60 | 18 ms | 23–55 ms |
+
+All well above the 30 fps floor. The only hitch is a single 50–75 ms frame when a season is simulated under 4–6×
+throttling (sim runs on the main thread); not optimised further.
+
+### Layout (1280×720, 1366×768, 1600×900, 375×812)
+
+- Fixed (`fix(ui)` f6edbe7): at 1280–1500 px the Act 2 HUD pushed log/graphs/settings/frame off-screen; the
+  power-grid panel sat under the dock on short screens; at 375 px the tab row overflowed left (Homes unreachable),
+  HUD buttons overflowed right, hazard chips spilled out of the clock and Goals/Power covered the tabs.
+  Automated off-screen scan now reports nothing at 1280, 1366 and 1600; 375 px only scrolls the build-card row
+  (intended).
+
+### Save / continue
+
+- Reloaded mid-game seven times (Act 1, Act 2, and at the epilogue) and used "Continue": state, clock, panels and
+  the report card all came back. A finished game re-scores on load with current rules.
+
+### Progress / unlock chain
+
+- Green Valley → unlocked Coal Coast; Coal Coast → "Unlocked: River Town and Reef Island"; Red Dirt opened after
+  River Town; Net Zero City opened after Red Dirt. The ending's "Next: …" button starts the next unplayed
+  scenario. Note: the tutorial records a star on completion even when its report card shows 0 stars.
+
+### Console
+
+- No console errors or uncaught exceptions in any run (the driver captures `Runtime.exceptionThrown`, console
+  errors/warnings and log errors).
+
+### Rendering polish done
+
+- Reef ring calmer (two related coral hues per tile, fewer instances). Seawalls and fishways auto-face the water.
+  Single-tile buildings drawn 14% larger. City outlines (above).
+
+## Remaining issues, ranked
+
+1. **Net Zero City order-of-operations**: I couldn't win it from the UI in three tries (net zero 2053). Hints now
+   name retrofits/transit, but the game never shows the sector breakdown at the moment it matters (consider a
+   "what's left" card when the grid hits 100% renewable).
+2. **Act 1 money runs away** in Coal Coast, River Town and Reef Island ($2–3M carried into Act 2), so Act 2 money
+   decisions are free there. Red Dirt now caps carry-over; the others need the same with retuned tests.
+3. **Reef Island coral goal is decided mostly by Act 1 warming** and its balance tests are knife-edge (margin
+   flips sign with a $10k change in start budget). Needs a multi-seed band and maybe more Act 2 agency.
+4. **Old air pollution lingers ~50% per decade** after a source closes (smoke shouldn't last decades). A fix that
+   clears a building's plume when it's removed is easy but shifts Coal Coast's estuary result under its 60 target
+   in the thoughtful test run; needs a deliberate retune.
+5. Turtle bonus on Reef Island conflicts with the island's size (everything lights the beach).
+6. Repeating dilemma cards ("Who gets the water?" ×4) and a few cards listing the same group as helped and hurt.
+7. Speech bubbles can overlap each other on the map; toasts briefly slide in from beyond the right edge.
+8. A one-frame 50–75 ms hitch on season ticks under heavy CPU throttling.
