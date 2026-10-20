@@ -215,7 +215,7 @@ function castSpeaker(id: ScenarioId, residentId: string): Speaker {
 export function showEnding(s: GameState, onTitle: () => void, card?: ReportCard, next?: { label: string; go: () => void } | null, unlockedNote?: string): void {
   const failed = s.phase === 'failed';
   let objs: ReturnType<typeof objectiveStatus> = [];
-  try { objs = s.a2.outcome?.objectives ?? objectiveStatus(s); } catch { objs = []; }
+  try { objs = objectiveStatus(s); } catch { objs = s.a2.outcome?.objectives ?? []; }
   const met = objs.filter((o) => !o.bonus && o.status === 'met').length;
   const req = objs.filter((o) => !o.bonus).length;
   const rc: ReportCard = card ?? {
