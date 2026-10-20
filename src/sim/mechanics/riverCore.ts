@@ -36,7 +36,18 @@ export const RIVER = {
   bloomK: 2,
   townFailBelow: 0.9,
   townFailFromYear: 2041,
+  /** Drought plan: wet-season water banked for the farms (only flow above the river's own share), and its cap. */
+  bankCap: 8,
+  bankShare: 0.5,
+  /** Drought plan, while a drought is on: town restrictions and farm deficit irrigation (share of normal demand). */
+  droughtTown: 0.8,
+  droughtFarm: 0.7,
 } as const;
+
+/** Is the council's drought plan switched on? */
+export function droughtPlanOn(s: GameState): boolean {
+  return policyValue(s, 'drought.plan') >= 1;
+}
 
 export interface Allocation {
   town: number;
@@ -85,15 +96,17 @@ export function storageCapacity(s: GameState): number {
   return RIVER.baseStorage + RIVER.reservoirStorage * n;
 }
 
-export function townDemand(s: GameState, season: number): number {
+export function townDemand(s: GameState, season: number, drought = false): number {
   const saving = 1 - 0.22 * clamp01(flag(s, 'w.saving'));
-  return s.population * RIVER.townPerPop * (RIVER.townSeason[season] ?? 1) * saving;
+  const restrict = drought && droughtPlanOn(s) ? RIVER.droughtTown : 1;
+  return s.population * RIVER.townPerPop * (RIVER.townSeason[season] ?? 1) * saving * restrict;
 }
 
-export function farmDemand(s: GameState, season: number): number {
+export function farmDemand(s: GameState, season: number, drought = false): number {
   const { farms, drip } = farmCount(s);
   const eff = 1 - 0.18 * clamp01(flag(s, 'w.farmEff'));
-  return (farms + drip * (1 - RIVER.dripSaving)) * RIVER.farmPerFarm * (RIVER.irrigation[season] ?? 1) * eff;
+  const deficit = drought && droughtPlanOn(s) ? RIVER.droughtFarm : 1;
+  return (farms + drip * (1 - RIVER.dripSaving)) * RIVER.farmPerFarm * (RIVER.irrigation[season] ?? 1) * eff * deficit;
 }
 
 export interface FlowInputs {

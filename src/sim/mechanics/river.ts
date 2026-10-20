@@ -6,7 +6,7 @@ import { TileKind } from '../types';
 import type { GameState } from '../types';
 import { addFlag, clamp, clamp01, eventActive, flag, setFlag } from './flags';
 import {
-  allocation, farmCount, farmDemand, meanSaltNear, naturalFlow, RIVER, storageCapacity, townDemand,
+  allocation, droughtPlanOn, farmCount, farmDemand, meanSaltNear, naturalFlow, RIVER, storageCapacity, townDemand,
 } from './riverCore';
 
 export function riverBegin(s: GameState): void {
@@ -21,12 +21,13 @@ export function riverSeason(s: GameState, idx: number): void {
   const season = s.a2.season;
   const sc = getScenario(s.scenarioId);
   const w = seasonWeather(s.seed, idx);
+  const drought = eventActive(s, 'drought', idx);
   const flow = naturalFlow(s, season, sc.act2.rainfall, {
-    rain: w.rain, drought: eventActive(s, 'drought', idx), heatwave: eventActive(s, 'heatwave', idx),
+    rain: w.rain, drought, heatwave: eventActive(s, 'heatwave', idx),
   });
   const alloc = allocation(s);
-  const tDem = townDemand(s, season);
-  const fDem = farmDemand(s, season);
+  const tDem = townDemand(s, season, drought);
+  const fDem = farmDemand(s, season, drought);
   const tCap = alloc.town * flow;
   const fCap = alloc.farms * flow;
 
@@ -55,14 +56,28 @@ export function riverSeason(s: GameState, idx: number): void {
     setFlag(s, 'w.lastFailSeason', idx);
   }
 
-  // Farms take what they need within their allocation.
-  const fDel = Math.min(fDem, fCap);
+  // Farms take what they need within their allocation; with a drought plan, banked water covers a dry season's gap.
+  // The plan's environmental-flow buffer: in a drought the farms leave the river at least its own share.
+  const envFloor = RIVER.envNeed * flow;
+  const plan = droughtPlanOn(s);
+  const fRiver = Math.min(fDem, drought && plan ? Math.min(fCap, Math.max(0, flow - townTake - envFloor)) : fCap);
+  let bank = flag(s, 'w.bank');
+  const fBank = drought && plan ? Math.min(bank, fDem - fRiver) : 0;
+  bank -= fBank;
+  const fDel = fRiver + fBank;
   setFlag(s, 'w.yd', flag(s, 'w.yd') + fDel);
   setFlag(s, 'w.yq', flag(s, 'w.yq') + fDem);
 
   // What is left stays in the river.
-  const extraction = townTake + fDel;
-  const envNeed = RIVER.envNeed * flow;
+  let extraction = townTake + fRiver;
+  const envNeed = envFloor;
+  // Drought plan in a normal season: bank half of what flows past above the river's own share (never the river's share).
+  if (!drought && plan) {
+    const spare = Math.max(0, flow - extraction - envNeed * 1.1);
+    const put = Math.min(RIVER.bankCap - bank, spare * RIVER.bankShare);
+    if (put > 0) { bank += put; extraction += put; }
+  }
+  setFlag(s, 'w.bank', clamp(bank, 0, RIVER.bankCap));
   const envRatio = flow > 0 && envNeed > 0 ? clamp((flow - extraction) / envNeed, 0, 1.5) : 0;
   setFlag(s, 'w.flow', flow);
   setFlag(s, 'w.envRatio', envRatio);

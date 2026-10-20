@@ -4,7 +4,7 @@ import { ACT2_INCOME_MULT, ACT2_POP_GROWTH, computeMeters, economySnapshot, INCO
 import { balanceGrid } from './energy';
 import { emit, makeCtx, rollEvents } from './events';
 import { estuaryHealth, meanHealth, meanReefHealth } from './metrics';
-import { mechEmissionFactor, mechIncome } from './mechanics';
+import { mechEmissionFactor, mechIncome, mechMetric } from './mechanics';
 import { objectiveStatus } from './objectives';
 import { recordOutlook } from './outlook';
 import { applyRemediation, applyWetlands, REMEDIATION_IDLE, updatePollutionSeason } from './pollution';
@@ -242,6 +242,7 @@ function yearEnd(s: GameState, quiet: boolean): void {
     unmetFrac: unmet, renewableShare: a2.lastGrid?.renewableShare ?? 0,
     estuaryHealth: estuaryHealth(s), meanHealth: meanHealth(s), reefHealth: meanReefHealth(s),
   };
+  if (sc.mechanics?.includes('river')) rec.riverHealth = mechMetric(s, 'riverHealth') ?? undefined;
   a2.yearly.push(rec);
   recordOutlook(s);
   a2.yearEm = emptyEmissions();

@@ -3,7 +3,7 @@ import { buildReportCard, carryOverPlan, getScenario, objectiveStatus } from '..
 import type { GameState, ScenarioId } from '../src/sim';
 import { coalIdle, coalThoughtful } from './helpers/fullplay';
 import { REEF_BOT, reefIdle, reefThoughtful } from './helpers/reef';
-import { riverIdle, riverThoughtful } from './helpers/river';
+import { RIVER_BOT, riverIdle, riverThoughtful } from './helpers/river';
 import { EVENT_SEEDS } from './helpers/seeds';
 
 /**
@@ -11,7 +11,9 @@ import { EVENT_SEEDS } from './helpers/seeds';
  * different weather / event seeds, so a goal that only passes on one lucky sequence of floods, heatwaves and
  * outbreaks shows up here. Recorded results (2026-10, round-2 balance):
  *   Coal Coast  thoughtful 4/4 three stars, estuary (10-year mean) 82-96; idle 0/4.
- *   River Town  thoughtful 3/4 wins (seed 47: a long drought, river 52 / farms 45); idle 0/4.
+ *   River Town  thoughtful (switches the drought plan on at the first drought warning) 4/4 wins, river (10-year
+ *               mean) 63-93, farms 61-75; the same player ignoring the warning loses seed 47 (river 56, farms 39);
+ *               idle 0/4.
  *   Reef Island thoughtful 4/4 wins, coral (5-year mean) 51-67; the same plan without the local reef work
  *               (no starfish control, nurseries, wetlands, satellites or turtle lighting) 39-52, 1/4 wins; idle 0/4.
  */
@@ -26,6 +28,11 @@ const coal = runs(coalThoughtful);
 const coalBad = runs(coalIdle);
 const river = runs(riverThoughtful);
 const riverBad = runs(riverIdle);
+const riverNoPlan47 = (() => {
+  const keep = RIVER_BOT.droughtPlan;
+  RIVER_BOT.droughtPlan = false;
+  try { return riverThoughtful(47); } finally { RIVER_BOT.droughtPlan = keep; }
+})();
 const reef = runs(reefThoughtful);
 const reefBad = runs(reefIdle);
 const reefNoLocal = (() => {
@@ -66,10 +73,14 @@ describe('Coal Coast across four event seeds', () => {
 });
 
 describe('River Town across four event seeds', () => {
-  it('the thoughtful run wins on at least three of four seeds, and the river averages 60 or more', () => {
-    expect(river.filter((r) => won(r.end)).length).toBeGreaterThanOrEqual(3);
-    expect(mean(river.map((r) => value(r.end, 'river')))).toBeGreaterThanOrEqual(60);
-    for (const r of river) expect(value(r.end, 'river')).toBeGreaterThan(45);
+  it('the thoughtful run (acting on the drought warning) wins on every seed', () => {
+    for (const r of river) expect(won(r.end), `river ${value(r.end, 'river')} farms ${value(r.end, 'farms')}`).toBe(true);
+    expect(mean(river.map((r) => value(r.end, 'river')))).toBeGreaterThanOrEqual(65);
+  });
+  it('ignoring the drought warning loses the long-drought seed (47): the plan is what carries farms and river through', () => {
+    expect(won(riverNoPlan47.end)).toBe(false);
+    const withPlan = river[3]?.end as GameState;
+    expect(value(withPlan, 'farms') - value(riverNoPlan47.end, 'farms')).toBeGreaterThanOrEqual(10);
   });
   it('the idle run never wins', () => {
     for (const r of riverBad) {

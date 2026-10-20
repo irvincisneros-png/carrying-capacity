@@ -43,7 +43,7 @@ export interface ObjectiveDef {
   pendingTier?: string;
   /**
    * Judge the average of the last N Act 2 years rather than a single year's snapshot (for numbers that swing with
-   * the weather, like water quality and coral cover). Supported for estuaryHealth and reefHealth.
+   * the weather, like water quality and coral cover). Supported for estuaryHealth, reefHealth and riverHealth.
    */
   avgYears?: number;
 }
@@ -53,7 +53,7 @@ function averaged(state: GameState, metric: MetricId, n: number): number | null 
   const ys = state.a2.yearly.slice(-n);
   if (ys.length === 0 || state.phase === 'act1' || state.phase === 'turning-point') return null;
   const pick = (y: (typeof ys)[number]): number | null =>
-    metric === 'estuaryHealth' ? y.estuaryHealth : metric === 'reefHealth' ? y.reefHealth * 100 : null;
+    metric === 'estuaryHealth' ? y.estuaryHealth : metric === 'reefHealth' ? y.reefHealth * 100 : metric === 'riverHealth' ? y.riverHealth ?? null : null;
   let t = 0;
   for (const y of ys) {
     const v = pick(y);

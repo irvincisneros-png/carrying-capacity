@@ -75,6 +75,8 @@ export class App {
   sats: SatellitePanel;
   private layerBtns: Record<'country' | 'research' | 'sats', HTMLButtonElement>;
   private warnEl: HTMLElement;
+  private droughtEl: HTMLElement;
+  private droughtDismissed = -1;
   private overlayFn: ((s: GameState) => ArrayLike<number>) | null = null;
   private overlayRamp: import('../render/overlay').Ramp = 'heat';
 
@@ -152,6 +154,8 @@ export class App {
     this.hud.el.querySelector('.hud-right')?.append(frame);
     this.warnEl = h('div', { class: 'toast panel bad hidden', style: 'position:fixed;top:140px;left:50%;transform:translateX(-50%);z-index:44;max-width:420px' });
     document.body.appendChild(this.warnEl);
+    this.droughtEl = h('div', { class: 'toast panel bad hidden', role: 'alert', style: 'position:fixed;top:140px;left:50%;transform:translateX(-50%);z-index:44;max-width:440px' });
+    document.body.appendChild(this.droughtEl);
     this.demand = h('div', { class: 'demand panel' });
     this.nextBtn = h('button', { class: 'btn primary nextbtn', onclick: () => this.nextDecade() }, svg(UI_ICONS.clock), 'Next decade');
     this.action = h('div', { class: 'action' }, this.demand, this.nextBtn);
@@ -436,6 +440,7 @@ export class App {
           h('p', null, 'Sea-surface temperatures are building offshore. Cutting runoff now gives the reef a better chance.'),
           h('button', { class: 'btn small teal', onclick: () => { const r = this.game.dispatch({ type: 'mitigate' }); if (r.ok) { sfx('good'); this.warnEl.replaceChildren(); } else toast('Not possible', degC(r.reason ?? ''), 'warn'); } }, `Cut runoff now ($${SIM.MITIGATION.cost}k)`)));
       } else if (!show) this.warnEl.replaceChildren();
+      this.syncDroughtWarning(s, show);
     } catch { /* layer state missing in old saves */ }
     if (this.overlayFn) this.renderer.setOverlay(this.overlayFn(s), this.overlayRamp);
     this.readouts.update(s);
@@ -455,6 +460,24 @@ export class App {
       this.objectives.update(s);
     }
     this.refreshHover();
+  }
+
+  /** River Town: when a drought is declared and the drought plan is off, say so and offer the plan in one click. */
+  private syncDroughtWarning(s: GameState, satBusy: boolean): void {
+    const idx = SIM.seasonIndexOf(s);
+    const d = s.phase === 'act2' ? s.a2.active.find((e) => e.type === 'drought' && e.endsAt > idx) : undefined;
+    const has = SIM.policiesFor(s.scenarioId).some((p) => p.id === 'drought.plan');
+    const show = !satBusy && has && !!d && SIM.policyValue(s, 'drought.plan') < 1 && this.droughtDismissed !== d.endsAt;
+    this.droughtEl.classList.toggle('hidden', !show);
+    if (!show) { this.droughtEl.replaceChildren(); return; }
+    if (this.droughtEl.childElementCount) return;
+    const cost = SIM.policyDef(s.scenarioId, 'drought.plan')?.costPerYear;
+    const yearly = Array.isArray(cost) ? cost[1] ?? 0 : 0;
+    this.droughtEl.append(svg(UI_ICONS.warn), h('div', null, h('b', null, 'Drought declared'),
+      h('p', null, 'River flows are dropping fast. A drought plan brings in town water restrictions, has farmers irrigate only their best paddocks, and keeps the river its own share. Switched on early, it also banks wet-season water for the farms.'),
+      h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' },
+        h('button', { class: 'btn small teal', onclick: () => { const r = this.game.dispatch({ type: 'policy', id: 'drought.plan', value: 1 }); if (r.ok) { sfx('good'); toast('Drought plan on', `Restrictions start now. It costs $${yearly}k a year; switch it off any time in Town policies.`, 'good'); } else toast('Not possible', r.reason ?? '', 'warn'); } }, `Start the drought plan ($${yearly}k a year)`),
+        h('button', { class: 'btn small', onclick: () => { this.droughtDismissed = d?.endsAt ?? -1; this.droughtEl.replaceChildren(); this.droughtEl.classList.add('hidden'); } }, 'Not now'))));
   }
 
   private setOverlay(fn: ((s: GameState) => ArrayLike<number>) | null, ramp: import('../render/overlay').Ramp): void {

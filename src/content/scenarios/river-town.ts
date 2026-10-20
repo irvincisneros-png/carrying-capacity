@@ -36,6 +36,10 @@ export const RIVER_TOWN: ScenarioDef = {
       id: 'alloc.env', label: 'Share left for the river', min: 0.05, max: 0.7, step: 0.05, default: 0.2, unit: 'of the river',
       blurb: 'The share set aside for fish, red gums and billabongs. The farms get whatever is left over.',
     },
+    {
+      id: 'drought.plan', label: 'Drought plan', min: 0, max: 1, step: 1, default: 0, unit: 'level', costPerYear: [0, 4],
+      blurb: 'In normal seasons, half of any water flowing past above the river\'s own share is banked in storage for the farms. When a drought is declared, town water restrictions start (20% less), farmers irrigate only their best paddocks (30% less), and the banked water carries the farms through. Switch it on before the dry years: the bank only fills in wet ones.',
+    },
   ],
   act2: {
     carryOverCap: 500,
@@ -54,7 +58,7 @@ export const RIVER_TOWN: ScenarioDef = {
     eventMult: { drought: 2.5, heatwave: 1.2 },
     turningPoint: RIVER_TOWN_TURNING,
     objectives: [
-      { id: 'river', label: 'Bring the river back to good health (60 or more)', metric: 'riverHealth', op: '>=', target: 60 },
+      { id: 'river', label: 'Bring the river back to good health (60 or more, average of the last 10 years)', metric: 'riverHealth', op: '>=', target: 60, avgYears: 10 },
       { id: 'taps', label: 'No town water failures after 2040', metric: 'townWaterFailures', op: '<=', target: 0 },
       { id: 'farms', label: 'Keep the farms viable (50 or more)', metric: 'farmViability', op: '>=', target: 50 },
       { id: 'platypus', label: 'The platypus returns', metric: 'wildlifeThriving', op: '>=', target: 1, bonus: true, pendingTier: 'wildlife' },

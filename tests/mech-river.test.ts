@@ -220,3 +220,34 @@ describe('billabongs and the frogs', () => {
     expect(summer.flags['w.wet'] as number).toBeLessThan(spring.flags['w.wet'] as number);
   });
 });
+
+describe('the drought plan (a policy lever)', () => {
+  const plan = (s: GameState): GameState => applyAction(s, { type: 'policy', id: 'drought.plan', value: 1 }).state;
+  it('banks wet-season water only from flow above the river\'s own share, up to the cap', () => {
+    const s = plan(town({ farms: 2 }));
+    const out = tick(s, 2).state;
+    expect(out.flags['w.bank']).toBeGreaterThan(0);
+    expect(out.flags['w.bank']).toBeLessThanOrEqual(RIVER.bankCap);
+    expect(tick(town({ farms: 2 }), 2).state.flags['w.bank'] ?? 0).toBe(0);
+  });
+  it('in a drought, restricts town and farm demand and lets the banked water reach the farms', () => {
+    const s = plan(town());
+    expect(townDemand(withDrought(s, 4), 0, true)).toBeCloseTo(townDemand(s, 0) * RIVER.droughtTown, 6);
+    expect(farmDemand(s, 0, true)).toBeCloseTo(farmDemand(s, 0) * RIVER.droughtFarm, 6);
+    expect(farmDemand(town(), 0, true)).toBeCloseTo(farmDemand(town(), 0), 6);
+    s.flags['w.bank'] = RIVER.bankCap;
+    const dry = withDrought(s, 8);
+    const out = tick(dry, 1).state;
+    expect(out.flags['w.bank']).toBeLessThan(RIVER.bankCap);
+    // The plan's yield beats the same drought without it.
+    const off = tick(withDrought(town(), 8), 1).state;
+    expect(out.flags['w.yield']).toBeGreaterThan(off.flags['w.yield'] as number);
+  });
+  it('costs money every year it is on', () => {
+    const s = plan(town());
+    const before = s.budget;
+    const out = tick(s, 1).state;
+    const offOut = tick(town(), 1).state;
+    expect(before - out.budget).toBeGreaterThan(before - offOut.budget);
+  });
+});

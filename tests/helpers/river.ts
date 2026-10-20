@@ -85,7 +85,7 @@ function riparianNurseries(s0: GameState, total: number): GameState {
 }
 
 /** How thorough the thoughtful player is (the numbers a sensible, careful person would do; scratch scripts may tweak them). */
-export const RIVER_BOT = { adapt: true, town: 0.25, env: 0.3, reservoirs: 1, wetlands: 2, drip: 4, nurseries: 3, phyto: 2, fishway: true, startDelay: 0, scale: 1 };
+export const RIVER_BOT = { adapt: true, town: 0.25, env: 0.3, reservoirs: 1, wetlands: 2, drip: 4, nurseries: 3, phyto: 2, fishway: true, startDelay: 0, scale: 1, droughtPlan: true };
 const sc = (n: number): number => Math.round(n * RIVER_BOT.scale);
 
 export function riverThoughtfulPlan(): Plan {
@@ -97,6 +97,8 @@ export function riverThoughtfulPlan(): Plan {
       s = setPolicy(s, 'alloc.town', RIVER_BOT.town);
       s = setPolicy(s, 'alloc.env', RIVER_BOT.env);
     }
+    // The drought warning's action: switch the drought plan on when the first drought is declared (or straight away).
+    if (RIVER_BOT.droughtPlan && s.flags['pol.drought.plan'] !== 1 && s.a2.active.some((e) => e.type === 'drought')) s = setPolicy(s, 'drought.plan', 1);
     s = comanageBush(s, 2);
     s = burnPatches(s);
     s = treatSewage(s);

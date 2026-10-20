@@ -310,6 +310,8 @@ export interface YearRecord {
   estuaryHealth: number;
   meanHealth: number;
   reefHealth: number;
+  /** River Town only: river health 0..100 at year end. */
+  riverHealth?: number;
 }
 
 export interface ObjectiveResult {
