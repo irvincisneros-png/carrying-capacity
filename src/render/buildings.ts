@@ -81,6 +81,7 @@ export class BuildingLayer {
   private anims: Anim[] = [];
   private models = new Map<string, BuildingModel>();
   private detail: 0 | 1 = 1;
+  private cull = 0;
   private initial = true;
   rotors: InstancedMesh;
   private rotorInfo: { x: number; y: number; z: number; yaw: number; scale: number; speed: number; phase: number }[] = [];
@@ -110,9 +111,10 @@ export class BuildingLayer {
     return b;
   }
 
-  setDetail(detail: 0 | 1, s: GameState | null): void {
-    if (detail === this.detail) return;
+  setDetail(detail: 0 | 1, s: GameState | null, cull = 0): void {
+    if (detail === this.detail && cull === this.cull) return;
     this.detail = detail;
+    this.cull = cull;
     this.models.clear();
     this.group.remove(this.batch.mesh);
     if (this.batch.outline) this.group.remove(this.batch.outline);
@@ -133,10 +135,10 @@ export class BuildingLayer {
 
   model(type: BuildingId): BuildingModel | null {
     if (type === 'road' || type === 'rail') return null;
-    const key = `${type}:${this.detail}`;
+    const key = `${type}:${this.detail}:${this.cull}`;
     let m = this.models.get(key);
     if (!m) {
-      m = buildBuildingModel(type, this.detail);
+      m = buildBuildingModel(type, this.detail, this.cull);
       this.models.set(key, m);
     }
     return m;
@@ -190,7 +192,7 @@ export class BuildingLayer {
         this.recs.set(b.uid, rec);
         if (b.type !== 'road' && b.type !== 'rail') {
           const model = this.model(b.type)!;
-          const gid = this.gid(`${b.type}:${this.detail}`, () => model.geo);
+          const gid = this.gid(`${b.type}:${this.detail}:${this.cull}`, () => model.geo);
           this.compose(rec, this.initial ? 1 : 0.001, this.initial ? 1 : 0.001);
           const lift = INDUSTRIAL.has(b.type) ? 1.32 : 1.12;
           _c.setRGB(lift - ((b.uid * 0.37) % 1) * 0.06, lift - ((b.uid * 0.53) % 1) * 0.05, lift - ((b.uid * 0.71) % 1) * 0.07);
@@ -228,8 +230,9 @@ export class BuildingLayer {
       rec.dirt = dirt;
       const hubKey = rec.type === 'rail' ? 'railHub' : dirt ? 'dirtHub' : 'roadHub';
       const armKey = rec.type === 'rail' ? 'railArm' : dirt ? 'dirtArm' : 'roadArm';
-      const hubG = this.gid(hubKey, rec.type === 'rail' ? railHubGeo : dirt ? dirtHubGeo : roadHubGeo);
-      const armG = this.gid(armKey, rec.type === 'rail' ? railArmGeo : dirt ? dirtArmGeo : roadArmGeo);
+      const cheap = this.cull > 0; // Very low: flat road / rail quads instead of kerbed slabs with street lights
+      const hubG = this.gid(hubKey, () => (rec.type === 'rail' ? railHubGeo(cheap) : dirt ? dirtHubGeo(cheap) : roadHubGeo(cheap)));
+      const armG = this.gid(armKey, () => (rec.type === 'rail' ? railArmGeo(cheap) : dirt ? dirtArmGeo(cheap) : roadArmGeo(cheap)));
       const cx = this.map.cx(bx);
       const cz = this.map.cz(by);
       const cy = this.map.heightAt(cx, cz) + 0.03;

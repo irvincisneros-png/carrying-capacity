@@ -63,6 +63,14 @@ export interface DilemmaDef {
 }
 
 export const ACT2_OFFERS_PER_DECADE = 3;
+/** Cards per in-game decade in Act 2 for a scenario (default 3). Coal Coast, the longest game, offers 2 to stay inside 1 to 2 hours. */
+export function offersPerDecade(scenario: ScenarioId): number {
+  return getScenario(scenario).dilemmasPerDecade ?? ACT2_OFFERS_PER_DECADE;
+}
+/** Years of the decade (counted from the start of Act 2) in which a card is offered. */
+export function offerSlots(perDecade: number): readonly number[] {
+  return perDecade >= 3 ? [1, 4, 7] : perDecade === 2 ? [2, 6] : [4];
+}
 export const ACT1_MIN_GAP = 20;
 export const PENDING_EXPIRY_YEARS = 5;
 /** Society nudge from all dilemma choices stays within this. */
@@ -158,10 +166,11 @@ export function offerAct2(s: GameState): void {
   if (off < 1) return;
   const window = Math.floor(off / 10);
   const inWindow = Object.values(s.dilemmas.offered).filter((y) => Math.floor((y - start) / 10) === window).length;
-  if (inWindow >= ACT2_OFFERS_PER_DECADE || s.dilemmas.pending.length >= 2) return;
+  const perDecade = offersPerDecade(s.scenarioId);
+  if (inWindow >= perDecade || s.dilemmas.pending.length >= 2) return;
   const within = off % 10;
-  // Cards arrive in years 1, 4 and 7 of the decade; a missed slot is retried the next year.
-  const slots = [1, 4, 7];
+  // Cards arrive in years 1, 4 and 7 of the decade (2 and 6 when there are two); a missed slot is retried the next year.
+  const slots = offerSlots(perDecade);
   const due = slots.filter((x) => x <= within).length;
   if (inWindow >= due) return;
   const pick = eligible(s, 'act2')[0];

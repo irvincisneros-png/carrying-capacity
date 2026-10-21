@@ -72,7 +72,9 @@ vec3 ccIP = (modelMatrix * vec4(batchingMatrix[3].xyz, 1.0)).xyz;
 #else
 vec3 ccIP = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 #endif
+#ifdef CC_SWAY
 float ccRnd = fract(sin(dot(ccIP.xz, vec2(12.9898, 78.233))) * 43758.5453);
+#endif
 float ccGrowV = 1.0;
 #ifdef CC_ANIM
 {
@@ -168,6 +170,28 @@ uniform float uRim;
 uniform vec3 uGhostCol;
 #endif
 vec3 ccStrata(vec3 p, float below, float surfY){
+#ifdef CC_LITE
+  // cheap strata (Very low / Low): one noise lookup, no wobble / deep-layer noise
+  float w = sin(p.x * 0.33 + p.z * 0.27 + p.y * 0.9) * 0.14;
+  float y = p.y + w;
+  float b = y * 2.4;
+  float ib = floor(b);
+  float fb = fract(b);
+  float r = ccHash(vec2(ib, 3.7));
+  vec3 c = r < 0.38 ? uStrata[2] : (r < 0.66 ? uStrata[3] : (r < 0.84 ? uStrata[4] : uStrata[5]));
+  float streak = ccNoise(vec2((p.x + p.z) * 3.0, y * 26.0));
+  c *= 0.86 + 0.24 * streak;
+  c *= 0.74 + 0.26 * smoothstep(0.0, 0.09, fb);
+  c = mix(c, uStrata[6] * (0.8 + 0.4 * streak), 1.0 - smoothstep(0.1, 0.15, abs(y + 2.45)));
+  c = mix(c, uStrata[7] * 0.9, smoothstep(-3.0, -3.5, y));
+  if (below >= 0.0) {
+    vec3 top = surfY > 0.02 ? uStrata[0] : uStrata[8];
+    vec3 sub = surfY > 0.02 ? uStrata[1] : mix(uStrata[8], uStrata[2], 0.5);
+    c = mix(c, sub * (0.9 + 0.2 * streak), 1.0 - smoothstep(0.4, 0.47, below));
+    c = mix(c, top * (0.85 + 0.25 * streak), 1.0 - smoothstep(0.15, 0.2, below));
+  }
+  return c;
+#else
   float w = (ccNoise(p.xz * 0.55 + vec2(p.y * 0.3)) - 0.5) * 0.3 + sin(p.x * 0.33 + p.z * 0.27) * 0.12;
   float y = p.y + w;
   float b = y * 2.4;
@@ -190,6 +214,7 @@ vec3 ccStrata(vec3 p, float below, float surfY){
     c = mix(c, top * (0.85 + 0.25 * streak), 1.0 - smoothstep(0.15, 0.2, below + wob));
   }
   return c;
+#endif
 }
 `;
 
@@ -197,6 +222,23 @@ export const FRAG_COLOR = /* glsl */ `
 #include <color_fragment>
 vec4 ccT = ccTile(vCcW.xz);
 #ifdef CC_TERRAIN
+#ifdef CC_LITE
+{
+  // cheap ground (Very low / Low): one noise lookup per effect, strata only on steep faces, no sparkle / caustics
+  float veg = ccT.r + (ccNoise(vCcW.xz * 0.9) - 0.5) * 0.42;
+  float m = smoothstep(0.22, 0.62, veg);
+  vec3 c = mix(vCcC2 * diffuse, diffuseColor.rgb, m);
+  float n1 = ccNoise(vCcW.xz * 1.3 + 4.0);
+  vec3 poll = mix(uPollA, uPollB, smoothstep(0.3, 0.7, n1));
+  float soil = smoothstep(0.08, 0.7, ccT.g + (n1 - 0.5) * 0.25);
+  c = mix(c, poll, soil * 0.85 * step(0.02, vCcW.y));
+  float steep = smoothstep(0.42, 0.7, 1.0 - normalize(vCcN).y);
+  if (steep > 0.01) c = mix(c, ccStrata(vCcW, -1.0, vCcW.y) * mix(0.85, 1.0, m), steep);
+  float edge = 1.0 - smoothstep(0.0, 0.16, abs(veg - 0.42));
+  c = mix(c, uFrontCol * 1.25, clamp(edge * ccT.a * uFrontGlow * (1.0 - steep), 0.0, 0.85) * step(0.0, vCcW.y));
+  diffuseColor.rgb = c;
+}
+#else
 {
   float veg = ccVeg(vCcW.xz, ccT.r);
   float m = smoothstep(0.22, 0.62, veg);
@@ -225,6 +267,7 @@ vec4 ccT = ccTile(vCcW.xz);
   diffuseColor.rgb = c;
 }
 #endif
+#endif
 #ifdef CC_SLAB
 diffuseColor.rgb = ccStrata(vCcW, vCcDepth, vCcW.y + vCcDepth);
 #endif
@@ -233,7 +276,7 @@ diffuseColor.rgb *= mix(0.7, 1.15, vCcG);
 diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.96, 0.95, 0.93), vCcSteam * 0.8);
 diffuseColor.a *= (1.0 - smoothstep(0.3, 0.95, vCcG)) * smoothstep(0.0, 0.08, vCcG) * mix(1.0, 0.75, vCcSteam);
 #endif
-#ifdef CC_BRUSH
+#if defined(CC_BRUSH) && !defined(CC_LITE)
 {
   vec3 an = abs(normalize(vCcN));
   vec2 buv = an.y > max(an.x, an.z) ? vCcW.xz : (an.x > an.z ? vCcW.zy : vCcW.xy);

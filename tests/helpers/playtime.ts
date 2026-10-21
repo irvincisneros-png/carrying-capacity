@@ -9,9 +9,10 @@
  *   - turning point: 3, epilogue and report card: 5;
  *   - Act 2: one year is 15 seconds at 1x and a typical player runs it at 2x with pauses, so 7.5 seconds a year;
  *   - each sitting of placing buildings (one type in one year) is about 15 seconds, and each extra building in it 3 more;
- *   - every other action (a lever, a consultation, a repurposing, a rehab step) is about 15 seconds;
+ *   - every other action (a lever, a consultation, a repurposing, a rehab step) is about 15 seconds, the fourth to eighth of the same kind 5;
  *   - every dilemma card or story question answered is about 55 seconds (reading, the evidence button, deciding);
- *   - every story event read in Town Voices is about 5 seconds;
+ *   - every story line read in Town Voices is about 5 seconds, a wildlife line 2; the lines that only report an action already
+ *     counted (Caring for Country, the circular economy) or sit inside a card's 55 seconds are not counted again;
  *   - a map bigger than the original 1024 tiles takes longer to read and to pan round before each round of placing: half a minute
  *     per Act 2 decade for every extra 1024 tiles (the enlarged maps are 1.6x to 1.9x the old area, so about 2 to 3 minutes).
  */
@@ -48,9 +49,12 @@ export function minMargin(s: GameState): number {
   return Math.min(...margins(s).map((m) => m.margin));
 }
 
-/** Repeated identical actions (the tenth cool burn, the fortieth rooftop panel) are routine, so each kind counts at most 8 times. */
+/**
+ * Repeated identical actions (the tenth cool burn, the sixth recycled rail siding) are routine: the first three of a kind take the
+ * full time, later ones a third of it (the same tool, the same menu, a different tile), and a kind counts at most 8 times.
+ */
 const sumActs = (s: GameState, prefixes: readonly string[]): number =>
-  Object.entries(s.residents.actions).filter(([k]) => prefixes.some((p) => k.startsWith(p))).reduce((a, [, v]) => a + Math.min(8, v), 0);
+  Object.entries(s.residents.actions).filter(([k]) => prefixes.some((p) => k.startsWith(p))).reduce((a, [, v]) => a + Math.min(3, v) + Math.max(0, Math.min(8, v) - 3) / 3, 0);
 
 export interface PlayTime {
   act1: number;
@@ -70,7 +74,11 @@ export function estimatePlayTime(s: GameState): PlayTime {
   const sittings = new Set(placed.map((b) => `${b.type}:${b.builtYear}`)).size;
   const otherActions = sumActs(s, ['policy.', 'consulted', 'comanaged', 'burned', 'researched.', 'subscribed.', 'rehab.', 'repurposed.', 'recycled.']);
   const decisions = s.dilemmas.decisions.filter((d) => d.optionId !== 'ignored').length + Object.values(s.residents.choices).filter((c) => c !== 'ignored').length;
-  const stories = s.eventLog.filter((e) => e.type === 'story' && e.story?.channel !== 'research').length;
+  // Story lines worth reading. Country and circular lines are the feedback for actions already counted, a dilemma's offer and outcome
+  // are inside its 55 seconds, and wildlife lines (returns, heat deaths, nests) are skimmed in 2 seconds.
+  const lines = (ch: string): number => s.eventLog.filter((e) => e.type === 'story' && e.story?.channel === ch).length;
+  const skipped = ['research', 'country', 'circular', 'dilemma', 'wildlife'];
+  const stories = s.eventLog.filter((e) => e.type === 'story' && !skipped.includes(e.story?.channel ?? '')).length + (lines('wildlife') * 2) / 5;
   const years = sc.act2.endYear - sc.act2.startYear;
   const extraMap = Math.max(0, s.grid.w * s.grid.h / 1024 - 1) * (years / 10) * 0.5;
   const act1 = decades * 1.6 + (decades > 0 ? 3 : 0);

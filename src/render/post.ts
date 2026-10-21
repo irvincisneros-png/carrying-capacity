@@ -5,8 +5,8 @@ import {
   VignetteEffect,
 } from 'postprocessing';
 import { N8AOPostPass } from 'n8ao';
-import { Color, HalfFloatType, Uniform, Vector3, type Camera, type Scene, type WebGLRenderer } from 'three';
-import type { Tier } from './quality';
+import { Color, HalfFloatType, NeutralToneMapping, NoToneMapping, Uniform, Vector3, type Camera, type Scene, type WebGLRenderer } from 'three';
+import { TIERS, type Tier } from './quality';
 
 /** Era grade: sepia smog for the industrial decades, crisp teal-gold for a restored world. */
 export class GradeEffect extends Effect {
@@ -40,7 +40,9 @@ export class GradeEffect extends Effect {
 }
 
 export interface Pipeline {
-  composer: EffectComposer;
+  /** Null on tiers that render straight to the canvas (Very low). */
+  composer: EffectComposer | null;
+  render(dt: number): void;
   grade: GradeEffect;
   dof?: DepthOfFieldEffect;
   dispose(): void;
@@ -48,39 +50,52 @@ export interface Pipeline {
 }
 
 export function buildPipeline(renderer: WebGLRenderer, scene: Scene, camera: Camera, tier: Tier, focus: Vector3): Pipeline {
+  const direct = TIERS[tier]!.direct;
+  renderer.toneMapping = direct ? NeutralToneMapping : NoToneMapping;
+  if (direct) {
+    // Potato path: no composer, no half-float targets, no full-screen passes. The scene is drawn into the (reduced
+    // resolution) canvas with three's own neutral tone mapper; the era grade lives in the materials' haze instead.
+    return {
+      composer: null,
+      grade: new GradeEffect(),
+      render: () => renderer.render(scene, camera),
+      dispose: () => undefined,
+      setSize: () => undefined,
+    };
+  }
   const composer = new EffectComposer(renderer, { frameBufferType: HalfFloatType, depthBuffer: true, stencilBuffer: false, multisampling: 0 });
   composer.addPass(new RenderPass(scene, camera));
   const W = renderer.domElement.width;
   const H = renderer.domElement.height;
   let dof: DepthOfFieldEffect | undefined;
-  if (tier >= 2) {
+  if (tier >= 3) {
     const p = new N8AOPostPass(scene, camera, W, H);
     p.configuration.aoRadius = 0.9;
     p.configuration.distanceFalloff = 0.6;
     p.configuration.intensity = 1.6;
     p.configuration.color = new Color(0x3a2440);
-    p.configuration.halfRes = tier === 2;
-    p.setQualityMode(tier === 3 ? 'Medium' : 'Performance');
+    p.configuration.halfRes = tier === 3;
+    p.setQualityMode(tier === 4 ? 'Medium' : 'Performance');
     // transparency-aware AO re-renders the scene; our only transparent surface is water, so skip it
     p.configuration.transparencyAware = false;
-    if (tier === 2) {
+    if (tier === 3) {
       p.configuration.depthAwareUpsampling = false;
       p.configuration.aoSamples = 6;
       p.configuration.denoiseIterations = 1;
     }
     composer.addPass(p);
   }
-  if (tier >= 1) composer.addPass(new EffectPass(camera, new SMAAEffect({ preset: tier >= 2 ? SMAAPreset.HIGH : SMAAPreset.MEDIUM })));
+  if (tier >= 2) composer.addPass(new EffectPass(camera, new SMAAEffect({ preset: tier >= 3 ? SMAAPreset.HIGH : SMAAPreset.MEDIUM })));
   const grade = new GradeEffect();
   const fx: Effect[] = [];
-  if (tier === 3) {
+  if (tier === 4) {
     dof = new DepthOfFieldEffect(camera, { worldFocusDistance: 40, worldFocusRange: 26, bokehScale: 1.8, resolutionScale: 0.5 });
     dof.target = focus;
     fx.push(dof);
   }
-  if (tier >= 1) {
-    fx.push(new TiltShiftEffect({ offset: 0.04, rotation: 0, focusArea: 0.78, feather: 0.3, kernelSize: tier >= 2 ? KernelSize.MEDIUM : KernelSize.SMALL, resolutionScale: 0.5 }));
-    fx.push(new BloomEffect({ intensity: 0.55, luminanceThreshold: 0.78, luminanceSmoothing: 0.25, mipmapBlur: true, levels: tier >= 2 ? 6 : 4 }));
+  if (tier >= 2) {
+    fx.push(new TiltShiftEffect({ offset: 0.04, rotation: 0, focusArea: 0.78, feather: 0.3, kernelSize: tier >= 3 ? KernelSize.MEDIUM : KernelSize.SMALL, resolutionScale: 0.5 }));
+    fx.push(new BloomEffect({ intensity: 0.55, luminanceThreshold: 0.78, luminanceSmoothing: 0.25, mipmapBlur: true, levels: tier >= 3 ? 6 : 4 }));
   }
   fx.push(grade);
   fx.push(new HueSaturationEffect({ saturation: 0.1 }));
@@ -92,6 +107,7 @@ export function buildPipeline(renderer: WebGLRenderer, scene: Scene, camera: Cam
     composer,
     grade,
     dof,
+    render: (dt) => composer.render(dt),
     dispose: () => composer.dispose(),
     setSize: (w, h) => composer.setSize(w, h),
   };

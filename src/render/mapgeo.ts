@@ -48,10 +48,10 @@ export class MapGeo {
   readonly zones: Uint8Array;
   private th: Float32Array;
 
-  constructor(grid: TileGrid, readonly look: BiomeLook) {
+  constructor(grid: TileGrid, readonly look: BiomeLook, res = 0) {
     this.w = grid.w;
     this.h = grid.h;
-    this.res = resFor(grid.w, grid.h);
+    this.res = res > 0 ? res : resFor(grid.w, grid.h);
     this.segX = grid.w * this.res;
     this.segZ = grid.h * this.res;
     this.vx = this.segX + 1;
@@ -108,7 +108,7 @@ export class MapGeo {
 
   /** Recompute everything from a changed grid (same size), in place so layers holding this map stay valid. */
   update(grid: TileGrid): void {
-    const fresh = new MapGeo(grid, this.look);
+    const fresh = new MapGeo(grid, this.look, this.res);
     this.kinds.set(fresh.kinds);
     this.stages.set(fresh.stages);
     this.zones.set(fresh.zones);

@@ -45,6 +45,8 @@ export class Overlay {
           float a = (uRamp > 1.5 && uRamp < 2.5 ? v : 0.45 + 0.4 * v) * stripe * uAlpha;
           if (uRamp > 3.5) a = 0.45 * uAlpha * (0.8 + 0.2 * sin(uTime * 3.0));
           gl_FragColor = vec4(c, a);
+#include <tonemapping_fragment>
+#include <colorspace_fragment>
         }
       `,
     });
@@ -96,6 +98,8 @@ export function makeGrid(terrainGeo: BufferGeometry, shared: Record<string, IUni
         float l = max(smoothstep(0.5 - fw.x * 1.5, 0.5, f.x), smoothstep(0.5 - fw.y * 1.5, 0.5, f.y));
         if (l < 0.01) discard;
         gl_FragColor = vec4(vec3(1.0, 0.97, 0.88), l * uAlpha);
+#include <tonemapping_fragment>
+#include <colorspace_fragment>
       }
     `,
   });

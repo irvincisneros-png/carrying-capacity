@@ -43,7 +43,8 @@ export function eucalyptGeo(detail: number, variant: 0 | 1, seed: number): Buffe
   const P = new Parts(true);
   const H = variant === 0 ? 1.05 : 0.62;
   const main = [V(0, 0, 0), V(0.04, H * 0.35, 0.02), V(-0.035, H * 0.7, 0.03), V(0.02, H, 0)];
-  const trunk = P.add(taperTube(main, variant === 0 ? 0.075 : 0.062, 0.038, 7, 6), 0xf5f1e7, { rough: 0.7 });
+  const cheap = detail < 0; // Very low: slimmer trunk / branches, one blob per branch
+  const trunk = P.add(taperTube(main, variant === 0 ? 0.075 : 0.062, 0.038, cheap ? 4 : 7, cheap ? 3 : 6), 0xf5f1e7, { rough: 0.7 });
   const mottle = (g: BufferGeometry) =>
     tint(g, (x, y, z, c) => {
       const n = vnoise(x * 30 + y * 9, z * 30 - y * 12);
@@ -61,9 +62,9 @@ export function eucalyptGeo(detail: number, variant: 0 | 1, seed: number): Buffe
     const start = V(0.02 * 0.9, H * (0.8 + rnd() * 0.16), 0);
     const end = V(Math.cos(a) * spread, H + rise, Math.sin(a) * spread);
     const mid = start.clone().lerp(end, 0.5).add(V(Math.cos(a) * 0.05, 0.08, Math.sin(a) * 0.05));
-    const br = P.add(taperTube([start, mid, end], variant === 0 ? 0.04 : 0.034, 0.014, 5, 4), 0xf5f1e7, { rough: 0.7 });
+    const br = P.add(taperTube([start, mid, end], variant === 0 ? 0.04 : 0.034, 0.014, cheap ? 3 : 5, cheap ? 2 : 4), 0xf5f1e7, { rough: 0.7 });
     mottle(br);
-    const k = variant === 0 ? 2 : 2;
+    const k = cheap ? 1 : 2;
     for (let i = 0; i < k; i++) {
       const r = variant === 0 ? 0.2 + rnd() * 0.09 : 0.18 + rnd() * 0.07;
       blobs.push([end.x + (rnd() - 0.5) * 0.24, end.y + 0.04 + rnd() * 0.12, end.z + (rnd() - 0.5) * 0.24, r]);
@@ -71,12 +72,12 @@ export function eucalyptGeo(detail: number, variant: 0 | 1, seed: number): Buffe
     topY = Math.max(topY, end.y);
   }
   blobs.push([0.02, topY + 0.14, 0, variant === 0 ? 0.25 : 0.22]);
-  if (variant === 1) blobs.push([(rnd() - 0.5) * 0.2, topY - 0.02, (rnd() - 0.5) * 0.2, 0.2]);
+  if (variant === 1 && !cheap) blobs.push([(rnd() - 0.5) * 0.2, topY - 0.02, (rnd() - 0.5) * 0.2, 0.2]);
   let cx = 0, cy = 0, cz = 0;
   for (const b of blobs) { cx += b[0]; cy += b[1]; cz += b[2]; }
   cx /= blobs.length; cy /= blobs.length; cz /= blobs.length;
   blobs.forEach((b, i) => {
-    const g = T(blob(b[3], detail, seed * 13 + i, 0.4, 0.72), b[0], b[1], b[2]);
+    const g = T(blob(b[3] * (cheap ? 1.3 : 1), Math.max(0, detail), seed * 13 + i, 0.4, 0.72), b[0], b[1], b[2]);
     setSph(g, cx, cy - 0.05, cz);
     P.add(g, CANOPY[(seed + i * 3) % CANOPY.length], { ao: 0.55, rough: 0.8 });
   });
@@ -110,12 +111,12 @@ export function banksiaGeo(detail: number): BufferGeometry {
   const cols = [0x4c6a38, 0x5a7840, 0x456233];
   for (let i = 0; i < 3; i++) {
     const a = (i / 3) * Math.PI * 2;
-    const g = T(blob(0.11 + rnd() * 0.03, detail, 500 + i, 0.45, 0.85), Math.cos(a) * 0.07, 0.11 + rnd() * 0.05, Math.sin(a) * 0.07);
+    const g = T(blob(0.11 + rnd() * 0.03, Math.max(0, detail), 500 + i, 0.45, 0.85), Math.cos(a) * 0.07, 0.11 + rnd() * 0.05, Math.sin(a) * 0.07);
     setSph(g, 0, 0.1, 0);
     P.add(g, cols[i], { ao: 0.55 });
   }
   const fl = [0xe0892a, 0xd9a43a, 0xc9682a];
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < (detail < 0 ? 0 : 6); i++) {
     const a = (i / 6) * Math.PI * 2 + rnd() * 0.5;
     const r = 0.1 + rnd() * 0.04;
     P.add(T(new CylinderGeometry(0.022, 0.028, 0.1, 6), Math.cos(a) * r, 0.2 + rnd() * 0.06, Math.sin(a) * r, Math.sin(a) * 0.5, 0, -Math.cos(a) * 0.5), fl[i % 3], { rough: 0.9 });

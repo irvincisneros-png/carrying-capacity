@@ -4,7 +4,7 @@ import {
   BoxGeometry, BufferGeometry, Color, ConeGeometry, CylinderGeometry, ExtrudeGeometry, LatheGeometry, PlaneGeometry,
   Shape, SphereGeometry, Vector2, Vector3,
 } from 'three';
-import { Parts, T, blob, gableRoof, hipRoof, tris, type ColorLike, type PartOpts } from '../geo';
+import { Parts, T, blob, gableRoof, hipRoof, paint, tris, type ColorLike, type PartOpts } from '../geo';
 import { vnoise } from '../noise';
 
 export type V3 = [number, number, number];
@@ -24,6 +24,7 @@ const _c = new Color();
 const _a = new Vector3();
 const _b = new Vector3();
 const _n = new Vector3();
+const _size = new Vector3();
 
 /** Per-triangle recolour (geometry must already be painted & non-indexed). Callback gets the triangle centroid + face normal and
  *  returns undefined (keep), a number (multiply), or a Color/hex (replace, keeps the vertex AO ratio-free). */
@@ -115,7 +116,8 @@ export class Kit {
   P = new Parts();
   stacks: KitStack[] = [];
   rotors: KitRotor[] = [];
-  constructor(readonly d: 0 | 1) {}
+  /** Parts whose bounding-box diagonal is below this are dropped (Very low: no window panes, rails, trim). */
+  constructor(readonly d: 0 | 1, readonly cull = 0) {}
   get hi(): boolean {
     return this.d === 1;
   }
@@ -124,6 +126,13 @@ export class Kit {
     return this.d ? n : Math.max(4, Math.round(n * 0.55));
   }
   add(g: BufferGeometry, c: ColorLike, o?: PartOpts): BufferGeometry {
+    if (this.cull > 0) {
+      g.computeBoundingBox();
+      {
+        g.boundingBox!.getSize(_size);
+        if (Math.max(_size.x, _size.y, _size.z) < this.cull) return paint(g, c, o);
+      }
+    }
     return this.P.add(g, c, o);
   }
   box(x: number, y: number, z: number, sx: number, sy: number, sz: number, c: ColorLike, o?: PartOpts, ry = 0): BufferGeometry {
@@ -252,7 +261,7 @@ export class Kit {
   }
   /** build in local space, then place (scale s, yaw ry). Stacks/rotors are carried along. */
   group(x: number, y: number, z: number, ry: number, fn: (k: Kit) => void, s = 1): void {
-    const k = new Kit(this.d);
+    const k = new Kit(this.d, this.cull / s);
     fn(k);
     if (!k.P.list.length) return;
     const g = k.P.merge();

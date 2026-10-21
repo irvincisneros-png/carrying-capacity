@@ -44,7 +44,9 @@ const SLOT6: [number, number][] = [[-0.3, -0.28], [0.05, -0.32], [0.32, -0.05], 
 export class Vegetation {
   private sets: Record<string, InstSet> = {};
   private frac = 1;
-  private detail: 0 | 1 = 1;
+  private detail: -1 | 0 | 1 = 1;
+  /** Understorey (shrubs, wattle, grass trees) thins faster than the trees on the cheapest tier. */
+  private understorey = 1;
   readonly group: Group;
 
   constructor(private map: MapGeo, private lib: MatLib, group: Group) {
@@ -82,13 +84,15 @@ export class Vegetation {
   }
 
   /** Graphics tier: foliage fraction and model detail. */
-  setTier(frac: number, detail: 0 | 1): void {
+  setTier(frac: number, treeDetail: -1 | 0 | 1): void {
     this.frac = frac;
-    if (detail !== this.detail) {
-      this.detail = detail;
-      this.sets.eucA!.setGeometry(eucalyptGeo(detail, 0, 3));
-      this.sets.eucB!.setGeometry(eucalyptGeo(detail, 1, 8));
-      this.sets.shrub!.setGeometry(banksiaGeo(detail));
+    this.understorey = frac < 0.3 ? 0.3 : 1;
+    if (treeDetail !== this.detail) {
+      this.detail = treeDetail;
+      const detail = Math.max(0, treeDetail) as 0 | 1;
+      this.sets.eucA!.setGeometry(eucalyptGeo(treeDetail, 0, 3));
+      this.sets.eucB!.setGeometry(eucalyptGeo(treeDetail, 1, 8));
+      this.sets.shrub!.setGeometry(banksiaGeo(treeDetail));
       this.sets.wattle!.setGeometry(wattleGeo(detail));
       this.sets.mangrove!.setGeometry(mangroveGeo(detail));
       this.sets.palmA?.setGeometry(palmGeo(detail, 0));
@@ -115,6 +119,7 @@ export class Vegetation {
     const W = g.w;
     const act2 = s.phase === 'act2' || s.phase === 'epilogue' || s.phase === 'failed';
     const ff = this.frac;
+    const us = this.understorey;
     const keep = (t: number, slot: number, salt: number): boolean => hash2(t * 7 + slot, salt) < ff;
     // distance (world units) from a point to the nearest built tile in the 5x5 neighbourhood: trees keep clear of
     // buildings and roads so nothing the player builds is hidden under a canopy
@@ -207,7 +212,7 @@ export class Vegetation {
             set.push(t * 4 + i, x, map.heightAt(x, z) - 0.02, z, r(i, 8) * 6.28, (0.5 + r(i, 9) * 0.32) * young * (0.7 + 0.3 * near), 0.8 + r(i, 11) * 0.5, (r(i, 10) - 0.5) * 0.12, _c);
           }
           for (let i = 0; i < shrubs; i++) {
-            if (!keep(t, i + 4, 12)) continue;
+            if (!keep(t, i + 4, 12) || (us < 1 && hash2(t * 5 + i, 912) > us)) continue;
             const [x, z] = pos(SLOT6, i + 2, 0.25);
             if (clearance(x, z) < 0.25) continue;
             const sc = 0.85 + r(i, 13) * 0.45;
@@ -216,18 +221,19 @@ export class Vegetation {
             else S.shrub!.push(t * 4 + i, x, map.heightAt(x, z) - 0.01, z, r(i, 15) * 6.28, sc, 1, 0, 0xffffff);
           }
           for (let i = 0; i < weeds; i++) {
+            if (us < 1 && r(i, 16) > us) continue;
             const [x, z] = pos(SLOT6, i, 0.3);
             S.shrub!.push(t * 4 + 2 + (i % 2), x, map.heightAt(x, z) - 0.01, z, r(i, 16) * 6.28, 0.9 + r(i, 17) * 0.5, 0.8, 0, 0xc49ab8);
           }
           for (let i = 0; i < tufts * 2; i++) {
-            if (!keep(t, i + 8, 18)) continue;
+            if (!keep(t, i + 8, 18) || (us < 1 && hash2(t * 11 + i, 913) > us)) continue;
             const [x, z] = pos(SLOT6, i + 3, 0.3);
             const pal = dry ? TUFT_DRY : TUFT_GREEN;
             if (S.spinifex && (i > 1 || r(i, 97) < 0.35)) continue;
             if (S.spinifex) S.spinifex.push(t * 8 + i, x, map.heightAt(x, z) - 0.01, z, r(i, 19) * 6.28, 0.6 + r(i, 20) * 0.6, 1, 0, 0xffffff);
             else S.tuft!.push(t * 8 + i, x, map.heightAt(x, z) - 0.01, z, r(i, 19) * 6.28, 0.7 + r(i, 20) * 0.8, 1, 0, pal[(r(i, 21) * pal.length) | 0]!);
           }
-          if (k === TileKind.Bush && (g.elevation[t] ?? 0) >= 2 && r(0, 22) < 0.35) {
+          if (k === TileKind.Bush && (g.elevation[t] ?? 0) >= 2 && r(0, 22) < 0.35 * us) {
             const [x, z] = pos(SLOT6, 4, 0.2);
             S.grassTree!.push(t * 2, x, map.heightAt(x, z) - 0.01, z, r(0, 23) * 6.28, 0.9 + r(0, 24) * 0.3);
           }
@@ -236,6 +242,7 @@ export class Vegetation {
         // ---- billabongs / swamps / waterholes: reed beds round the edge
         if (k === TileKind.Wetland) {
           for (let i = 0; i < 3; i++) {
+            if (ff < 0.3 && !keep(t, i + 5, 70)) continue;
             const [x, z] = pos(SLOT4, i, 0.5);
             const y = map.heightAt(x, z);
             S.reeds!.push(t * 4 + i, x, Math.max(y, -0.05), z, r(i, 70) * 6.28, 0.9 + r(i, 71) * 0.6);
@@ -268,10 +275,11 @@ export class Vegetation {
         if (k === TileKind.Rock) {
           const n = 1 + (r(0, 40) < 0.5 ? 1 : 0);
           for (let i = 0; i < n; i++) {
+            if (ff < 0.3 && !keep(t, i + 3, 41)) continue; // Very low: thin the boulders too
             const [x, z] = pos(SLOT4, i, 0.3);
             S.rock!.push(t * 3 + i, x, map.heightAt(x, z) - 0.07, z, r(i, 41) * 6.28, 0.22 + r(i, 42) * 0.3, 0.45 + r(i, 43) * 0.5, 0, ROCK[(r(i, 44) * ROCK.length) | 0]!);
           }
-          if (r(0, 45) < 0.45 && keep(t, 1, 46)) {
+          if (r(0, 45) < 0.45 * us && keep(t, 1, 46)) {
             const [x, z] = pos(SLOT4, 2, 0.2);
             S.grassTree!.push(t * 2 + 1, x, map.heightAt(x, z) - 0.01, z, r(0, 47) * 6.28, 0.85 + r(0, 48) * 0.35);
           }
@@ -297,6 +305,7 @@ export class Vegetation {
             S.mangrove!.push(t * 4 + i, x, Math.max(map.heightAt(x, z), -0.14), z, r(i, 53) * 6.28, (0.8 + r(i, 54) * 0.45) * (st >= 3 ? 1 : 0.7));
           }
           for (let i = 0; i < salt; i++) {
+            if (us < 1 && r(i, 58) > us) continue;
             const [x, z] = pos(SLOT6, i + 2, 0.3);
             S.salt!.push(t * 4 + i, x, Math.max(map.heightAt(x, z), -0.03), z, r(i, 55) * 6.28, 0.9 + r(i, 56) * 0.6, 1, 0, SALT[(r(i, 57) * SALT.length) | 0]!);
           }
@@ -324,6 +333,7 @@ export class Vegetation {
           const h = act2 ? health : reefHealth(s.tempC, water);
           for (let i = 0; i < 2; i++) {
             if (i === 1 && r(i, 96) < 0.45) continue;
+            if (ff < 0.3 && (i === 1 || r(i, 95) < 0.55)) continue;
             const [x, z] = pos(SLOT6, i * 2 + (t % 2), 0.3);
             _c.set(CORAL[(r(i, 61) * CORAL.length) | 0]!).lerp(REEF_WATER, 0.12);
             if (h < 0.15) _c.lerp(DEAD, 0.85);

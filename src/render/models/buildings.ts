@@ -2546,8 +2546,8 @@ function genericModel(k: Kit, id: ModelId): void {
   k.box(-bw * 0.2, 0.08, bd / 2 + 0.005, 0.12, 0.18, 0.01, 0x2b3a46);
 }
 
-export function buildBuildingModel(id: ModelId, detail: 0 | 1): BuildingModel {
-  const k = new Kit(detail);
+export function buildBuildingModel(id: ModelId, detail: 0 | 1, cull = 0): BuildingModel {
+  const k = new Kit(detail, cull);
   const build = BUILDERS[id];
   if (build) build(k);
   else genericModel(k, id);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ACT1_MIN_GAP, ACT2_OFFERS_PER_DECADE, applyAction, choose, cloneState, createGame, DILEMMA_SOCIETY_CAP, dilemmaSociety, dilemmasFor,
-  EVIDENCE_REWARD, getDilemma, layersSeason, MAX_OFFERS, tick, offerAct1, offerAct2, societyShare, TileKind, wordCount,
+  EVIDENCE_REWARD, getDilemma, layersSeason, MAX_OFFERS, offersPerDecade, tick, offerAct1, offerAct2, societyShare, TileKind, wordCount,
 } from '../src/sim';
 import { mergeImpacts } from '../src/ui/adapters';
 import type { GameState, ScenarioId } from '../src/sim';
@@ -58,7 +58,7 @@ describe('Act 1 cards', () => {
 });
 
 describe('Act 2 scheduling', () => {
-  it('puts cards on the table in years 1, 4 and 7 of each decade, never more than three, never more than two waiting', () => {
+  it('puts cards on the table in years 2 and 6 of each decade (Coal Coast offers two), never more than two waiting', () => {
     const s = act2Sandbox(TileKind.Land);
     const waiting: number[] = [];
     const seen: number[] = [];
@@ -68,17 +68,17 @@ describe('Act 2 scheduling', () => {
       waiting.push(s.dilemmas.pending.length);
       seen.push(Object.keys(s.dilemmas.offered).length);
     }
-    // Years 2025 (off 0) none; 2026 first; 2029 second; 2032 third; capped at three in the decade.
-    expect(seen.slice(0, 2)).toEqual([0, 1]);
+    // Years 2025 and 2026 none; 2027 first; 2031 second; capped at two in the decade.
+    expect(seen.slice(0, 3)).toEqual([0, 0, 1]);
     expect(Math.max(...waiting)).toBeLessThanOrEqual(2);
-    expect(seen[seen.length - 1]).toBeLessThanOrEqual(ACT2_OFFERS_PER_DECADE);
-    expect(seen[seen.length - 1]).toBe(3); // the first lapsed (5 years) so the third could come
+    expect(offersPerDecade('coal-coast')).toBe(2);
+    expect(seen[seen.length - 1]).toBe(2);
     const first = s.eventLog.find((e) => e.story?.channel === 'dilemma');
     expect(first?.story?.choice?.options.length).toBeGreaterThanOrEqual(2);
     expect(first?.story?.choice?.prompt).toBe(getDilemma('coal-coast', first?.story?.ref ?? '')?.title);
     expect(wordCount(first?.text ?? '')).toBeLessThanOrEqual(75);
   });
-  it('offers three in a decade when the player keeps up', () => {
+  it('offers two in a decade on Coal Coast and three elsewhere when the player keeps up', () => {
     const s = act2Sandbox(TileKind.Land);
     for (let y = 2025; y < 2035; y++) {
       s.year = y;
@@ -90,33 +90,35 @@ describe('Act 2 scheduling', () => {
       }
     }
     const offered = Object.entries(s.dilemmas.offered);
-    expect(offered).toHaveLength(3);
-    expect(offered.map(([, y]) => y)).toEqual([2026, 2029, 2032]);
+    expect(offered).toHaveLength(2);
+    expect(offered.map(([, y]) => y)).toEqual([2027, 2031]);
+    expect(ACT2_OFFERS_PER_DECADE).toBe(3);
+    expect(offersPerDecade('river-town')).toBe(3);
   });
   it('picks eligible cards by priority, and holds back cards whose conditions are not met', () => {
     const s = act2Sandbox(TileKind.Land);
-    s.year = 2026;
+    s.year = 2027;
     offerAct2(s);
     expect(s.dilemmas.pending).not.toContain('d2-closure'); // no steelworks yet
     const c = act2Sandbox(TileKind.Land);
     addBuilding(c, 'steelworks', 5, 5);
     addBuilding(c, 'coalpower', 9, 5);
-    c.year = 2026;
+    c.year = 2027;
     offerAct2(c);
     expect(c.dilemmas.pending).toEqual(['d2-closure']); // priority 10 beats the coal question
-    c.year = 2029;
+    c.year = 2031;
     offerAct2(c);
     expect(c.dilemmas.pending).toEqual(['d2-closure', 'd2-coalphase']);
     expect(pendingEvents(c)).toEqual(['d2-closure', 'd2-coalphase']);
   });
-  it('lets recurring problems come back, a quarter-century later', () => {
+  it('lets recurring problems come back, a generation later', () => {
     const s = act2Sandbox(TileKind.Land);
     s.eventLog.push({ id: 900, type: 'heatwave', year: 2029, season: 0, seasonIndex: 0, severity: 1, text: 'Heatwave: a long run of days near 40 C.' });
     s.year = 2030;
     s.dilemmas.offered['d2-heat'] = 2030;
-    expect(dilemmasFor('coal-coast').find((d) => d.id === 'd2-heat')?.repeat).toBe(25);
-    s.year = 2058;
-    s.eventLog.push({ id: 901, type: 'heatwave', year: 2057, season: 0, seasonIndex: 0, severity: 1, text: 'Heatwave: a long run of days near 40 C.' });
+    expect(dilemmasFor('coal-coast').find((d) => d.id === 'd2-heat')?.repeat).toBe(40);
+    s.year = 2072;
+    s.eventLog.push({ id: 901, type: 'heatwave', year: 2071, season: 0, seasonIndex: 0, severity: 1, text: 'Heatwave: a long run of days near 40 C.' });
     for (const d of dilemmasFor('coal-coast')) if (d.phase === 'act2' && d.id !== 'd2-heat') s.dilemmas.offered[d.id] = 2040;
     offerAct2(s);
     expect(s.dilemmas.pending).toEqual(['d2-heat']);
@@ -138,25 +140,24 @@ describe('choosing', () => {
     return s;
   };
   it('applies money, flags, income, resident moods and tile changes, and records the decision', () => {
-    const s = offerOne('d2-farmrunoff', (x) => { paint(x, 2, 2, 4, 1, TileKind.River); x.grid.waterPollution.fill(1); });
-    const lena0 = s.residents.list['lena-tran']?.mood ?? 0;
-    const r = applyAction(s, { type: 'choose', dilemmaId: 'd2-farmrunoff', optionId: 'pay-fence' });
+    const s = offerOne('d2-water', (x) => { paint(x, 2, 2, 4, 1, TileKind.River); x.grid.waterPollution.fill(1); });
+    const dot0 = s.residents.list['dot-harris']?.mood ?? 0;
+    const r = applyAction(s, { type: 'choose', dilemmaId: 'd2-water', optionId: 'recycled' });
     expect(r.result.ok).toBe(true);
-    expect(r.result.spent).toBe(22);
+    expect(r.result.spent).toBe(30);
     const n = r.state;
-    expect(n.budget).toBe(s.budget - 22);
-    expect(n.flags['farm.riparian']).toBe(1);
-    expect(n.residents.list['lena-tran']?.mood).toBe(lena0 + 5);
-    expect(n.residents.list['dot-harris']?.mood).toBe((s.residents.list['dot-harris']?.mood ?? 0) + 4);
-    expect(n.grid.waterPollution[2 * 32 + 2]).toBeCloseTo(0.88, 5);
+    expect(n.budget).toBe(s.budget - 30);
+    expect(n.flags['water.recycled']).toBe(1);
+    expect(n.residents.list['dot-harris']?.mood).toBe(dot0 + 6);
+    expect(n.grid.waterPollution[2 * 32 + 2]).toBeCloseTo(0.92, 5);
     expect(n.grid.waterPollution[10 * 32 + 10]).toBe(1);
     expect(n.dilemmas.pending).toEqual([]);
     expect(n.dilemmas.decisions).toHaveLength(1);
-    expect(n.dilemmas.decisions[0]).toMatchObject({ dilemmaId: 'd2-farmrunoff', optionId: 'pay-fence', evidenceBacked: true });
-    expect(n.dilemmas.decisions[0]?.impact).toBeGreaterThan(5);
-    expect(n.residents.actions['chose.d2-farmrunoff.pay-fence']).toBe(1);
-    expect(n.eventLog.at(-1)?.story).toMatchObject({ channel: 'dilemma', ref: 'd2-farmrunoff' });
-    expect(s.dilemmas.pending).toEqual(['d2-farmrunoff']); // input unchanged
+    expect(n.dilemmas.decisions[0]).toMatchObject({ dilemmaId: 'd2-water', optionId: 'recycled', evidenceBacked: true });
+    expect(n.dilemmas.decisions[0]?.impact).toBeGreaterThan(3);
+    expect(n.residents.actions['chose.d2-water.recycled']).toBe(1);
+    expect(n.eventLog.at(-1)?.story).toMatchObject({ channel: 'dilemma', ref: 'd2-water' });
+    expect(s.dilemmas.pending).toEqual(['d2-water']); // input unchanged
   });
   it('rewards the option the evidence backs, a little, with Society and the scientist\'s approval', () => {
     const s = offerOne('d2-coalphase');
@@ -189,14 +190,14 @@ describe('choosing', () => {
   });
   it('lets an ignored card lapse after five years, with a small cost', () => {
     const s = act2Sandbox(TileKind.Land);
-    s.year = 2026;
+    s.year = 2027;
     offerAct2(s);
     const id = s.dilemmas.pending[0] ?? '';
     expect(id).not.toBe('');
-    s.year = 2030;
+    s.year = 2031;
     offerAct2(s);
     expect(s.dilemmas.pending).toContain(id);
-    s.year = 2031;
+    s.year = 2032;
     offerAct2(s);
     expect(s.dilemmas.pending).not.toContain(id);
     const d = s.dilemmas.decisions.find((x) => x.dilemmaId === id);

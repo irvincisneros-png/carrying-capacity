@@ -942,7 +942,7 @@ export class App {
       /** Measure fps / draw calls / triangles per tier (real rAF timing; the page must be visible). */
       bench: async (secs = 3) => {
         const out: Record<string, unknown>[] = [];
-        for (const t of [0, 1, 2, 3] as const) {
+        for (const t of [0, 1, 2, 3, 4] as const) {
           this.renderer.applyTier(t);
           await new Promise((r) => setTimeout(r, 1200));
           let n = 0;
@@ -989,7 +989,7 @@ export class App {
       game: this.game,
       renderer: this.renderer,
       stats: () => this.renderer.debugInfo(),
-      setTier: (t: 0 | 1 | 2 | 3) => this.renderer.applyTier(t),
+      setTier: (t: 0 | 1 | 2 | 3 | 4) => this.renderer.applyTier(t),
       render: () => this.renderer.frame(),
       start: (id: string) => { if (isScenarioId(id)) this.newGame(id); },
       speed: (sp: Speed) => this.game.setSpeed(sp),

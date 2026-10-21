@@ -1,5 +1,5 @@
 /**
- * Dilemma cards for Coal Coast: 5 in Act 1 (about one every 20 years) and 26 in Act 2 (2 to 3 per in-game decade).
+ * Dilemma cards for Coal Coast: 5 in Act 1 (about one every 20 years) and 22 in Act 2 (two per in-game decade; 27 cards in all after the round-4 trim).
  * Several have no clean answer on purpose. Each option lists who it helps and hurts, for the perspective-taking
  * preview, and every card carries an accurate "what does the evidence say?" blurb.
  */
@@ -229,35 +229,6 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
     ],
   },
   {
-    id: 'd2-farmrunoff', title: 'Fences by the creek', phase: 'act2', years: [2025, 2050], speaker: DOT,
-    when: { all: [t('count.farm', '>=', 1)] },
-    setup: 'Fertiliser and manure wash from the farms into the creek and down to the estuary, feeding algae. A scheme could pay for fencing and planting the creek banks. It takes pasture out of use, and not every farmer is keen. Dot has seen the water herself.',
-    evidence: 'Fencing livestock out of creeks and planting native vegetation along the banks reduces erosion and nutrient runoff, because roots hold soil and plants absorb nutrients. The shade also keeps the water cooler. It works best when farmers are partners, not targets.',
-    options: [
-      {
-        id: 'pay-fence', label: 'Pay for fencing and bank planting', evidenceBacked: true,
-        outcome: 'The first fences go up along the Harris flat. In a year the banks are green, and the estuary smells less of cow.',
-        effects: {
-          budget: -22, flags: { 'farm.riparian': 1 }, tiles: [{ op: 'water', scope: 'river', mult: 0.88 }, { op: 'water', scope: 'estuary', mult: 0.94 }],
-          mood: { [DOT]: 4, [LENA]: 5 },
-        },
-        preview: { helps: [R(LENA, 'Cleaner water downstream'), C('platypus', 'Vegetated banks'), P('Less nutrient pollution')], hurts: [E('Costs the town'), R(DOT, 'Some pasture lost')] },
-      },
-      {
-        id: 'voluntary', label: 'Voluntary guidelines only',
-        outcome: 'A few farms sign up. Most carry on as before. The water improves a little.',
-        effects: { budget: -3, mood: { [DOT]: 3, [LENA]: -2 } },
-        preview: { helps: [R(DOT, 'No pressure, no cost')], hurts: [R(LENA, 'Little change downstream')] },
-      },
-      {
-        id: 'fines', label: 'Strict rules with fines',
-        outcome: 'Compliance jumps, and so does the temperature at the next farmers\' meeting. Dot says she feels like a suspect in her own paddock.',
-        effects: { budget: 5, tiles: [{ op: 'water', scope: 'river', mult: 0.9 }], mood: { [DOT]: -10, [LENA]: 4 }, society: -1 },
-        preview: { helps: [R(LENA, 'Fast improvement'), P('Less runoff')], hurts: [R(DOT, 'Treated like the problem'), T('Trust with farmers')] },
-      },
-    ],
-  },
-  {
     id: 'd2-turtlelights', title: 'Lights on the turtle beach', phase: 'act2', years: [2025, 2055], speaker: KIDS, priority: 7,
     when: { all: [t('pop.green-turtle', '>=', 1)] },
     setup: 'Old Shelly nests on the beach below the streetlights, and hatchlings follow the brightest horizon. Last summer some wandered onto the road. The kids want the lights changed. Shop owners say a dark street feels unsafe, and amber lights cost more.',
@@ -284,7 +255,7 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
     ],
   },
   {
-    id: 'd2-heat', title: 'Forty degrees and rising', phase: 'act2', years: [2028, 2100], repeat: 25, priority: 6,
+    id: 'd2-heat', title: 'Forty degrees and rising', phase: 'act2', years: [2028, 2100], repeat: 40, priority: 6,
     when: { all: [t('recent.heatwave', '>=', 1)] },
     setup: 'After days above forty, the old and the very young are suffering, and the flying-foxes are falling from the trees. The council has money for only one big step: shade trees, cooling centres in the old hall, or rebates for cool roofs.',
     evidence: 'Heat is among the deadliest natural hazards in Australia. Trees cool streets by several degrees through shade and evaporation, but take years to grow. Cooling centres save lives in an emergency. Cool roofs reduce indoor heat. None of these replaces cutting the emissions that make heatwaves hotter and more common.',
@@ -387,7 +358,7 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
     ],
   },
   {
-    id: 'd2-seawall', title: 'After the storm surge', phase: 'act2', years: [2035, 2100], repeat: 30, noCleanAnswer: true, priority: 7,
+    id: 'd2-seawall', title: 'After the storm surge', phase: 'act2', years: [2035, 2100], repeat: 45, noCleanAnswer: true, priority: 7,
     when: { all: [t('recent.flood', '>=', 1)] },
     setup: 'A storm surge flooded the streets by the estuary. Residents want a seawall. Engineers warn walls can speed erosion on neighbouring beaches and need constant repair. Mangroves soak up waves, but take years to grow, and some of the lowest homes might need to move back.',
     evidence: 'Seawalls protect what is behind them, but waves reflect off them and can scour the beach in front, and the wall must be raised as seas rise. Mangroves and saltmarsh can reduce wave energy, trap sediment and store carbon, but they work best on gentle shores and take years to grow. Moving back avoids repeat damage but is painful for the people affected.',
@@ -439,7 +410,7 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
     ],
   },
   {
-    id: 'd2-fireseason', title: 'A fire at the fence line', phase: 'act2', years: [2028, 2100], repeat: 25, priority: 7,
+    id: 'd2-fireseason', title: 'A fire at the fence line', phase: 'act2', years: [2028, 2100], repeat: 40, priority: 7,
     when: { all: [t('recent.bushfire', '>=', 1)] },
     setup: 'A bushfire came within a street of the houses. The brigade wants more funding, some residents want the homes closest to the bush bought out, and others want better warnings and evacuation plans. The council can afford one big step this year.',
     evidence: 'No single approach is enough. Hazard-reduction burning lowers fuel in some forests but not all. Building standards, warnings and evacuation plans save lives, and the biggest driver of worse fire weather is the warming climate.',
@@ -663,81 +634,6 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
     ],
   },
   {
-    id: 'd2-buses', title: 'New buses', phase: 'act2', years: [2028, 2085],
-    setup: 'The old diesel buses are due for replacement. Electric buses cost more upfront but are often cheaper to run and quieter, and they cut the fumes at the school gate. The money would have to come from somewhere else in the budget.',
-    evidence: 'Electric buses have no tailpipe emissions, which cuts air pollution that harms children\'s lungs, and over their lifetime they often cost less to run than diesel, depending on electricity and maintenance costs. When the grid is cleaner they also cut climate emissions. The upfront cost is the main hurdle.',
-    options: [
-      {
-        id: 'electric', label: 'Buy electric buses', evidenceBacked: true,
-        outcome: 'The new buses glide silently into the depot. Kids notice that the school gate smells less like diesel.',
-        effects: { budget: -35, society: 2, emissionsKt: -10 },
-        preview: { helps: [T('Cleaner air for kids'), P('Fewer emissions')], hurts: [E('Biggest upfront cost')] },
-      },
-      {
-        id: 'diesel', label: 'Buy cheaper diesel buses',
-        outcome: 'The buses are cheaper and are on the road for fifteen years.',
-        effects: { budget: -15, society: -1, emissionsKt: 8 },
-        preview: { helps: [E('Cheapest now')], hurts: [P('Emissions locked in for fifteen years'), T('Fumes near schools')] },
-      },
-      {
-        id: 'fewer', label: 'Run fewer buses and build cycle paths',
-        outcome: 'Some routes disappear, and cycle paths appear. It suits keen cyclists and not everyone else.',
-        effects: { budget: -20, society: 1 },
-        preview: { helps: [P('Less traffic'), T('Healthier travel for some')], hurts: [T('Harder for those who cannot cycle')] },
-      },
-    ],
-  },
-  {
-    id: 'd2-festival', title: 'Fireworks night', phase: 'act2', years: [2040, 2100], noCleanAnswer: true,
-    setup: 'The summer festival has always ended with fireworks. Some say they frighten wildlife and pets. Others say it is the one night the whole town comes together. A drone-light show is possible, but it costs more.',
-    evidence: 'Fireworks release smoke and metal particles, and loud bangs can frighten birds, flying-foxes and pets so that they flee into danger. Drone shows avoid explosive bangs and combustion smoke, but their motors and lights can still disturb wildlife, so location and timing matter. They cost more and use electricity. Shared community events build the social ties that help a town through hard times.',
-    options: [
-      {
-        id: 'fireworks', label: 'Keep the fireworks',
-        outcome: 'The sky lights up and so do the faces. Next morning a few lost dogs are reunited with their owners.',
-        effects: { budget: -8, society: 2, mood: { [KIDS]: -2 } },
-        preview: { helps: [T('A big shared night')], hurts: [C('flying-fox', 'Frightened at the roost'), C('shorebirds', 'Disturbed')] },
-      },
-      {
-        id: 'drones', label: 'A drone light show',
-        outcome: 'Hundreds of tiny lights paint the sky, with no bangs. People say it feels like the future.',
-        effects: { budget: -20, society: 3 },
-        preview: { helps: [T('Everyone together'), C('flying-fox', 'No loud bangs')], hurts: [E('More expensive')] },
-      },
-      {
-        id: 'picnic', label: 'A picnic and music night, no fireworks',
-        outcome: 'Blankets on the oval, a local band, and lanterns. It is quieter, and people say it is nicer.',
-        effects: { budget: -5, society: 2 },
-        preview: { helps: [T('Cheap and cosy'), C('flying-fox', 'Quiet night')], hurts: [T('Some miss the bang')] },
-      },
-    ],
-  },
-  {
-    id: 'd2-volunteers', title: 'Weekend planters', phase: 'act2', years: [2027, 2100],
-    setup: 'Dozens of locals want to help restore the bush on weekends. Without training, volunteers can trample seedlings or plant the wrong species. A paid bush regeneration crew costs more but plants more reliably.',
-    evidence: 'Bush regeneration works best with local seed, the right species and follow-up weeding. Trained volunteers can do excellent work, and community involvement builds care for the place. Skilled crews are faster and more reliable at large or sensitive sites.',
-    options: [
-      {
-        id: 'train', label: 'Train volunteers and run weekend planting days', evidenceBacked: true,
-        outcome: 'Saturday mornings fill with kids, grandparents and borrowed spades. Volunteers return each Saturday to plant, weed and check which seedlings survived.',
-        effects: { budget: -8, society: 2, tiles: [{ op: 'health', scope: 'land', add: 0.03 }] },
-        preview: { helps: [T('A community that cares'), P('More bush')], hurts: [P('Slower than a paid crew')] },
-      },
-      {
-        id: 'crew', label: 'Hire a paid crew only',
-        outcome: 'The crew is fast and tidy. The bush comes back faster, and the town watches from the road.',
-        effects: { budget: -25, tiles: [{ op: 'health', scope: 'land', add: 0.05 }] },
-        preview: { helps: [P('Quick, reliable planting')], hurts: [E('More expensive'), T('Fewer chances to join in')] },
-      },
-      {
-        id: 'both', label: 'A crew leads and volunteers assist',
-        outcome: 'Experts show volunteers how to plant. The mix works beautifully.',
-        effects: { budget: -18, society: 2, tiles: [{ op: 'health', scope: 'land', add: 0.05 }] },
-        preview: { helps: [P('Reliable planting'), T('The community is involved')], hurts: [E('Costs more than volunteers alone')] },
-      },
-    ],
-  },
-  {
     id: 'd2-water', title: 'Water for a drier future', phase: 'act2', years: [2035, 2100], speaker: DOT,
     when: { all: [t('count.farm', '>=', 1)] },
     setup: 'A drier future means less water for the river. The treatment plant could supply recycled water to farms and parks, taking pressure off the river, but some residents find the idea unappealing. Dot says her cows would not care.',
@@ -764,56 +660,6 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
     ],
   },
   {
-    id: 'd2-ewaste', title: 'The drawer of old phones', phase: 'act2', years: [2036, 2100],
-    setup: 'Old phones, TVs and batteries are piling up in garages and at the tip, and some are leaking metals into the soil. A collection point and a recovery partnership would cost money but could earn some back. People keep asking where it all goes.',
-    evidence: 'E-waste contains valuable metals, including gold, copper and rare earths, and some harmful ones, such as lead and mercury. Recovering metals takes far less energy than mining new ore: recycling aluminium saves about 95% of the energy, and copper about 85%. In 2022, only 22.3% of the world\'s e-waste was documented as formally collected and recycled.',
-    options: [
-      {
-        id: 'partner', label: 'Set up a collection point and a recovery partnership', evidenceBacked: true,
-        outcome: 'Bins appear in the library and the supermarket. Trucks carry the loads to a recovery plant, and a little money comes back.',
-        effects: { budget: -20, incomePerYear: 2, emissionsKt: -5, society: 1 },
-        preview: { helps: [P('Metals reused, toxins kept out'), E('Some income')], hurts: [E('Upfront cost')] },
-      },
-      {
-        id: 'dropoff', label: 'Hold an annual drop-off day',
-        outcome: 'A good turnout and a full truck. The other 364 days nothing changes.',
-        effects: { budget: -6, emissionsKt: -2 },
-        preview: { helps: [E('Cheap')], hurts: [P('Most e-waste still ends up in the bin')] },
-      },
-      {
-        id: 'households', label: 'Leave it to households',
-        outcome: 'Most of it goes in the bin. The soil near the tip gets a little worse.',
-        effects: { tiles: [{ op: 'soil', scope: 'land', add: 0.03 }] },
-        preview: { helps: [E('No cost')], hurts: [P('Metals leak into soil')] },
-      },
-    ],
-  },
-  {
-    id: 'd2-dogs', title: 'Dogs on the turtle beach', phase: 'act2', years: [2030, 2100],
-    setup: 'The off-leash dog beach is popular, and it is also where shorebirds rest and turtles nest. A fox or an off-lead dog can wreck a nest in a night. Dog owners say there is nowhere else to run their dogs, and they are good neighbours.',
-    evidence: 'Dogs and foxes are significant predators of turtle nests and of ground-nesting and resting shorebirds, and the sight of a dog makes shorebirds fly, which uses up energy they need for migration. Dog restrictions should match local wildlife needs: sensitive nesting and roosting areas may need year-round exclusion, with dog exercise areas elsewhere.',
-    options: [
-      {
-        id: 'season', label: 'Off-leash only in the cooler months and away from the nests', evidenceBacked: true,
-        outcome: 'Signs go up and a ranger explains why. Dog owners grumble, then adapt. A fox trap goes in near the dunes.',
-        effects: { budget: -6, society: 0, mood: { [KIDS]: 4 } },
-        preview: { helps: [C('green-turtle', 'Nests are safer'), C('shorebirds', 'Quiet places to rest'), R(KIDS, 'Their turtles are looked after')], hurts: [T('Dog owners have a smaller beach')] },
-      },
-      {
-        id: 'ban', label: 'Ban dogs from the beach completely',
-        outcome: 'The beach gets quiet. So does the dog park, and a petition gathers three hundred names.',
-        effects: { budget: -2, society: -2, mood: { [KIDS]: 3 } },
-        preview: { helps: [C('green-turtle', 'Safest for nests'), C('shorebirds', 'Undisturbed')], hurts: [T('Many people lose their daily walk')] },
-      },
-      {
-        id: 'open', label: 'Leave the beach as it is',
-        outcome: 'Nothing changes. Dogs run, birds fly up, and one morning a turtle nest is dug up.',
-        effects: { society: 1, mood: { [KIDS]: -4 } },
-        preview: { helps: [T('Dog owners are happy')], hurts: [C('green-turtle', 'Nest losses'), C('shorebirds', 'Constant disturbance')] },
-      },
-    ],
-  },
-  {
     id: 'd2-signs', title: 'Two names on the signs', phase: 'act2', years: [2035, 2100], speaker: JUNE, needsConsultation: true,
     when: { all: [t('flag.dualNames', '>=', 1)] },
     setup: 'The Land Council and Aunty June offer to put original place names beside the English ones on town signs. Some residents are proud, some are puzzled, and a few say it will confuse tourists. The council has to decide how quickly to do it.',
@@ -836,45 +682,6 @@ export const COAL_COAST_DILEMMAS: readonly DilemmaDef[] = [
         outcome: 'The offer is set aside. Aunty June nods and says the offer stands.',
         effects: { partnership: -2, mood: { [JUNE]: -5 } },
         preview: { helps: [E('No cost')], hurts: [R(JUNE, 'Her offer is put aside')] },
-      },
-    ],
-  },
-  {
-    id: 'd2-gasretire', title: 'The gas turbines', phase: 'act2', years: [2055, 2100], speaker: PRIYA, priority: 6,
-    when: { all: [t('count.gaspower', '>=', 1), t('renewablePct', '>=', 70)] },
-    setup: 'The grid now runs mostly on wind, sun and batteries. The gas turbines only run on a few calm winter evenings, but they still burn fossil fuel and need staff and maintenance. Priya says the town could retire them if it adds more storage.',
-    evidence: 'Gas plants are useful for the last few percent of reliability because they can start quickly, but each hour they run adds CO2. Storage, wider grid connections and flexible demand can reduce gas use. Retiring the remaining turbines needs a reliability assessment covering extended low-wind and low-solar periods.',
-    options: [
-      {
-        id: 'retire', label: 'Retire the gas turbines and add storage', evidenceBacked: true,
-        outcome: 'After a reliability check, batteries take over the evening peak. The turbines are switched off and their site is cleared for something new.',
-        effects: { budget: -30, society: 1, mood: { [PRIYA]: 6 } },
-        preview: { helps: [P('Cuts the last big source of power emissions'), R(PRIYA, 'Follows the plan')], hurts: [E('A big cost'), T('Some operators need new jobs')] },
-      },
-      {
-        id: 'keep', label: 'Keep them as back-up for a few more years',
-        outcome: 'The turbines stand ready. A few cold evenings call them up, and the stack puffs.',
-        effects: { budget: -5, emissionsKt: 8, mood: { [PRIYA]: -3 } },
-        preview: { helps: [T('Extra reliability on bad nights')], hurts: [P('Some fossil emissions continue')] },
-      },
-    ],
-  },
-  {
-    id: 'd2-story', title: 'Who will remember?', phase: 'act2', years: [2068, 2100], speaker: KIDS,
-    setup: 'Seventy years of change are in the heads of people who are getting old. Sam and Jordan suggest a project to record their stories, the old photos and the graphs, so the next generation can see what the town tried and why. It would cost some money and a lot of tea.',
-    evidence: 'Oral histories and community archives preserve knowledge that is not written down, such as how a place used to look and what people tried. Researchers use them alongside scientific records, and they help communities decide what to do next.',
-    options: [
-      {
-        id: 'archive', label: 'Fund a town story archive with the school and library',
-        outcome: 'Volunteers visit kitchens with recorders. The school puts the stories online alongside Priya\'s graphs. Visitors stay longer at the museum.',
-        effects: { budget: -12, society: 2, mood: { [KIDS]: 8, [PRIYA]: 3 } },
-        preview: { helps: [R(KIDS, 'Their generation inherits the lessons'), T('Shared memory')], hurts: [E('A small cost')] },
-      },
-      {
-        id: 'volunteer', label: 'Leave it to volunteers',
-        outcome: 'A few keen people record what they can. Some stories are lost along the way.',
-        effects: { society: 1, mood: { [KIDS]: 2 } },
-        preview: { helps: [E('No cost')], hurts: [T('Some stories are lost')] },
       },
     ],
   },

@@ -90,6 +90,8 @@ export class MatLib {
   private toonRamp = makeToonRamp();
   readonly brush = makeBrushTexture();
   readonly ghostCol = new Color(0x5fe39a);
+  /** Cheap-shader mode (Very low / Low tiers): defines CC_LITE on every material. */
+  lite = false;
   outlineMat: ShaderMaterial;
 
   constructor(readonly shared: SharedUniforms) {
@@ -145,7 +147,10 @@ export class MatLib {
       `,
       fragmentShader: /* glsl */ `
         varying vec3 vInk;
-        void main(){ gl_FragColor = vec4(vInk, 1.0); }
+        void main(){ gl_FragColor = vec4(vInk, 1.0);
+#include <tonemapping_fragment>
+#include <colorspace_fragment>
+}
       `,
     });
   }
@@ -191,6 +196,7 @@ export class MatLib {
     if (spec.sph) defines.CC_SPH = '';
     if (spec.noSmog || spec.kind === 'smoke' || spec.kind === 'ghost') defines.CC_NOSMOG = '';
     if (spec.kind !== 'smoke' && spec.kind !== 'ghost') defines.CC_BRUSH = '';
+    if (this.lite) defines.CC_LITE = '';
     m.defines = defines;
     const su = this.styleU;
     const shared = this.shared;
@@ -206,10 +212,21 @@ export class MatLib {
         .replace('#include <color_fragment>', FRAG_COLOR)
         .replace('#include <opaque_fragment>', FRAG_OPAQUE);
     };
-    m.customProgramCacheKey = () => `cc|${spec.key}|${Object.keys(defines).join(',')}`;
+    m.customProgramCacheKey = () => `cc|${spec.key}|${Object.keys(m.defines ?? defines).join(',')}`;
     m.name = `cc:${spec.key}`;
     this.cache.set(spec.key, m);
     return m;
+  }
+
+  setLite(on: boolean): void {
+    if (this.lite === on) return;
+    this.lite = on;
+    for (const m of this.cache.values()) {
+      const d = m.defines as Record<string, string>;
+      if (on) d.CC_LITE = '';
+      else delete d.CC_LITE;
+      m.needsUpdate = true;
+    }
   }
 
   /** Shadow-pass material matching the vertex animation (grow / sway / smoke) of a spec. */

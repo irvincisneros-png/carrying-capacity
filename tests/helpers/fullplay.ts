@@ -41,7 +41,6 @@ export const BEAT_PICKS: Record<string, string> = {
 /** Dilemma options where no option is flagged as evidence-backed. */
 export const DILEMMA_PICKS: Record<string, string> = {
   'a1-strike': 'mediate',
-  'd2-festival': 'picnic',
   'd2-newcomers': 'some',
   'd2-heritage': 'trail',
   'd2-legacy': 'bush',

@@ -3,7 +3,7 @@
 import {
   ConeGeometry, DoubleSide, MeshBasicMaterial, RingGeometry,
   Color, DirectionalLight, Group, HemisphereLight, Mesh, NoToneMapping, PCFShadowMap, Scene, SRGBColorSpace, Vector3,
-  WebGLRenderer, type BufferGeometry, type IUniform,
+  WebGLRenderer, type BufferGeometry, type IUniform, type ShaderMaterial,
 } from 'three';
 import { BUILDINGS, footprintFor } from '../sim/buildings';
 import { meanHealth } from '../sim/metrics';
@@ -16,14 +16,14 @@ import { makeClouds } from './clouds';
 import { Cursor, type CursorMode, type PickResult } from './cursor';
 import { Fx } from './fx';
 import { Parts } from './geo';
-import { MapGeo, terrainSignature } from './mapgeo';
+import { MapGeo, resFor, terrainSignature } from './mapgeo';
 import { biomeLook, type BiomeLook } from './biome';
 import { getScenario } from '../sim/scenarios';
 import { seaRiseM } from '../sim/mechanics';
 import { MatLib, type SharedUniforms } from './materials';
 import { LOOK } from './palette';
 import { buildPipeline, type Pipeline } from './post';
-import { AutoTier, loadPref, savePref, TIERS, type GraphicsPref, type OutlineMode, type Tier } from './quality';
+import { AutoTier, loadPref, savePref, softwareRenderer, START_TIER, TIERS, type GraphicsPref, type OutlineMode, type Tier } from './quality';
 import { dirtArmGeo, dirtHubGeo, railArmGeo, railHubGeo, roadArmGeo, roadHubGeo } from './roadgeo';
 import { Smoke } from './smoke';
 import { Overlay, makeGrid, type Ramp } from './overlay';
@@ -88,9 +88,13 @@ export class GameRenderer {
   private clouds: ReturnType<typeof makeClouds>;
   private world: World | null = null;
   private pipeline: Pipeline | null = null;
-  tier: Tier = 1;
+  tier: Tier = START_TIER;
   pref: GraphicsPref;
   private auto: AutoTier;
+  private softwareGpu = false;
+  /** Sky / water shaders that switch to their cheap variant on the lite tiers. */
+  private liteMats = new Set<ShaderMaterial>();
+  private liteOn = false;
   private state: GameState | null = null;
   private lastVersion = -1;
   /** Heavy layer rebuilds queued by setState, run one per frame (see setState). */
@@ -146,6 +150,7 @@ export class GameRenderer {
     // sky + clouds
     this.skyU = skyUniforms();
     const sky = makeSky(this.skyU, this.shared as unknown as Record<string, IUniform>, 600);
+    this.liteMats.add(sky.mat);
     this.skyMesh = new Mesh(sky.geo, sky.mat);
     this.skyMesh.renderOrder = -10;
     this.skyMesh.frustumCulled = false;
@@ -154,9 +159,10 @@ export class GameRenderer {
     this.scene.add(this.clouds.mesh);
 
     this.pref = loadPref();
-    this.tier = this.pref.mode === 'manual' ? this.pref.tier : 1;
+    // CPU rasteriser (SwiftShader / llvmpipe): skip the sampling climb and start on the lowest tier
+    this.softwareGpu = softwareRenderer(r.getContext());
+    this.tier = this.pref.mode === 'manual' ? this.pref.tier : this.softwareGpu ? 0 : START_TIER;
     this.auto = new AutoTier((t) => this.applyTier(t, true), () => this.tier);
-    if (this.pref.mode === 'manual') this.auto.done = true;
     window.addEventListener('resize', () => this.resize());
   }
 
@@ -171,7 +177,8 @@ export class GameRenderer {
   // ------------------------------------------------------------------ world
   /** Build (or rebuild) the diorama for the state's map. */
   setWorld(s: GameState): void {
-    const key = `${s.scenarioId}:${s.seed}:${s.grid.w}x${s.grid.h}`;
+    const terrainRes = TIERS[this.tier]!.terrainRes;
+    const key = `${s.scenarioId}:${s.seed}:${s.grid.w}x${s.grid.h}:${terrainRes}`;
     if (this.world && this.world.key === key) {
       this.setState(s, true);
       return;
@@ -187,7 +194,7 @@ export class GameRenderer {
     this.look = look;
     this.lib.setPoll(look.poll);
     this.sun.color.set(look.sunColor);
-    const map = new MapGeo(s.grid, look);
+    const map = new MapGeo(s.grid, look, terrainRes);
     const tb = buildTerrain(map);
     const tiles = new TileData(s.grid.w, s.grid.h);
     this.shared.uTile.value = tiles.tex;
@@ -210,7 +217,12 @@ export class GameRenderer {
     const waterMesh = new Mesh(water.geo, water.mat);
     waterMesh.renderOrder = 2;
     waterMesh.name = 'water';
-    const waterSide = new Mesh(tb.waterSide, makeWaterSideMat(this.shared as unknown as Record<string, IUniform>, wu));
+    const waterSideMat = makeWaterSideMat(this.shared as unknown as Record<string, IUniform>, wu);
+    for (const m of [...this.liteMats]) if (m !== this.skyMesh.material) this.liteMats.delete(m);
+    this.liteMats.add(water.mat);
+    this.liteMats.add(waterSideMat);
+    this.setLiteWater(this.liteOn, true);
+    const waterSide = new Mesh(tb.waterSide, waterSideMat);
     waterSide.renderOrder = 3;
     group.add(waterMesh, waterSide);
     const veg = new Vegetation(map, this.lib, group);
@@ -225,7 +237,13 @@ export class GameRenderer {
     group.add(gridMesh);
     group.add(cursor.group);
     bld.onPop = (x, y, z, size, demolish) => fx.dust(x, y, z, size, demolish);
-    const rig = prevCam && prevCam.camera ? new CameraRig(this.renderer.domElement, s.grid.w, s.grid.h) : new CameraRig(this.renderer.domElement, s.grid.w, s.grid.h);
+    const rig = new CameraRig(this.renderer.domElement, s.grid.w, s.grid.h);
+    if (prevCam && this.world && this.world.map.w === s.grid.w && this.world.map.h === s.grid.h) {
+      // same map rebuilt at another terrain resolution (a graphics tier change): keep the player's view
+      rig.camera.position.copy(prevCam.camera.position);
+      rig.controls.target.copy(prevCam.controls.target);
+      rig.controls.update();
+    }
     prevCam?.controls.dispose();
     this.scene.add(group);
     // shadow camera covers the slab
@@ -240,6 +258,7 @@ export class GameRenderer {
     this.scene.remove(this.clouds.mesh);
     this.clouds = makeClouds(this.shared as unknown as Record<string, IUniform>, Math.max(s.grid.w, s.grid.h));
     this.scene.add(this.clouds.mesh);
+    this.clouds.setFraction(TIERS[this.tier]!.clouds);
     this.world = {
       key, map, group, tiles, veg, bld, amb, smoke, fx, cursor, rig, overlay, grid: gridMesh, terrainMesh: terrain, slabMesh: slab, waterMesh, waterSide, heightTex: tb.heightTex, wu,
       sig: terrainSignature(s.grid), seaLevel: (getScenario(s.scenarioId).mechanics ?? []).includes('reef'), level: 0,
@@ -529,7 +548,6 @@ export class GameRenderer {
     if (!fromAuto) {
       this.pref = { ...this.pref, mode: 'manual', tier: t };
       savePref(this.pref);
-      this.auto.done = true;
     }
     this.applyTierToWorld();
     this.resize();
@@ -548,7 +566,17 @@ export class GameRenderer {
     this.pref = { ...this.pref, mode: 'auto', tier: this.tier };
     savePref(this.pref);
     this.auto = new AutoTier((t) => this.applyTier(t, true), () => this.tier);
-    this.applyTier(1, true);
+    this.applyTier(this.softwareGpu ? 0 : START_TIER, true);
+  }
+
+  private setLiteWater(on: boolean, force = false): void {
+    if (this.liteOn === on && !force) return;
+    this.liteOn = on;
+    for (const m of this.liteMats) {
+      if (on) m.defines.CC_LITE = '';
+      else delete m.defines.CC_LITE;
+      m.needsUpdate = true;
+    }
   }
 
   private applyTierToWorld(): void {
@@ -564,13 +592,22 @@ export class GameRenderer {
       this.sun.shadow.map?.dispose();
       this.sun.shadow.map = null;
     }
+    if (this.world && this.state && this.world.map.res !== (d.terrainRes > 0 ? d.terrainRes : resFor(this.world.map.w, this.world.map.h))) {
+      // terrain resolution is baked into the map: rebuild the diorama (setWorld calls back here once the res matches)
+      this.setWorld(this.state);
+      return;
+    }
+    if (this.lib.lite !== d.lite) this.lib.setLite(d.lite);
+    this.skyMesh.renderOrder = d.lite ? 100 : -10; // cheap tiers draw the sky last so covered pixels are rejected early
+    this.setLiteWater(d.lite);
+    this.clouds.setFraction(d.clouds);
     const w = this.world;
     if (w) {
       w.veg.setTier(d.foliage, d.treeDetail);
-      w.bld.setDetail(d.detail, this.state);
+      w.bld.setDetail(d.detail, this.state, d.partCull);
       w.bld.setOutlines(d.outlines && this.pref.outlines === 'subtle');
       w.amb.setDetail(d.detail);
-      w.amb.density = d.props * (w.map.w > 40 && this.tier === 0 ? 0.2 : 1);
+      w.amb.density = d.props * (w.map.w > 40 && this.tier <= 1 ? 0.5 : 1);
       w.smoke.density = d.smoke;
       this.ghostGeos.clear();
       if (this.state) {
@@ -623,7 +660,8 @@ export class GameRenderer {
       job();
     }
     this.stateThisFrame = false;
-    const dt = Math.min(0.1, Math.max(0, (now - this.last) / 1000));
+    const rawDt = Math.max(0, (now - this.last) / 1000);
+    const dt = Math.min(0.1, rawDt);
     this.last = now;
     const c0 = performance.now();
     this.shared.uTime.value += dt;
@@ -670,7 +708,7 @@ export class GameRenderer {
     this.skyU.uCamY!.value = w.rig.camera.position.y;
 
     this.renderer.info.reset();
-    this.pipeline.composer.render(dt);
+    this.pipeline.render(dt);
     const cpu = performance.now() - c0;
     this.onFrame?.(dt);
     // stats
@@ -691,7 +729,7 @@ export class GameRenderer {
       this.fN = 0;
       this.cpuAcc = 0;
     }
-    this.auto.frame(dt, cpu, document.hidden);
+    this.auto.frame(rawDt, cpu, document.hidden, this.pref.mode === 'manual');
   }
 
   /** Debug: count visible draw objects per frame category. */

@@ -8,6 +8,15 @@ const SKY_FN = /* glsl */ `
 uniform vec3 uSkyTop; uniform vec3 uSkyHorizon; uniform vec3 uSkyBottom; uniform vec3 uCloudCol;
 uniform float uCloud; uniform vec3 uSunDir; uniform vec3 uSunCol; uniform float uSunGlow;
 uniform float uCamY;
+#ifdef CC_LITE
+// cheap sky (Very low / Low): a plain gradient, no cloud noise, no sun disc
+vec3 skyColor(vec3 d, float time){
+  float y = d.y;
+  vec3 col = y >= 0.0 ? mix(uSkyHorizon, uSkyTop, pow(smoothstep(0.0, 0.75, y), 0.65)) : mix(uSkyHorizon, uSkyBottom, 1.0 - exp(y * 7.0));
+  float sd = max(dot(d, normalize(uSunDir)), 0.0);
+  return col + uSunCol * pow(sd, 12.0) * 0.25 * uSunGlow;
+}
+#else
 vec3 skyColor(vec3 d, float time){
   float y = d.y;
   vec3 col;
@@ -30,6 +39,7 @@ vec3 skyColor(vec3 d, float time){
   col += uSunCol * (pow(sd, 400.0) * 3.0 + pow(sd, 12.0) * 0.25) * uSunGlow;
   return col;
 }
+#endif
 `;
 
 export function skyUniforms(): Record<string, IUniform> {
@@ -58,7 +68,10 @@ export function makeSky(skyU: Record<string, IUniform>, shared: Record<string, I
       varying vec3 vDir;
       ${NOISE_GLSL}
       ${SKY_FN}
-      void main(){ gl_FragColor = vec4(skyColor(normalize(vDir), uTime), 1.0); }
+      void main(){ gl_FragColor = vec4(skyColor(normalize(vDir), uTime), 1.0);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }
     `,
   });
   return { geo, mat };
@@ -91,7 +104,7 @@ float cleanAt(vec2 xz){ float b = ccTile(xz).b + (ccFbm3(xz * 0.7) - 0.5) * 0.18
 `;
 
 export function makeWater(shared: Record<string, IUniform>, wu: Record<string, IUniform>, skyU: Record<string, IUniform>, map: MapGeo): { geo: PlaneGeometry; mat: ShaderMaterial } {
-  const geo = new PlaneGeometry(map.w + 0.18, map.h + 0.18, Math.min(64, map.w * 2), Math.min(64, map.h * 2));
+  const geo = new PlaneGeometry(map.w + 0.18, map.h + 0.18, Math.min(64, map.w * (map.res <= 2 ? 1 : 2)), Math.min(64, map.h * (map.res <= 2 ? 1 : 2)));
   geo.rotateX(-Math.PI / 2);
   const hx = (map.w / 2).toFixed(2);
   const hz = (map.h / 2).toFixed(2);
@@ -124,6 +137,25 @@ export function makeWater(shared: Record<string, IUniform>, wu: Record<string, I
         float ground = groundAt(xz);
         float depth = max(vW.y - ground, 0.0);
         if (ground > uLevel + 0.06) discard;
+#ifdef CC_LITE
+        // cheap water (Very low / Low): tint by depth and cleanliness, a soft sheen, a shoreline foam line.
+        // No ripple normals, no sky reflection, no foam bands, no scum / sheen noise.
+        float m = 1.0 - smoothstep(0.12, 0.65, ccTile(xz).b);
+        float t = uTime;
+        float absorb = mix(3.4, 1.55, m) / max(0.3, uClarity);
+        float tt = 1.0 - exp(-depth * absorb);
+        vec3 base = mix(mix(uShallowP, uShallowR, m), mix(uDeepP, uDeepR, m), tt);
+        float alpha = mix(mix(0.8, 0.36, m), 0.96, tt);
+        vec3 V = normalize(cameraPosition - vW);
+        float fres = pow(1.0 - max(V.y, 0.0), 5.0);
+        vec3 col = base * 0.94 + uSkyHorizon * fres * 0.5 * uRefl * mix(0.25, 1.0, m);
+        float fn = ccNoise(xz * 6.0 + vec2(t * 0.35, -t * 0.2));
+        float shore = 1.0 - smoothstep(0.0, 0.08, depth);
+        float foam = step(0.45, shore * smoothstep(0.25, 0.55, fn + shore * 0.45));
+        col = mix(col, mix(vec3(0.62, 0.56, 0.44), vec3(1.0), m) * uFoam, foam * mix(0.6, 1.0, m));
+        alpha = max(alpha, foam * mix(0.6, 1.0, m));
+        gl_FragColor = vec4(col, alpha);
+#else
         float m = cleanAt(xz);
         float t = uTime;
         float e = 0.06;
@@ -169,6 +201,9 @@ export function makeWater(shared: Record<string, IUniform>, wu: Record<string, I
         float sp = step(0.75, ccNoise(xz * 8.0 + t * 0.6));
         col = mix(col, vec3(0.8, 1.0, 0.9), td.a * 0.25 * sp);
         gl_FragColor = vec4(col, alpha);
+#endif
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
       }
     `,
   });
@@ -196,12 +231,16 @@ export function makeWaterSideMat(shared: Record<string, IUniform>, wu: Record<st
         vec3 top = mix(uShallowP, uShallowR, m);
         vec3 deep = mix(uDeepP, uDeepR, m) * 0.7;
         vec3 col = mix(top * 1.05, deep, pow(d, 0.7));
+#ifndef CC_LITE
         float ca = ccNoise(vW.xz * 2.0 + vec2(vW.y * 3.0 + uTime * 0.3));
         col += m * 0.12 * pow(ca, 6.0) * (1.0 - d);
+#endif
         float line = smoothstep(-0.05, -0.005, vW.y);
         col = mix(col, vec3(0.95, 1.0, 1.0) * mix(0.7, 1.0, m), line * 0.8);
         float a = mix(mix(0.9, 0.55, m), 0.92, d);
         gl_FragColor = vec4(col, max(a, line));
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
       }
     `,
   });

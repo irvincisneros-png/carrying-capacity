@@ -41,7 +41,7 @@ function cloudTexture(): CanvasTexture {
   return t;
 }
 
-export function makeClouds(shared: Record<string, IUniform>, mapSize: number): { mesh: Mesh; uniforms: Record<string, IUniform> } {
+export function makeClouds(shared: Record<string, IUniform>, mapSize: number): { mesh: Mesh; uniforms: Record<string, IUniform>; setFraction: (f: number) => void } {
   const base = new PlaneGeometry(1, 0.5);
   const geo = new InstancedBufferGeometry();
   geo.index = base.index;
@@ -93,6 +93,8 @@ export function makeClouds(shared: Record<string, IUniform>, mapSize: number): {
         vec3 col = mix(uShade, uTint, smoothstep(0.75, 0.98, max(t.r, t.b)));
         gl_FragColor = vec4(col, t.a * 0.92);
         if (gl_FragColor.a < 0.01) discard;
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
       }
     `,
   });
@@ -100,5 +102,5 @@ export function makeClouds(shared: Record<string, IUniform>, mapSize: number): {
   mesh.frustumCulled = false;
   mesh.renderOrder = -5;
   mesh.name = 'clouds';
-  return { mesh, uniforms };
+  return { mesh, uniforms, setFraction: (f: number) => { geo.instanceCount = Math.max(1, Math.round(N * f)); } };
 }
