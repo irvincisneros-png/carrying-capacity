@@ -1,6 +1,7 @@
 // Top HUD: year, budget, population, the three meters, CO2 / temperature chips and top-right buttons.
 import type { GameState } from '../sim/types';
 import { bump, fmt1, fmtInt, fmtMoney, h, svg, tweenNumber } from './dom';
+import { DemandBars } from './demandbars';
 import { UI_ICONS } from './icons';
 
 export interface HudHandlers {
@@ -24,6 +25,7 @@ export class Hud {
   private last: GameState | null = null;
   readonly graphsBtn: HTMLButtonElement;
   readonly speciesBtn: HTMLButtonElement;
+  readonly demand = new DemandBars();
   readonly voicesBtn: HTMLButtonElement;
 
   constructor(hd: HudHandlers) {
@@ -54,10 +56,12 @@ export class Hud {
         h('div', { class: 'hud-year' }, svg(UI_ICONS.calendar), h('div', null, this.yearSub, this.year)),
         this.budgetBox,
         h('div', { class: 'hud-stat', title: 'Population' }, svg(UI_ICONS.people), h('div', null, h('small', null, 'People'), this.pop))),
-      h('div', { class: 'hud-meters panel' },
-        meter('environment', 'env', 'Environment', UI_ICONS.leaf),
-        meter('society', 'soc', 'Society', UI_ICONS.heart),
-        meter('economy', 'eco', 'Economy', UI_ICONS.gear)),
+      h('div', { class: 'hud-center' },
+        h('div', { class: 'hud-meters panel' },
+          meter('environment', 'env', 'Environment', UI_ICONS.leaf),
+          meter('society', 'soc', 'Society', UI_ICONS.heart),
+          meter('economy', 'eco', 'Economy', UI_ICONS.gear)),
+        this.demand.el),
       h('div', { class: 'hud-right' },
         h('div', { class: 'hud-climate panel' },
           h('div', { class: 'hud-stat', title: 'CO₂ in the air' }, svg(UI_ICONS.co2), h('div', null, h('small', null, 'CO₂ ppm'), this.co2)),
@@ -114,6 +118,7 @@ export class Hud {
         }
       }
     }
+    this.demand.update(s);
     this.last = s;
   }
 }

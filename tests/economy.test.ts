@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyAction, advanceDecade, BASE_GRANT, cloneState, computeDemand, computeMeters, decadeIncome, economySnapshot,
-  GRID_YEAR, growPopulation, INCOME_PER_JOB, TileKind,
+  demandBars, GRID_YEAR, growPopulation, INCOME_PER_JOB, mechBegin, TileKind,
 } from '../src/sim';
 import type { BuildingId, GameState } from '../src/sim';
-import { paint, sandbox } from './helpers/fixtures';
+import { act2Sandbox, paint, sandbox } from './helpers/fixtures';
 
 function build(s: GameState, id: BuildingId, x: number, y: number): GameState {
   const r = applyAction(s, { type: 'place', building: id, x, y });
@@ -58,14 +58,15 @@ describe('jobs and income', () => {
   });
 });
 
+const coalMineAt = (year: number): GameState => {
+  let s = sandbox(TileKind.Land, { year: 1850 });
+  paint(s, 10, 1, 1, 2, TileKind.Rock);
+  s = build(s, 'coalmine', 8, 1); // -2 power
+  s = build(s, 'cottage', 1, 1); // -1 power
+  return { ...s, year };
+};
+
 describe('power', () => {
-  const coalMineAt = (year: number): GameState => {
-    let s = sandbox(TileKind.Land, { year: 1850 });
-    paint(s, 10, 1, 1, 2, TileKind.Rock);
-    s = build(s, 'coalmine', 8, 1); // -2 power
-    s = build(s, 'cottage', 1, 1); // -1 power
-    return { ...s, year };
-  };
   it('negative power is ignored before 1920', () => {
     const snap = economySnapshot(coalMineAt(1910));
     expect(snap.powerDemand).toBe(3);
@@ -174,5 +175,76 @@ describe('meters', () => {
     expect(economySnapshot(s).powerDeficit).toBe(5);
     expect(economySnapshot({ ...s, year: 1919 }).powerDeficit).toBe(0);
     expect(deficit).toBeLessThan(gridOffYearEquivalent);
+  });
+});
+
+describe('demandBars (HUD block)', () => {
+  const find = (s: GameState, id: string) => demandBars(s).find((b) => b.id === id)!;
+
+  it('an empty town is balanced on every bar and nothing pulses', () => {
+    const s = sandbox(TileKind.Land, { year: 1850 });
+    const bars = demandBars(s);
+    expect(bars.map((b) => b.id)).toEqual(['homes', 'jobs', 'power']);
+    for (const b of bars) {
+      expect(b.level).toBe('ok');
+      expect(b.urgent).toBe(false);
+      expect(b.tip.length).toBeGreaterThan(5);
+    }
+  });
+  it('unfilled jobs and too few homes make Homes short and Jobs plentiful, in step with computeDemand', () => {
+    const s = coalMineAt(1930);
+    expect(computeDemand(s).text).toMatch(/homes/);
+    const homes = find(s, 'homes');
+    expect(homes.level).toBe('short');
+    expect(homes.need).toBeGreaterThan(0);
+    expect(homes.urgent).toBe(true);
+    const jobs = find(s, 'jobs');
+    expect(jobs.level).toBe('plenty');
+    expect(jobs.need).toBeLessThan(0);
+    expect(jobs.tip).toMatch(/nobody to do them/);
+  });
+  it('people without work make Jobs short', () => {
+    let s = sandbox(TileKind.Land, { year: 1850 });
+    s = build(s, 'cottage', 1, 1);
+    s = cloneState(s);
+    s.population = 40;
+    const jobs = find(s, 'jobs');
+    expect(jobs.level).toBe('short');
+    expect(jobs.tip).toMatch(/no work/);
+  });
+  it('power is quiet before the grid and short after it', () => {
+    const early = find(coalMineAt(1860), 'power');
+    expect(early.level).toBe('ok');
+    expect(early.need).toBe(0);
+    expect(early.urgent).toBe(false);
+    const late = find(coalMineAt(1930), 'power');
+    expect(late.level).toBe('short');
+    expect(late.tip).toMatch(/short by/);
+  });
+  it('values stay within -1..1 and the function is pure', () => {
+    const s = coalMineAt(1930);
+    const a = JSON.stringify(demandBars(s));
+    expect(JSON.stringify(demandBars(s))).toBe(a);
+    for (const b of demandBars(s)) {
+      expect(b.need).toBeGreaterThanOrEqual(-1);
+      expect(b.need).toBeLessThanOrEqual(1);
+    }
+  });
+  it('River Town and Red Dirt (Act 2) add a Water bar, other scenarios do not', () => {
+    const river = act2Sandbox(TileKind.Land, { scenario: 'river-town', year: 2041 });
+    mechBegin(river);
+    const w = find(river, 'water');
+    expect(w).toBeDefined();
+    expect(w.level).toBe('ok');
+    river.flags['w.envAvg'] = 0.5;
+    expect(find(river, 'water').urgent).toBe(true);
+    expect(find(river, 'water').level).toBe('short');
+    const out = act2Sandbox(TileKind.Land, { scenario: 'red-dirt', year: 2041 });
+    mechBegin(out);
+    expect(find(out, 'water')).toBeDefined();
+    out.flags['o.aq'] = 30;
+    expect(find(out, 'water').urgent).toBe(true);
+    const nz = act2Sandbox(TileKind.Land, { scenario: 'net-zero-city', year: 2041 });
+    expect(demandBars(nz).some((b) => b.id === 'water')).toBe(false);
   });
 });
