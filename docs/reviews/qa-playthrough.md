@@ -401,3 +401,75 @@ only, as before).
 4. Debug-only: `__cc.game.debugTick` while paused leaves the clock widget showing the old year until the next tick.
 5. Aboriginal and Torres Strait Islander content remains draft pending consultation (the repository went public
    during this round, commit 1f5244d, so it is now live).
+
+## Round 4: enlarged maps (2026-10-21)
+
+Maps were enlarged in commits fc02b86 to f6b2b7d: Green Valley 20x20, Coal Coast, River Town and Red Dirt 40x40, Reef Island
+44x44 (Net Zero City 48x48, unchanged). Each scenario was played from the title screen to the report card with real clicks
+(CDP mouse and key events on build cards, map tiles, tools, card options, policy sliders, the Old sites and Rehab tools), in the
+order the unlocks force (Green Valley, Coal Coast, River Town, Reef Island, Red Dirt, Net Zero City), against `vite preview` on
+port 8463, at 1600x900 and 4x speed in Act 2. Read-only page queries located valid tiles and read the sim's own grid check;
+nothing mutated the game. The driver was a scripted "student": it reads the demand panel and goal rows, answers every card with
+the option showing the most upward arrows after opening the evidence, and does not skip cards. "Student minutes" are estimates
+from the counts of what the player had to do (decades, cards, placements, disposals), not driver time (the driver took 6 to 25
+minutes per scenario).
+
+### Result table
+
+| Scenario | Map | Stars | Decisions (cards + story questions) | Estimated student minutes | Issues fixed |
+|---|---|---|---|---|---|
+| Green Valley (tutorial) | 20x20 | 3 | 4 | about 30 | none |
+| Coal Coast | 40x40 | 2 (4 of 4 goals + bonus) | 25 | about 100 | deck trimmed, see below; first attempt 0 stars (see note) |
+| River Town | 40x40 | 2 (3 of 3 goals + platypus) | 28 | about 85 | none |
+| Reef Island | 44x44 | 3 | 17 | about 72 | none |
+| Red Dirt | 40x40 | 2 (4 of 4 goals + 100% renewable) | 26 | about 90 | none in the game; two attempts lost to the player's own mistakes, see below |
+| Net Zero City (unchanged, replayed) | 48x48 | 0 (2 of 3 goals) | 24 | about 85 | none; not won by the scripted student, see below |
+
+Screenshots: `docs/screens/qa2-<scenario>-end.png`.
+
+### Coal Coast: trimmed to fit 1 to 2 hours
+
+The scripted thoughtful run estimated about 131 minutes (declared 100 to 125). Changes:
+
+- Deck from 35 to 27 cards. Removed as near-duplicates or low value: Fences by the creek (Dot's own story question already offers
+  the same fencing choice and sets the same flag), Weekend planters, New buses, Who will remember (covered by What do we leave),
+  Fireworks night, The drawer of old phones (covered by the plastic and food-scraps cards and the research drawer), Dogs on the
+  turtle beach (the turtle lighting and hot sand cards cover turtles), The gas turbines (the last coal station card makes the same
+  point). Every no-clean-answer card that is syllabus-relevant stays (the strike, the fishing pause, the seawall, the furnace
+  tower, newcomers, what we leave), as does every evidence-backed energy, water, waste and Country card.
+- Act 2 offers two cards a decade instead of three (`dilemmasPerDecade: 2` on the scenario, slots in years 2 and 6 of each
+  decade); every decade still gets a card. Recurring cards (heat, fire, seawall) come back after 40 to 45 years instead of 25 to 30,
+  so they appear twice, not three times.
+- Estimator (`tests/helpers/playtime.ts`) no longer counts the same thing twice: Caring for Country and circular-economy story lines
+  are feedback for actions already counted, a card's offer and outcome lines are inside its 55 seconds, wildlife lines are skimmed
+  (2 s), and the fourth to eighth repeat of an action takes a third of the time. This is what took most of the time off (about
+  330 story lines were being counted at 5 s each). Result for the scripted runs: Coal Coast 103, Net Zero City 87, Red Dirt 88,
+  Reef Island 84, River Town 82, Green Valley 31 minutes; `playMinutes` for Coal Coast is now 100 to 115. The other scenarios'
+  declared ranges still hold (the test allows 8 minutes either side).
+- Tests: the dilemma scheduling tests now expect two cards a decade on Coal Coast (years 2027 and 2031) and three elsewhere.
+
+Note on the first Coal Coast attempt: 3 of 4 goals, 0 stars, because the driver never used the Old sites tool on the leftover
+"rubble" sites (closed mines, rail, tips). That is a driver error, but it shows the goal row ("Repurpose or recycle every Act 1
+building", at 48 percent) is easy to under-read when closed sites do not show as outstanding. Replay with rubble included: 4 of 4
+goals, 2 stars.
+
+### Findings that did not need a game change (for the next round)
+
+- Red Dirt rehabilitation: the first full attempt ended at 82 percent rehabilitated (0 stars) because the driver put three
+  nurseries together; seeded patches far from a nursery never grew enough to be signed off. The goal row does say "next to a native
+  plant nursery", and the replay with a nursery wherever unsigned tiles were uncovered reached 100 percent. A hint that names
+  unsigned patches with no nursery in reach would help real students (UI file, not changed here).
+- Red Dirt Act 2 opens with a total blackout if Act 1 built no power station, and the bot lost the town to zero Society in three
+  years (twice). A student normally sees the demand panel ask for power in Act 1, so this is not a balance fault, but the first
+  Act 2 turn there is unforgiving with only about $100k banked.
+- Net Zero City: the driver (rooftop solar and batteries first, then parks, transit, retrofits) kept Society at 60 or more and
+  heat deaths low but left two coal and four gas stations standing and so missed net zero by 2050. The scripted player in the test
+  suite wins at this size, so this is the driver's build-out being too thin, not a map-size fault; a careful second pass (retire
+  fossil only as each step holds, check the emissions-by-source rows) was not done.
+- Real-time cost on the larger maps is the same shape as before: Reef Island's Act 1 has long flat stretches (nothing affordable
+  from 1950 to 1990 beyond homes), and Red Dirt's rehab needs about 30 clicks in the years after the mine closes.
+
+### Checks
+
+`npx vitest run` 672 tests, `npx tsc --noEmit -p .` clean, `npx vite build` clean. No console errors or uncaught exceptions in the
+driver logs.
