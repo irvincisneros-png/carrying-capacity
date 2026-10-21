@@ -1,4 +1,5 @@
 import { BUILDINGS } from './buildings';
+import { workingBuildings } from './roads';
 import { getScenario } from './scenarios';
 import { seasonIndexOf, seasonWeather } from './season';
 import type { Weather } from './season';
@@ -68,7 +69,7 @@ function sectorOf(type: keyof typeof BUILDINGS): Sector {
 /** Nameplate demand by sector (power units) before any multipliers. */
 export function baseDemand(state: GameState): SectorDemand {
   const out: SectorDemand = { homes: 0, industry: 0, transport: 0 };
-  for (const b of state.buildings) {
+  for (const b of workingBuildings(state)) {
     const d = BUILDINGS[b.type];
     if (d.power < 0) out[sectorOf(b.type)] -= d.power;
   }
@@ -95,7 +96,7 @@ export function blockDemand(state: GameState, season: Season, block: 0 | 1, seas
 /** Installed nameplate capacity by source. */
 export function installedCapacity(state: GameState): Partial<Record<EnergySource, number>> {
   const cap: Partial<Record<EnergySource, number>> = {};
-  for (const b of state.buildings) {
+  for (const b of workingBuildings(state)) {
     const e = BUILDINGS[b.type].energy;
     if (e) cap[e.source] = (cap[e.source] ?? 0) + e.capacity;
   }
@@ -155,7 +156,7 @@ export function balanceGrid(state: GameState, seasonIndex = seasonIndexOf(state)
 
   const power = (cap.battery ?? 0) + (cap['pumped-hydro'] ?? 0);
   let effNum = 0;
-  for (const b of state.buildings) {
+  for (const b of workingBuildings(state)) {
     const e = BUILDINGS[b.type].energy;
     if (e && (e.source === 'battery' || e.source === 'pumped-hydro')) effNum += e.capacity * (e.efficiency ?? 0.85);
   }
@@ -234,7 +235,7 @@ export function balanceGrid(state: GameState, seasonIndex = seasonIndexOf(state)
   const renewableShare = delivered > 0 ? Math.max(0, (delivered - fossil) / delivered) : 0;
 
   const utilisation: Record<string, number> = {};
-  for (const b of state.buildings) {
+  for (const b of workingBuildings(state)) {
     const e = BUILDINGS[b.type].energy;
     if (!e) continue;
     if (e.source === 'coal') utilisation[String(b.uid)] = (cap.coal ?? 0) > 0 ? coalGen / (cap.coal ?? 1) : 0;

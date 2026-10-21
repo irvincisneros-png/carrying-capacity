@@ -15,6 +15,11 @@ export function gridHoldsWithout(s: GameState, uid: number): boolean {
     for (const off of [0, 1, 2]) {
       if (balanceGrid(probe, (probe.year - 1850) * 4 + k + off * 40).report.unmetFrac > 0.015) return false;
     }
+    // And a summer heatwave (homes use a quarter more power) must not bring a real blackout.
+    if (k === 0) {
+      const hot: GameState = { ...probe, a2: { ...probe.a2, active: [...probe.a2.active, { type: 'heatwave', endsAt: 1e9, severity: 1 }] } };
+      if (balanceGrid(hot, (hot.year - 1850) * 4).report.unmetFrac > 0.04) return false;
+    }
   }
   return true;
 }
@@ -110,6 +115,8 @@ export function goodPlayPlan(opts: GoodPlayOpts = {}): (s: GameState) => GameSta
     // 3. Energy: build clean capacity, then retire coal and (later) gas when the grid holds without it.
     const want: [BuildingId, number, number][] = [
       ['windfarm', 8, 0],
+      ['solarfarm', 4, 0],
+      ['battery', 3, 0],
       ['solarfarm', 6, 0],
       ['battery', 5, 0],
       ['hydro', 1, 0],
@@ -122,6 +129,13 @@ export function goodPlayPlan(opts: GoodPlayOpts = {}): (s: GameState) => GameSta
       if (s.year < from) continue;
       const score = id === 'windfarm' || id === 'offshorewind' ? () => 0 : near;
       s = placeUpTo(s, id, Math.max(0, n - count(s, id)), score);
+    }
+    // After a year with blackouts, one more battery (night) or solar farm (day) goes in: the roads to the ridge turbines
+    // and the sites the town's roads reach cost real money, so the fixed shopping list above can fall short.
+    if (s.a2.lastUnmetFrac > 0.02 && s.year > 2030) {
+      const day = (s.a2.lastGrid?.day.unmet ?? 0) > (s.a2.lastGrid?.night.unmet ?? 0);
+      const id: BuildingId = day ? 'solarfarm' : 'battery';
+      if (count(s, id) < (day ? 12 : 10)) s = placeUpTo(s, id, 2, near);
     }
     for (const b of s.buildings.filter((o) => o.type === 'coalpower')) {
       if (gridHoldsWithout(s, b.uid)) {

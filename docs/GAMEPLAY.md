@@ -34,6 +34,18 @@ Act 2 time: 1 in-game year = 15 s at 1× (≈19 min for 2025→2100 at 1×; play
 
 **Weather vs climate HUD.** Daily weather icon + season; separate 30-year climate trend line (4.2.1). Greenhouse "atmosphere lens" overlay (4.2.3).
 
+## 2b. Roads matter (Round 6)
+
+**The rule.** Every scenario starts with an **entrance road**: one road tile at the edge of the map (placed on open land, toward where the town will grow; Net Zero City's finished road grid is joined to it, and a river or the sea that cuts a big stretch of land off gets an entrance of its own, because there are no bridges). A building **works only if a tile edge-adjacent to it is a road that is joined, tile by tile, to an entrance.** Mines, ports, steelworks, factories and coal power stations also accept a **rail siding** that is joined to the entrance (rail carries coal and goods, not commuters). The entrance road cannot be demolished.
+
+**Unconnected buildings give nothing.** Homes house no one, workplaces fill no jobs, power stations supply no power and use none, and a building that is not running adds no emissions and no local pollution. Money, Society and Environment follow from that. `roadAccess(state)` lists the unconnected buildings so the interface can mark them "no road" and warn about them (planned demand bars, WP4).
+
+**Exempt** (the building def says `needsRoad: false`): roads, rail sidings, highways (they come with their own ramps), wildlife crossings, light rail (it has its own right-of-way), nature and restoration items (phytoremediation gardens, stormwater wetlands, nurseries, coral nurseries, parkland), offshore wind and tidal turbines, fishways, seawalls, sewage outfalls and water bores. **Rooftop solar** needs no road of its own but works only while a working home is beside it.
+
+**Commuting.** Each decade (Act 1) and each year (Act 2) the town adds a small transport emission: population x the mean road distance from working homes to the nearest workplace (a breadth-first search over the connected road network, each commute capped at 24 tiles) x a small factor. A compact town with homes near jobs emits less; each light-rail line cuts it by 12 percent, up to 60 percent. It is part of the Transport total and is also reported on its own (`commuteKt`) in decade reports and year records.
+
+**Old saves** have no entrance, so one is added on load. The town's buildings then need roads like any other.
+
 ## 3. Empathy layer — people and creatures you care about
 
 **Residents (5–7 per scenario), recurring across decades as families:** each has a portrait, name, family, job, home tile, mood (0–100) and a short story arc with 3–5 beats triggered by player actions/events. Examples for Coal Coast:

@@ -9,6 +9,7 @@ import {
 } from '../../src/sim';
 import type { Action, GameState } from '../../src/sim';
 import { goodPlayPlan } from './goodplay';
+import { connectedOrNull } from './roads';
 import type { BuildingId } from '../../src/sim';
 
 type Plan = (s: GameState) => GameState;
@@ -155,7 +156,8 @@ function satellites(state: GameState): GameState {
       if (s.buildings.some((b) => b.type === 'groundstation')) break;
       if (canPlace(s, 'groundstation', x, y).ok) {
         const r = applyAction(s, { type: 'place', building: 'groundstation', x, y });
-        if (r.result.ok) s = r.state;
+        const joined = r.result.ok ? connectedOrNull(r.state, r.result.uid) : null;
+        if (joined) s = joined;
       }
     }
   }
@@ -270,7 +272,9 @@ export function moveFarmsInland(state: GameState, maxPerYear = 2): GameState {
     if (!d.result.ok) continue;
     const p = applyAction(d.state, { type: 'place', building: 'farm', x: spot.x, y: spot.y });
     if (!p.result.ok) continue;
-    s = p.state;
+    const joined = connectedOrNull(p.state, p.result.uid);
+    if (!joined) continue; // the farm stays where it was unless it can be joined to the road in its new place
+    s = joined;
     moved++;
   }
   return s;
@@ -282,6 +286,9 @@ export function fullPlayPlan(): Plan {
   return (state) => {
     let s = answerPrompts(state);
     s = consultAll(s);
+    // A thoughtful player keeps the lights on first: after a year with blackouts the grid gets the money before the extras.
+    const blackout = s.year > 2030 && s.a2.lastUnmetFrac > 0.02;
+    if (blackout) return base(s);
     s = research(s);
     s = satellites(s);
     s = comanageBush(s, 3);
@@ -307,12 +314,12 @@ export { BUILDINGS, LEGACY_TYPES, SPECIES_BY_ID };
 export type { Action };
 
 import { runScript } from './autoplay';
-import { DIRTY_WANTS, greedyPlan } from './scripts';
+import { CAREFUL_ROADS, DIRTY_WANTS, greedyPlan } from './scripts';
 import { seededGame } from './seeds';
 
 /** Coal Coast end to end: the respectful Act 1 and the full Act 2 plan, or the dirty Act 1 left alone. */
 export function coalThoughtful(seed: number | null = null): { act1: GameState; end: GameState } {
-  const act1 = runScript(seededGame('coal-coast', seed), act1Respectful(greedyPlan(RESPECTFUL_WANTS, 1.0))).state;
+  const act1 = runScript(seededGame('coal-coast', seed), act1Respectful(greedyPlan(RESPECTFUL_WANTS, 1.0, 30, CAREFUL_ROADS))).state;
   return { act1, end: playAct2(startAct2(act1), fullPlayPlan()) };
 }
 

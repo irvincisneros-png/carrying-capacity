@@ -9,6 +9,7 @@ import { emptyAct2 } from './state';
 import { emptyLayers, reconcileLayers } from './layers';
 import { initCircular } from './circular';
 import { initWildlife } from './wildlife';
+import { ensureEntrance } from './roads';
 import type {
   Act2State, GameState, GameStatus, HistoryRecord, Meters, Phase, PlacedBuilding, ScenarioId, SimEvent, TileGrid,
   TurningPoint,
@@ -268,6 +269,8 @@ export function deserialize(text: string | null): GameState | null {
       initWildlife(state);
     }
     reconcileLayers(state);
+    // Saves from before roads mattered have no entrance: give the town one (its buildings then need to connect to it).
+    ensureEntrance(state);
     return state;
   } catch {
     return null;

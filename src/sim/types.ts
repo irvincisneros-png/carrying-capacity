@@ -185,6 +185,8 @@ export interface HistoryRecord {
   meters: Meters;
   population: number;
   budget: number;
+  /** kt CO2-e of the total that came from commuting along the road network (already inside emissionsKt.transport). */
+  commuteKt?: number;
 }
 
 export type GameStatus = 'playing' | 'act1-complete' | 'act2-complete' | 'failed';
@@ -307,6 +309,8 @@ export interface YearRecord {
   population: number;
   unmetFrac: number;
   renewableShare: number;
+  /** kt CO2-e of the year's total that came from commuting (already inside emissionsKt.transport). */
+  commuteKt?: number;
   estuaryHealth: number;
   meanHealth: number;
   reefHealth: number;
@@ -504,6 +508,10 @@ export interface DecadeReport {
   /** What the town needs in the decade that is starting. */
   demand: string;
   demandItems: string[];
+  /** kt CO2-e of the decade's total that came from commuting (already inside emissionsKt.transport). */
+  commuteKt?: number;
+  /** Mean road distance (tiles) from homes to the nearest jobs. */
+  commuteTiles?: number;
   fact: Fact | null;
   actComplete: boolean;
 }

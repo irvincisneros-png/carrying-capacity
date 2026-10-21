@@ -5,11 +5,11 @@ import {
 import type { GameState } from '../src/sim';
 import { runScript } from './helpers/autoplay';
 import { act1Respectful, fullPlayPlan, RESPECTFUL_WANTS } from './helpers/fullplay';
-import { DIRTY_WANTS, greedyPlan } from './helpers/scripts';
+import { CAREFUL_ROADS, DIRTY_WANTS, greedyPlan } from './helpers/scripts';
 
 type Raw = Record<string, unknown> & { grid: Record<string, unknown> };
 
-const act1 = runScript(createGame('coal-coast'), act1Respectful(greedyPlan(RESPECTFUL_WANTS, 1.0))).state;
+const act1 = runScript(createGame('coal-coast'), act1Respectful(greedyPlan(RESPECTFUL_WANTS, 1.0, 30, CAREFUL_ROADS))).state;
 const dirtyAct1 = runScript(createGame('coal-coast'), greedyPlan(DIRTY_WANTS, 1.0)).state;
 
 function midAct2(): GameState {

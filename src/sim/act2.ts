@@ -2,6 +2,7 @@ import { BUILDINGS } from './buildings';
 import { climateAt } from './climate';
 import { ACT2_INCOME_MULT, ACT2_POP_GROWTH, computeMeters, economySnapshot, INCOME_PER_JOB, BASE_GRANT } from './economy';
 import { balanceGrid, baseDemand, GAS_AVAILABILITY } from './energy';
+import { commuteStats, workingBuildings } from './roads';
 import { emit, makeCtx, rollEvents } from './events';
 import { estuaryHealth, meanHealth, meanReefHealth } from './metrics';
 import { mechEmissionFactor, mechIncome, mechMetric } from './mechanics';
@@ -75,9 +76,9 @@ export function carryOverPlan(state: Pick<GameState, 'scenarioId' | 'budget'>): 
  * The stopgap is a pair of gas stations' worth of power: how many are needed to cover today's demand, and what they cost.
  * Null when something already generates power.
  */
-export function stopgapPlan(state: Pick<GameState, 'buildings'>): { short: number; stations: number; cost: number } | null {
-  if (state.buildings.some((b) => BUILDINGS[b.type].power > 0)) return null;
-  const d = baseDemand(state as GameState);
+export function stopgapPlan(state: GameState): { short: number; stations: number; cost: number } | null {
+  if (workingBuildings(state).some((b) => BUILDINGS[b.type].power > 0)) return null;
+  const d = baseDemand(state);
   const short = Math.ceil(d.homes + d.industry + d.transport);
   if (short < 5) return null;
   const stations = Math.max(1, Math.ceil(short / (BUILDINGS.gaspower.power * GAS_AVAILABILITY)));
@@ -188,7 +189,8 @@ export function processSeason(s: GameState, rctx: RestoreCtx, quiet: boolean, di
   a2.utilisation = gr.utilisation;
   a2.lastGrid = gr.report;
 
-  updatePollutionSeason(s.grid, s.buildings, (b) => {
+  const working = workingBuildings(s);
+  updatePollutionSeason(s.grid, working, (b) => {
     const e = BUILDINGS[b.type].energy;
     return e && (e.source === 'coal' || e.source === 'gas') ? (a2.utilisation[String(b.uid)] ?? 0) : 1;
   });
@@ -197,7 +199,7 @@ export function processSeason(s: GameState, rctx: RestoreCtx, quiet: boolean, di
 
   // Emissions: grid output for power, static (per decade / 40) for everything else; excavation trucks only while digging.
   a2.yearEm.power += gr.report.emissionsKt;
-  for (const b of s.buildings) {
+  for (const b of working) {
     const def = BUILDINGS[b.type];
     if (def.category === 'power' || def.co2 <= 0) continue;
     if (def.remediation?.method === 'excavate' && !a2.activeRemediation.includes(b.uid)) continue;
@@ -233,13 +235,16 @@ function yearEnd(s: GameState, quiet: boolean): void {
   em.land += s.pendingLandKt;
   s.pendingLandKt = 0;
   em.waste *= wasteEmissionsMult(s);
+  // Economy: population drifts to the housing that works (is joined to the road in), income from filled jobs (cut by blackouts).
+  const housing = economySnapshot(s).housing;
+  s.population = Math.max(0, Math.round(s.population + (housing - s.population) * ACT2_POP_GROWTH));
+  // Commuting along the road network, a tenth of the decade figure, is part of transport.
+  const commute = commuteStats(s).ktPerDecade / 10;
+  em.transport += commute;
   const total = EMISSION_CATEGORIES.reduce((n, c) => n + em[c], 0);
   const unmet = a2.yearSeasons > 0 ? a2.yearUnmetSum / a2.yearSeasons : 0;
   a2.lastUnmetFrac = unmet;
 
-  // Economy: population drifts to housing, income from filled jobs (cut by blackouts).
-  const housing = economySnapshot(s).housing;
-  s.population = Math.max(0, Math.round(s.population + (housing - s.population) * ACT2_POP_GROWTH));
   const snap = economySnapshot(s);
   const income = ((snap.filledJobs * INCOME_PER_JOB + BASE_GRANT) * sc.modifiers.budgetMult / 10) * ACT2_INCOME_MULT * (1 - 0.8 * unmet);
   const incomeAdj = typeof s.flags['income.adj'] === 'number' ? s.flags['income.adj'] : 0;
@@ -265,7 +270,7 @@ function yearEnd(s: GameState, quiet: boolean): void {
   const rec: YearRecord = {
     year: s.year, co2: s.co2, tempC: s.tempC, eqTempC: a2.eqTempC,
     emissionsKt: { ...em }, totalKt: total, meters: { ...s.meters }, budget: s.budget, population: s.population,
-    unmetFrac: unmet, renewableShare: a2.lastGrid?.renewableShare ?? 0,
+    unmetFrac: unmet, renewableShare: a2.lastGrid?.renewableShare ?? 0, commuteKt: commute,
     estuaryHealth: estuaryHealth(s), meanHealth: meanHealth(s), reefHealth: meanReefHealth(s),
   };
   if (sc.mechanics?.includes('river')) rec.riverHealth = mechMetric(s, 'riverHealth') ?? undefined;

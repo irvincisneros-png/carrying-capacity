@@ -211,6 +211,7 @@ export function queuePlan(queue: readonly QueueWant[], housingRatio = 1.0, maxPe
       if (!id) break;
       if (s.budget < BUILDINGS[id].cost) break;
       const r = buildNear(s, id, prefer);
+      if (r === 'funds') break; // the road to it costs more than is left: wait for next decade
       if (!r) {
         if (id === 'cottage' || id === 'suburb') break;
         blocked.add(id);
@@ -227,10 +228,11 @@ function isUnlockedHere(s: GameState, id: BuildingId): boolean {
   return c.code !== 'locked';
 }
 
-function buildNear(s: GameState, id: BuildingId, prefer: 'near' | 'far'): GameState | null {
+function buildNear(s: GameState, id: BuildingId, prefer: 'near' | 'far'): GameState | null | 'funds' {
   const hub = hubFor(s);
   const spot = bestSpot(s, id, (x, y) => (prefer === 'near' ? -1 : 1) * Math.hypot(x - hub.x, y - hub.y));
   const p = place(s, id, spot);
+  if (!p.ok && p.needsFunds) return 'funds';
   return p.ok ? p.state : null;
 }
 

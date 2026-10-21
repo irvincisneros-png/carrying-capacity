@@ -8,6 +8,7 @@ export * from './rules';
 export * from './pollution';
 export * from './climate';
 export * from './economy';
+export * from './roads';
 export * from './game';
 export * from './save';
 export { FACTS, getFactForDecade } from '../content/facts';

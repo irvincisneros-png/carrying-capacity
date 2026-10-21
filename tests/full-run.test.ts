@@ -5,7 +5,7 @@ import {
 import type { GameState } from '../src/sim';
 import { runScript } from './helpers/autoplay';
 import { act1Respectful, fullPlayPlan, playAct2, RESPECTFUL_WANTS } from './helpers/fullplay';
-import { DIRTY_WANTS, greedyPlan } from './helpers/scripts';
+import { CAREFUL_ROADS, DIRTY_WANTS, greedyPlan } from './helpers/scripts';
 
 /**
  * Whole-game scripted runs on Coal Coast (seed 1850):
@@ -14,7 +14,7 @@ import { DIRTY_WANTS, greedyPlan } from './helpers/scripts';
  *    Aunty June, watches the sea from space and deals with every legacy site by the waste hierarchy. Reaches 3 stars.
  *  - "idle": builds the dirty town and then does nothing. Every arc ends badly.
  */
-const thoughtfulAct1 = runScript(createGame('coal-coast'), act1Respectful(greedyPlan(RESPECTFUL_WANTS, 1.0))).state;
+const thoughtfulAct1 = runScript(createGame('coal-coast'), act1Respectful(greedyPlan(RESPECTFUL_WANTS, 1.0, 30, CAREFUL_ROADS))).state;
 const thoughtful = playAct2(startAct2(thoughtfulAct1), fullPlayPlan());
 const idleAct1 = runScript(createGame('coal-coast'), greedyPlan(DIRTY_WANTS, 1.0)).state;
 const idle = playAct2(startAct2(idleAct1), null);

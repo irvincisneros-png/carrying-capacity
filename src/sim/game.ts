@@ -6,6 +6,7 @@ import {
 } from './economy';
 import { enterTurningPoint, startAct2 } from './act2';
 import { buildCity } from './prebuilt';
+import { commuteStats, connectAllFree, ensureEntrance, isEntrance, workingBuildings } from './roads';
 import { mechIncome } from './mechanics';
 import { applyLayerAction, emptyLayers, layersDecadeMoods, layersDecadeStory, onDemolishedBuilding, onPlaced } from './layers';
 import { updatePollution } from './pollution';
@@ -44,8 +45,6 @@ export function createGame(scenarioId: GameState['scenarioId'], seed?: number): 
   const sc = getScenario(scenarioId);
   const s = (seed ?? sc.seed) >>> 0;
   const grid = generateTerrain(sc, s);
-  let bush = 0;
-  for (let i = 0; i < grid.kind.length; i++) if (grid.kind[i] === TileKind.Bush) bush++;
   // Scenarios that start after 1850 inherit the reference world's legacy emissions so m starts near 1.
   const legacy = sc.startYear > 1850 ? referenceCumulative(sc.startYear) * (sc.modifiers.emissionScale ?? 1) : 0;
   const clim = climateAt(sc.startYear, legacy, sc.modifiers.climateSensitivityMult, sc.modifiers.emissionScale ?? 1);
@@ -68,7 +67,7 @@ export function createGame(scenarioId: GameState['scenarioId'], seed?: number): 
     multiplier: clim.m,
     meters: { economy: 0, society: 0, environment: 0 },
     history: [],
-    initialBushTiles: bush,
+    initialBushTiles: 0,
     version: 0,
     phase: 'act1',
     a2: emptyAct2(sc.act2.startYear, clim.tempC),
@@ -78,6 +77,11 @@ export function createGame(scenarioId: GameState['scenarioId'], seed?: number): 
     turningPoint: null,
     ...emptyLayers(scenarioId),
   };
+  // Every town starts with a road into it on the map edge; buildings must connect to it (see sim/roads.ts).
+  ensureEntrance(base);
+  let bush = 0;
+  for (let i = 0; i < grid.kind.length; i++) if (grid.kind[i] === TileKind.Bush) bush++;
+  base.initialBushTiles = bush;
   const meters = computeMeters(base);
   base.meters = meters;
   base.history.push(record(base, emptyEmissions(), 0));
@@ -89,6 +93,7 @@ export function createGame(scenarioId: GameState['scenarioId'], seed?: number): 
 function startPrebuilt(base: GameState): GameState {
   const sc = getScenario(base.scenarioId);
   buildCity(base);
+  connectAllFree(base);
   let bush = 0;
   for (let i = 0; i < base.grid.kind.length; i++) if (base.grid.kind[i] === TileKind.Bush) bush++;
   base.initialBushTiles = bush;
@@ -101,7 +106,7 @@ function startPrebuilt(base: GameState): GameState {
   return startAct2(base);
 }
 
-function record(s: GameState, emissions: EmissionsBySource, total: number): HistoryRecord {
+function record(s: GameState, emissions: EmissionsBySource, total: number, commuteKt?: number): HistoryRecord {
   return {
     year: s.year,
     co2: s.co2,
@@ -114,6 +119,7 @@ function record(s: GameState, emissions: EmissionsBySource, total: number): Hist
     meters: { ...s.meters },
     population: s.population,
     budget: s.budget,
+    ...(commuteKt !== undefined ? { commuteKt } : {}),
   };
 }
 
@@ -184,6 +190,9 @@ export function applyAction(state: GameState, action: Action): { state: GameStat
     case 'demolish': {
       const b = buildingAt(state, action.x, action.y);
       if (!b) return fail('nothing-here', 'There is nothing to demolish here');
+      if (b.type === 'road' && isEntrance(state, b.x, b.y)) {
+        return fail('locked', 'This is the road into the valley from the edge of the map. Every building connects to it, so it stays.');
+      }
       const next = cloneState(state);
       const g = next.grid;
       for (let yy: number = b.y; yy < b.y + b.h; yy++) {
@@ -221,7 +230,7 @@ export function applyAction(state: GameState, action: Action): { state: GameStat
 /** Emissions the current set of buildings will produce over one decade (excludes one-off clearing). */
 export function projectedEmissions(state: GameState): EmissionsBySource {
   const e = emptyEmissions();
-  for (const b of state.buildings) e[BUILDINGS[b.type].category] += BUILDINGS[b.type].co2;
+  for (const b of workingBuildings(state)) e[BUILDINGS[b.type].category] += BUILDINGS[b.type].co2;
   return e;
 }
 
@@ -235,16 +244,20 @@ export function advanceDecade(state: GameState): { state: GameState; report: Dec
   const em = projectedEmissions(state);
   em.land += state.pendingLandKt;
   next.pendingLandKt = 0;
-  const total = EMISSION_CATEGORIES.reduce((n, c) => n + em[c], 0);
 
-  // 2. Local pollution spreads / decays.
-  updatePollution(next.grid, next.buildings);
+  // 2. Local pollution spreads / decays (only buildings that work, i.e. connected to the road in, pollute).
+  updatePollution(next.grid, workingBuildings(state));
 
   // 3. Economy: population then income.
   next.population = growPopulation(state.population, economySnapshot(state).housing);
   const snap = economySnapshot(next);
   next.lastIncome = decadeIncome(snap, sc.modifiers.budgetMult) + Math.round(mechIncome(next) * DECADE_YEARS);
   next.budget += next.lastIncome;
+
+  // Commuting along the road network is part of the transport total (and reported on its own).
+  const commute = commuteStats(next);
+  em.transport += commute.ktPerDecade;
+  const total = EMISSION_CATEGORIES.reduce((n, c) => n + em[c], 0);
 
   // 4. Climate for the new year.
   next.year = state.year + DECADE_YEARS;
@@ -262,7 +275,7 @@ export function advanceDecade(state: GameState): { state: GameState; report: Dec
   next.meters = computeMeters(next);
   layersDecadeMoods(next);
   next.meters = computeMeters(next);
-  next.history.push(record(next, em, total));
+  next.history.push(record(next, em, total, commute.ktPerDecade));
   if (next.year >= sc.endYear) {
     next.status = 'act1-complete';
     enterTurningPoint(next);
@@ -295,6 +308,8 @@ export function advanceDecade(state: GameState): { state: GameState; report: Dec
     income: next.lastIncome,
     demand: demand.text,
     demandItems: demand.items,
+    commuteKt: commute.ktPerDecade,
+    commuteTiles: commute.meanDist,
     fact: getFactForDecade(state.year),
     actComplete: next.status === 'act1-complete',
   };
