@@ -6,10 +6,10 @@ import {
 import type { GameState } from '../src/sim';
 import { runScript } from './helpers/autoplay';
 import { act2Sandbox, addBuilding } from './helpers/fixtures';
-import { CAUTIOUS_WANTS, DIRTY_WANTS, greedyPlan } from './helpers/scripts';
+import { CAUTIOUS_WANTS, DIRTY_ROADS, DIRTY_WANTS, greedyPlan } from './helpers/scripts';
 
 const cautiousEnd = runScript(createGame('coal-coast'), greedyPlan(CAUTIOUS_WANTS, 1.0)).state;
-const dirtyEnd = runScript(createGame('coal-coast'), greedyPlan(DIRTY_WANTS, 1.0)).state;
+const dirtyEnd = runScript(createGame('coal-coast'), greedyPlan(DIRTY_WANTS, 1.0, 30, DIRTY_ROADS)).state;
 
 describe('phase machine', () => {
   it('starts in act1 and finishes act1 at the turning point', () => {
@@ -203,7 +203,7 @@ describe('event probabilities scale with warming and scenario severity', () => {
 describe('event system', () => {
   it('is deterministic for the same seed and differs between seeds', () => {
     const run = (seed: number): string => {
-      const g = runScript(createGame('coal-coast', seed), greedyPlan(DIRTY_WANTS, 1.0)).state;
+      const g = runScript(createGame('coal-coast', seed), greedyPlan(DIRTY_WANTS, 1.0, 30, DIRTY_ROADS)).state;
       return JSON.stringify(tick(startAct2(g), 40).state.eventLog);
     };
     expect(run(1850)).toBe(run(1850));

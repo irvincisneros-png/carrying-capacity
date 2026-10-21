@@ -196,15 +196,20 @@ export function roadTileCost(state: GameState, i: number): number {
   const g = state.grid;
   if ((g.building[i] ?? 0) !== 0) return 0;
   const k = g.kind[i];
+  // Routes go round places of cultural significance if they can (building on one without asking is a harm, see country.ts).
+  const care = (g.significant?.[i] ?? 0) > 0 ? SIGNIFICANT_STEP : 0;
   if (k === TileKind.Land) {
     if (state.phase === 'act2') {
       const z = g.zone?.[i] ?? 0;
       if (z > 0 && z < 250 && (getScenario(state.scenarioId).mechanics ?? []).includes('outback')) return 0;
     }
-    return 1;
+    return 1 + care;
   }
-  return k === TileKind.Bush ? BUSH_STEP : 0;
+  return k === TileKind.Bush ? BUSH_STEP + care : 0;
 }
+
+/** Extra routing cost of a road tile on a significant place. */
+export const SIGNIFICANT_STEP = 25;
 
 const neighbours = (i: number, w: number, h: number): number[] => {
   const x = i % w, y = Math.floor(i / w);
@@ -322,8 +327,9 @@ export function ensureEntrance(state: GameState): boolean {
       if (xx >= 0 && yy >= 0 && xx < g.w && yy < g.h) shore[yy * g.w + xx] = 1;
     }
   }
+  const plain = (i: number): boolean => roadTileOk(state, i) && (g.significant?.[i] ?? 0) === 0;
   const anywhere = (i: number): boolean => roadTileOk(state, i);
-  const inland = (i: number): boolean => shore[i] === 0 && roadTileOk(state, i);
+  const inland = (i: number): boolean => shore[i] === 0 && plain(i);
   let n = 0;
   for (const region of landRegions(state)) {
     const centroid = { x: 0, y: 0 };
@@ -333,7 +339,7 @@ export function ensureEntrance(state: GameState): boolean {
     // First choice keeps the road away from the shore (street lights on the sand keep turtles off the beach); if no such
     // road can be laid, any open ground will do.
     let entrance: number | null = null;
-    for (const ok of [inland, anywhere]) {
+    for (const ok of [inland, plain, anywhere]) {
       const i = entranceFor(state, region, toward, ok);
       if (i === null) continue;
       // The tile the road runs in to: open ground nearest where the town will grow.

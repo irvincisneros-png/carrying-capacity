@@ -5,7 +5,7 @@ import {
 } from '../src/sim';
 import type { GameState } from '../src/sim';
 import { runScript } from './helpers/autoplay';
-import { DIRTY_WANTS, greedyPlan } from './helpers/scripts';
+import { DIRTY_ROADS, DIRTY_WANTS, greedyPlan } from './helpers/scripts';
 import { act2Sandbox, growTile, paint } from './helpers/fixtures';
 
 const ctxOf = (s: GameState) => makeCtx(s, 700, null, { shallow: new Uint8Array(0), nearWater: new Uint8Array(0), nursery: new Uint8Array(0) });
@@ -101,7 +101,7 @@ describe('choice flags that change the world', () => {
 });
 
 describe('helpers for the interface', () => {
-  const act1 = runScript(createGame('coal-coast'), greedyPlan(DIRTY_WANTS, 1.0)).state;
+  const act1 = runScript(createGame('coal-coast'), greedyPlan(DIRTY_WANTS, 1.0, 30, DIRTY_ROADS)).state;
   it('offers a disposal choice for old sites once the circular tier is open', () => {
     const s = startAct2(act1);
     const mine = s.circular.items.find((i) => i.type === 'steelworks');

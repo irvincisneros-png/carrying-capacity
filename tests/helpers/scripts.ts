@@ -5,6 +5,8 @@ import type { Plan } from './autoplay';
 
 /** A careful player builds compactly along the roads it has (one tile of new road is worth three tiles of walking to the hub). */
 export const CAREFUL_ROADS = 3;
+/** The build-everything player gives some weight to where the roads already run, but less than a careful one. */
+export const DIRTY_ROADS = 1;
 
 interface Want {
   id: BuildingId;
@@ -70,7 +72,7 @@ export const DIRTY_WANTS: Want[] = [
   { id: 'port', max: 2 },
   { id: 'rail', max: 4 },
   { id: 'outfall', max: 2 },
-  { id: 'coalpower', max: 4, saveFrom: 1930 },
+  { id: 'coalpower', max: 4, saveFrom: 1950 },
   { id: 'steelworks', max: 4 },
   { id: 'factory', max: 8 },
   { id: 'landfill', max: 4 },
