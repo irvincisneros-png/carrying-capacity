@@ -165,6 +165,7 @@ export const BUILDING_IDS: readonly BuildingId[] = [
   'transitline',
   'greensuburb',
   'parkland',
+  'datacentre',
 ];
 
 /** Act 1 buildings that may still be built during the transition (everything else dirty is act1 only). */
@@ -528,6 +529,12 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
     co2: 0, localPollution: 0, pollutes: {}, unlock: 2025, category: 'land', phases: ACT2,
     placement: { on: [Land] },
     blurb: 'Shade trees and a patch of green. Tree canopy cools a street by several degrees in a heatwave and soaks up some carbon.',
+  },
+  datacentre: {
+    id: 'datacentre', needsRoad: false, name: 'Data centre', w: 3, h: 3, cost: 0, jobs: 8, housing: 0, power: -10,
+    co2: 0, localPollution: 0, pollutes: {}, unlock: 2025, category: 'industry', phases: ACT2,
+    placement: { on: [Land] },
+    blurb: 'A big windowless shed full of computers that runs day and night. Few jobs, a lot of electricity, and cooling that needs water or more power. Only built when a tech company makes an offer you accept.',
   },
 
 };

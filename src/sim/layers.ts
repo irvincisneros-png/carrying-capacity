@@ -5,6 +5,7 @@
  */
 import { castFor, checkBeats, initResidents, noteAction, reactToEvents, respond, societyShare, stepMoods } from './residents';
 import { choose, dilemmaSociety, emptyDilemmas, offerAct1, offerAct2 } from './dilemmas';
+import { offerDataCentre, offerInnovations } from './innovations';
 import { emptyWildlife, initWildlife, noteHeat, wildlifeSummer, wildlifeYear } from './wildlife';
 import { burn, comanage, consult, countryStep, countryYear, initCountry, notePlacement } from './country';
 import { circularYear, dispose, emptyCircular, initCircular, onDemolished, onReplaced, research } from './circular';
@@ -62,7 +63,7 @@ export function layersDecadeMoods(s: GameState): void {
 /** Decade turn, after the act-complete check: beats and the occasional dilemma card. */
 export function layersDecadeStory(s: GameState): SimEvent[] {
   const out = checkBeats(s);
-  if (s.phase === 'act1') offerAct1(s);
+  if (s.phase === 'act1') { offerAct1(s); offerInnovations(s); }
   return out;
 }
 
@@ -106,6 +107,7 @@ export function layersYearEnd(s: GameState): void {
   if (s.residents.history.length > 140) s.residents.history.splice(0, s.residents.history.length - 140);
   checkBeats(s);
   offerAct2(s);
+  offerDataCentre(s);
 }
 
 // ---------------------------------------------------------------------------------------------------------

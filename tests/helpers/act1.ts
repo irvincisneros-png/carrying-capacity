@@ -45,6 +45,7 @@ export function playAct1(start: GameState, style: Act1Style): GameState {
     const picks: Record<string, string> = {};
     if (style.cards === 'cash') {
       for (const id of s.dilemmas.pending) {
+        if (id.startsWith('inn-')) continue;
         const d = getDilemma(s.scenarioId, id);
         const best = d?.options.slice().sort((a, b) => ((b.effects.incomePerDecade ?? 0) + (b.effects.budget ?? 0) / 4) - ((a.effects.incomePerDecade ?? 0) + (a.effects.budget ?? 0) / 4))[0];
         if (best) picks[id] = best.id;

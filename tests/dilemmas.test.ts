@@ -15,11 +15,12 @@ describe('Act 1 cards', () => {
   it('offer about four to five dilemmas across the whole of Act 1, at least 20 years apart', () => {
     for (const wants of [DIRTY_WANTS, CAUTIOUS_WANTS]) {
       const s = runScript(createGame('coal-coast'), greedyPlan(wants, 1.0)).state;
-      const years = Object.values(s.dilemmas.offered).sort((a, b) => a - b);
+      // The innovation timeline (inn- cards, WP9) has its own scheduler and is tested in innovations.test.ts.
+      const years = Object.entries(s.dilemmas.offered).filter(([id]) => !id.startsWith('inn-')).map(([, y]) => y).sort((a, b) => a - b);
       expect(years.length).toBeGreaterThanOrEqual(4);
       expect(years.length).toBeLessThanOrEqual(5);
       for (let i = 1; i < years.length; i++) expect((years[i] ?? 0) - (years[i - 1] ?? 0)).toBeGreaterThanOrEqual(ACT1_MIN_GAP);
-      for (const id of Object.keys(s.dilemmas.offered)) expect(getDilemma('coal-coast', id)?.phase).toBe('act1');
+      for (const id of Object.keys(s.dilemmas.offered).filter((x) => !x.startsWith('inn-'))) expect(getDilemma('coal-coast', id)?.phase).toBe('act1');
     }
   });
   it('only offers a card whose condition holds: no strike without heavy industry', () => {
