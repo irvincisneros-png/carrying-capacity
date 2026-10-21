@@ -78,6 +78,11 @@ Files: `src/content/**`, `src/sim/**` (upgrade effects, Act 1 goal evaluation), 
 - **WP4 demand bars.** A persistent HUD block: Homes, Jobs, Power (and Water where used) as small bars, plus "N buildings have no road" with a locate button. Replaces the need to read pop-ups.
 - **WP6 larger maps.** Green Valley 32x32, Coal Coast, River Town, Red Dirt and Reef Island 64x64, Net Zero City 72x72, using the existing `s = min(w,h)/original` scaling. Re-check the scripted players, the play-time estimates and the Act 2 click counts (add brush tools where restoration needs many clicks).
 
-## Note 6: should time run continuously, as in Cities: Skylines?
+## WP7 hybrid time in Act 1 (note 6; the owner approved the hybrid on 2026-10-21)
 
-This was a question; the answer was given to the owner in chat. No change is planned unless the owner asks for one.
+- **Clock.** Act 1 years tick in real time (about 6 s a year at 1x), with pause and 1x, 2x and 4x speeds, reusing the Act 2 clock widget and controls.
+- **Yearly money and growth.** Money and population growth arrive each year (decade income / 10, growth spread over the years). Buildings placed during a decade count from the next year.
+- **Decade checkpoint.** The decade's pollution, climate and meter step and the decade report and cards still happen at each decade end. The clock auto-pauses there.
+- **Next decade button.** It becomes "Skip to the end of the decade", which fast-forwards the remaining years.
+- **Determinism.** `advanceDecade` must equal ten `advanceYear` calls, so the scripted players and balance tests are unchanged in result. Add a test for this.
+- **Ordering.** Do this after WP3 and WP5 merge, because it touches `game.ts`, `economy.ts`, the controller and the screens.
