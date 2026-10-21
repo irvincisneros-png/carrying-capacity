@@ -18,6 +18,7 @@ import { CAT_COL, CAT_NAME, GraphsPanel } from './graphs';
 import { bIcon, UI_ICONS } from './icons';
 import { openModal, type ModalHandle } from './modal';
 import { objectiveRow } from './act2';
+import { act1Badge, act1IntroBox, act1TurningNote, ledgerView } from './act1';
 import { portrait, reportCardView, speakerFrom } from './empathy';
 import type { ReportCard, Speaker } from './types';
 import { CAST } from '../content/residents';
@@ -95,12 +96,12 @@ export function showIntro(s: GameState, onGo: () => void): void {
   const m = openModal([
     h('div', { class: 'kicker' }, `${sc.name} · ${sc.startYear}`),
     h('h2', null, act2Start ? `It's ${s.year}. The city is already here.` : `It's ${sc.startYear}.`),
-    h('p', null, sc.blurb),
+    h('p', null, !act2Start && sc.act1 ? sc.act1.intro : sc.blurb),
     act2Start
       ? h('p', null, `There is no boom to play through: ${sc.name} starts in the transition. Time runs season by season to ${sc.act2.endYear}. Cut emissions fast, keep people safe in the heat, and keep the city on side.`)
       : h('p', null, `Your job: grow this settlement into a thriving town, one decade at a time, all the way to ${sc.endYear}. People need homes, jobs and power. Every choice changes the land, the water and the air.`),
     h('p', null, h('b', null, 'Watch what happens to the air.'), ' The graphs track the CO₂ your town adds and how the world warms.'),
-    goalsBox(sc, act2Start),
+    !act2Start && sc.act1 ? act1IntroBox(s) : goalsBox(sc, act2Start),
     act2Start ? introOutlook(s) : null,
     h('div', { class: 'stat-grid' },
       h('div', { class: 'stat' }, h('small', null, 'Build'), h('div', { style: 'font-size:13px' }, 'Pick a building below, then click the map. ', h('kbd', null, 'R'), ' rotates.')),
@@ -155,6 +156,7 @@ export function showDecadeReport(r: DecadeReport, onClose: () => void): ModalHan
     total > 0 ? h('div', null, h('div', { class: 'graph-title' }, 'Where the emissions came from', h('span', null, `biggest: ${CAT_NAME[r.topSource]}`)), bars,
       h('div', { class: 'legend' }, ...EMISSION_CATEGORIES.filter((c) => r.emissionsKt[c] > 0).map((c) => h('span', null, h('i', { style: `background:${CAT_COL[c]}` }), `${CAT_NAME[c]} ${r.emissionsKt[c].toFixed(0)}`)))) : null,
     h('div', { class: 'stat-grid' }, md('environment', 'Environment'), md('society', 'Society'), md('economy', 'Economy')),
+    ledgerView(r),
     !r.actComplete && r.demand ? h('div', { class: 'stat', style: 'background:#fff1d6' }, h('small', null, 'What the town needs now'), h('div', { style: 'font-weight:700' }, r.demand)) : null,
     r.fact ? h('div', { class: 'fact' }, svg(UI_ICONS.info), h('p', null, h('b', null, `Did you know? (${r.fact.year}) `), degC(r.fact.text))) : null,
     h('div', { class: 'modal-actions' }, h('button', { class: 'btn primary', onclick: () => m.close() }, r.actComplete ? 'See where you ended up' : 'Keep building')),
@@ -211,6 +213,7 @@ export function showTurningPoint(s: GameState, onBegin: () => void, storyOnly = 
       waterVal >= 80 && s.scenarioId === 'coal-coast'
         ? h('p', { class: 'muted', style: 'font-size:13px;margin:4px 0 0' }, 'Your town kept most of its sewage and runoff away from the estuary, so its water readings are good. This time the heat did the damage, and warming is something no town can fix on its own.')
         : null,
+      act1TurningNote(s),
       h('div', { class: 'fact' }, portrait(sci, 40), h('p', null, h('b', null, sci.name), sci.role ? h('span', { class: 'muted' }, ` · ${sci.role}`) : null, h('br'), degC(tp.scientistNote))),
       h('p', null, h('b', null, 'Act 2: Transition. '), `Time now runs by itself, season by season, to ${getScenario(s.scenarioId).act2.endYear}. Clean up the power, heal the land and water, and keep people with you.`),
       (() => {
@@ -267,6 +270,7 @@ export function showEnding(s: GameState, onTitle: () => void, card?: ReportCard,
     h('h2', null, failed ? 'The end of the line' : rc.title),
     failed && s.a2.failure ? h('p', null, degC(s.a2.failure.text)) : h('p', null, `You met ${met} of ${req} goals.`),
     reportCardView(rc),
+    act1Badge(s),
     GraphsPanel.staticGraphs(s),
     h('h3', null, 'Think about it'),
     ...(rc.reflection?.length ? rc.reflection : ['What would you tell Sam and Jordan about the world you left them?']).map((q) =>

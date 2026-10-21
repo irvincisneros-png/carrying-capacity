@@ -17,10 +17,10 @@ interface ScenarioNotes {
 /** Authored per-scenario notes (the goals themselves come from the scenario data). */
 const NOTES: Record<ScenarioId, ScenarioNotes> = {
   'green-valley': {
-    setting: 'A small inland valley, 1960–2040. A guide walks students through building, power, pollution, restoring land and recycling an old site, one step at a time.',
-    science: ['Sustainability means the environment, society and economy together', 'Clean power can replace coal, but needs the right site', 'Polluted soil and water recover slowly once the source stops', 'Animals return when habitat and clean water return'],
+    setting: 'A small inland valley, 1960–2040. A guide walks students through building, power, pollution, restoring land and recycling an old site, one step at a time. In the boom (1960–2020) the goals are to grow to 200 people with 120 jobs and power for every building, with a bonus badge for keeping Environment at 60 or more. Six decision cards (clearing a hillside, fertiliser, a tip, a dry year, solar panels and the factory waste) each put money on both sides, and from 1970 students can pay to upgrade buildings (smoke scrubber, creek buffer, filters, landfill liner, dust suppression). The Act 2 goals stay hidden until the turning point.',
+    science: ['Sustainability means the environment, society and economy together', 'Local pollution (smoke, dust, runoff) is a different problem from greenhouse gas: a smoke scrubber cleans the air but does not cut CO₂', 'Trade-offs have a price on both sides: clearing land or heavy fertiliser pays now and costs the creek later', 'Clean power can replace coal, but needs the right site', 'Polluted soil and water recover slowly once the source stops', 'Animals return when habitat and clean water return'],
     dotPoints: '4.1.1, 4.2.5, 4.4.1, 4.4.3',
-    discussion: ['Which meter was hardest to keep up, and why?', 'Why did the land take years to heal after the pollution stopped?', 'What did you need before the animal came back?'],
+    discussion: ['Which card paid you the most money, and what did it cost the creek, the bush or the birds?', 'Your factory had a smoke scrubber. Did your CO₂ fall? Why not?', 'Which meter was hardest to keep up, and why?', 'Why did the land take years to heal after the pollution stopped?', 'What did you need before the animal came back?'],
     reflect: 'What is one thing you would do differently in the next town?',
   },
   'coal-coast': {

@@ -88,3 +88,48 @@ Unlock order: Tutorial → Coal Coast → (River Town | Reef Island) → Red Dir
 6. Circular tier + research tree + 2100 Report Card + epilogue.
 7. Scenarios 0–5 content, terrain generators, balance passes (scripted playthrough tests per scenario).
 8. Polish: audio, tutorial, title/scenario select, teacher page, accessibility, 375px, perf pass, Codex play-test review.
+
+## 7. Act 1 goals, upgrades and the cost ledger (Round 6, WP5)
+
+Owner notes: Act 1 had little Environmental Sustainability and no money at stake in its choices, and the 1960 intro said "heal the valley" while the land was untouched.
+
+**Act 1 goals.** Each scenario with an Act 1 has its own short goal list (`ScenarioDef.act1`, judged by `sim/act1goals.ts`). The start intro shows it in place of the Act 2 goals, a small Goals panel keeps it on screen through the boom, and the Act 2 goals stay hidden until the turning point. The intro says the real test comes later without listing it. Goals are judged on the state when Act 1 ends and written to `flags['a1.*']`, so Act 2 changes cannot undo them and old saves (no flags) simply show no badge.
+
+| Scenario | Grow goals (by the end of Act 1) | Bonus: "grow without wrecking it" |
+|---|---|---|
+| Green Valley | 200 people, 120 of them in jobs, power for every building (by 2020) | Environment 60 or more |
+| Coal Coast | 900 people, 800 jobs | Environment 33 or more |
+| River Town | 350 people, 300 jobs, power | Environment 55 or more |
+| Reef Island | 200 people, 180 jobs, power | Environment 55 or more |
+| Red Dirt | 450 people, 400 jobs, power | Environment 52 or more |
+
+The bonus earns a "Careful builder" badge on the report card. **Stars do not change** (that keeps unlocks and the star bands as they were). The turning point acknowledges a careful Act 1 ("You kept the valley in good shape, so healing it is easier"); no rule changes, because a healthier map really does start closer to the Act 2 Environment goals. Environment at the end of the boom is low in every scenario even for a good player (the Environment meter also counts warming), so the bonus thresholds sit between a scripted player who builds and walks away and one who uses upgrades and the evidence-backed card options. They were set from those scripted runs (see `tests/act1.test.ts`).
+
+**Building upgrades** (`sim/upgrades.ts`, `{ type: 'upgrade', uid, id }`, Inspect panel). Act 1 only; stored on `PlacedBuilding.upgrades` (optional, so old saves load); the effect carries into Act 2.
+
+| Upgrade | On | From | Cost | Effect | Income |
+|---|---|---|---|---|---|
+| Smoke scrubber | Factory | 1970 | $20k | air pollution -60%, **CO2 unchanged** | none |
+| Creek buffer | Farm | 1980 | $8k | water pollution -60% | -$2k a decade (fenced strip of crop land) |
+| Dust and sulphur filters | Coal power station | 1970 | $35k | air pollution -75%, **CO2 unchanged** | none |
+| Liner and gas capture | Landfill | 1990 | $18k | soil and water pollution -70%, CO2 -40% | none |
+| Dust suppression | Coal mine | 1970 | $12k | air (dust) -60%, soil and CO2 unchanged | none |
+
+The point is the difference between local pollution and greenhouse gas. A smaller air number also shrinks the area the pollution reaches, so the saving is larger than the percentage suggests. Cleaning at the source costs less than cleaning up in Act 2.
+
+**Green Valley Act 1 cards.** Money on both sides of every choice, evidence text, and a consequence you can see: the creek's colour (water pollution on the map), the bird and fish guide, a resident's line. Lasting effects use `incomePerDecade` (felt from the next decade report; a tenth a year in Act 2) and `flags['runoff.*']` (a steady stream of dirty water each decade). `cardGap: 10` and `cardsPerTurn: 2` let Green Valley offer a card nearly every decade.
+
+| Year | Card | Options (money) |
+|---|---|---|
+| 1970s | Clear the hillside for a bigger farm? | Clear it (-$6k now, +$8k a decade, 7 bush tiles lost, mud in the creek) / Farm the gentle slope only (-$10k, +$4k a decade, 2 tiles lost; evidence) / Leave it (+$1k a decade) |
+| 1980s | The fertiliser deal | Spread it thick (+$6k now, +$9k a decade, algae) / Test the soil (-$4k, +$5k a decade; evidence) / Say no |
+| 1980s on | Where does the factory waste go? (existing; needs a factory) | Into the creek (+$10k now, +$6k a decade, dirty creek) / Settling pit (-$14k, +$2k a decade; evidence) |
+| 1990s | A cheap tip or a proper one? | Tip by the creek (-$3k, +$2k a decade, leachate, methane) / Lined landfill (-$20k, +$4k a decade; evidence) |
+| 2000s | A dry year: who gets the water? (no clean answer) | Pump the creek (+$14k now, -$2k a decade, fish die) / Restrictions (-$12k, +$3k a decade, platypus visitors) |
+| 2010s | Solar panels are getting cheaper | Rebate for roofs (-$18k, +$7k a decade, CO2 down) / School and hall only (-$8k, +$3k) / Wait |
+
+The card shows each option's money in plain words ("Costs $14k now. About $8k more income every decade."), for every scenario.
+
+**Decade report ledger.** Beside the income, "what it cost": bush tiles lost (and left), creek health, air quality around homes, CO2 added, and a rough guide to bush birds and creek fish before and after. Birds and fish are not a census; they follow the bush and the creek's health (`sim/ledger.ts`), so Act 1 choices have a wildlife consequence before the Act 2 model starts.
+
+**Play time.** Green Valley is estimated at about 35 minutes by `tests/helpers/playtime.ts` (six boom cards at 55 seconds each, up from one), so the scenario-select card says 28 to 38 minutes.

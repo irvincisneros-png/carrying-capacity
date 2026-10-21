@@ -24,6 +24,7 @@ import { GraphsPanel } from './graphs';
 import { Hud } from './hud';
 import { bIcon, UI_ICONS } from './icons';
 import { closeAllModals, closeTopModal, floater, modalOpen, Tip, toast } from './modal';
+import { Act1GoalsPanel, upgradeBlock } from './act1';
 import { showDecadeReport, showEnding, showIntro, showSettings, showTitle, showTurningPoint } from './screens';
 import { Toolbar, type Tool } from './toolbar';
 import { EVENT_NAMES } from '../content/act2';
@@ -44,6 +45,7 @@ export class App {
   clock: Clock;
   energy: EnergyPanel;
   objectives: ObjectivesPanel;
+  act1Goals: Act1GoalsPanel;
   voices: Voices;
   species: SpeciesPanel;
   tip: Tip;
@@ -111,6 +113,7 @@ export class App {
     this.clock = new Clock((s) => { sfx('click'); this.game.setSpeed(s); });
     this.energy = new EnergyPanel();
     this.objectives = new ObjectivesPanel();
+    this.act1Goals = new Act1GoalsPanel();
     this.objectives.onShowMe = (k) => this.showMe(k);
     this.voices = new Voices();
     this.voices.project = (tx, ty) => {
@@ -177,7 +180,7 @@ export class App {
     document.body.appendChild(this.logDrawer);
     this.inspectEl = h('div', { class: 'inspect panel hidden' });
     document.body.appendChild(this.inspectEl);
-    this.ui.append(this.hud.el, this.readouts.el, this.tutorial.el, this.toolbar.el, this.graphs.el, this.clock.el, this.energy.el, this.objectives.el, this.action, this.undoBtn, this.act2Buttons);
+    this.ui.append(this.hud.el, this.readouts.el, this.tutorial.el, this.toolbar.el, this.graphs.el, this.clock.el, this.energy.el, this.objectives.el, this.act1Goals.el, this.action, this.undoBtn, this.act2Buttons);
     if (DEBUG) {
       this.debugEl = h('div', { class: 'debug' });
       document.body.appendChild(this.debugEl);
@@ -437,6 +440,7 @@ export class App {
     this.clock.el.classList.toggle('hidden', !act2);
     this.energy.el.classList.toggle('hidden', !act2);
     this.objectives.el.classList.toggle('hidden', !act2);
+    this.act1Goals.update(s);
     this.act2Buttons.classList.toggle('hidden', !act2 || window.innerWidth > 700);
     const a2 = s.phase === 'act2' || s.phase === 'epilogue';
     try {
@@ -898,6 +902,18 @@ export class App {
         if (r.ok) { sfx('good'); this.renderer.sparkle(tx, ty, 1, 1, true); this.inspectEl.classList.add('hidden'); }
         else { sfx('error'); toast('Not yet', degC(r.reason ?? ''), 'warn', UI_ICONS.info, 4000); }
       } }, svg(UI_ICONS.speech), 'Talk with the community first ($3k)'));
+    }
+    if (b) {
+      const ub = upgradeBlock(s, b, (id) => {
+        const r = this.game.dispatch({ type: 'upgrade', uid: b.uid, id });
+        if (r.ok) {
+          sfx('good');
+          floater(cx, cy - 20, `-$${r.spent}k`, 'cost');
+          this.renderer.sparkle(b.x, b.y, b.w, b.h, false);
+          this.inspect(tx, ty, cx, cy);
+        } else { sfx('error'); toast('Not yet', degC(r.reason ?? ''), 'warn', UI_ICONS.info, 4000); }
+      });
+      if (ub) rows.push(ub);
     }
     if (b && s.phase === 'act2') {
       const it = SIM.itemAt(s, tx, ty);

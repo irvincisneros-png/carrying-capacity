@@ -136,6 +136,19 @@ export function mergeImpacts(helps: { who: string; why: string }[], hurts: { who
   return out;
 }
 
+/** "Costs $14k now. About $8k more income every decade." Money is part of every choice, so the card says it plainly. */
+export function moneyLine(fx: Record<string, unknown> | null): string {
+  if (!fx) return '';
+  const num = (k: string): number => (typeof fx[k] === 'number' ? (fx[k] as number) : 0);
+  const budget = num('budget'), decade = num('incomePerDecade'), year = num('incomePerYear');
+  const parts: string[] = [];
+  if (budget < 0) parts.push(`Costs $${-budget}k now.`);
+  else if (budget > 0) parts.push(`Brings in $${budget}k now.`);
+  if (decade !== 0) parts.push(`${decade > 0 ? 'About' : 'Costs about'} $${Math.abs(decade)}k ${decade > 0 ? 'more income' : 'in income'} every decade.`);
+  if (year !== 0) parts.push(`${year > 0 ? 'About' : 'Costs about'} $${Math.abs(year)}k ${year > 0 ? 'more income' : 'in income'} every year.`);
+  return parts.join(' ');
+}
+
 /** Dilemma cards ({type:'choose'}) with the per-option "who is helped / hurt" preview from the dilemma catalogue. */
 export function dilemmaCard(s: GameState, e: SimEvent): DilemmaCard | null {
   const m = metaOf(e);
@@ -166,7 +179,8 @@ export function dilemmaCard(s: GameState, e: SimEvent): DilemmaCard | null {
     evidence: typeof def?.evidence === 'string' ? def.evidence : undefined,
     options: opts.map((o) => {
       const pv = isObj(o.preview) ? o.preview : null;
-      return { id: String(o.id), label: String(o.label), impacts: mergeImpacts(
+      const money = moneyLine(isObj(o.effects) ? o.effects : null);
+      return { id: String(o.id), label: String(o.label), ...(money ? { detail: money } : {}), impacts: mergeImpacts(
         ((pv && Array.isArray(pv.helps) ? pv.helps : []) as Record<string, unknown>[]).map((t) => ({ who: nameOf(t), why: String(t.why ?? '') })),
         ((pv && Array.isArray(pv.hurts) ? pv.hurts : []) as Record<string, unknown>[]).map((t) => ({ who: nameOf(t), why: String(t.why ?? '') })),
       ) };
