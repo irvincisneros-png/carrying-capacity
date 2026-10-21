@@ -157,3 +157,29 @@ Round 5 is 13-19% faster in every paired comparison (the gain depends a little o
 Triangles are down 21% and the draw calls are unchanged. At the pace the earlier runs saw (29-32 fps on the busier host), the same ratio gives 34-37 fps, so Coal Coast now clears 33
 on both a quiet and a moderately busy host. It does not clear 33 when the machine is badly oversubscribed (a load of 12 or more took both builds to 12-21 fps), which is the same
 caveat as the first measurement. The other scenarios on the round-5 build, quiet host, pan / 4x: River Town 40 / 43, Red Dirt 52 / 54, Reef Island 39 / 40, Net Zero City 43 / 40, Green Valley 59 / 59.
+
+## Round 6: the larger maps (2026-10-22)
+
+Green Valley 20 -> 32, Coal Coast / River Town / Red Dirt 40 -> 64, Reef Island 44 -> 64, Net Zero City 48 -> 72 (tiles per side). Method: the same bench, **A/B back to back** (`tools/perf-proxy/ab.mjs`: the previous build, commit 4f4b4b8, and the new one, one after the other, two rounds), Very low forced, 1366x768, throttle 6. The host was busy the whole time (load average 7-10; the round 5 numbers above were taken at 3-6), so every absolute number is about half of what a quiet host gives (the **base** column is the same bench of the old build, so it shows how much); only the ratio is meaningful. `bench.mjs` gained `TRIS=1` (triangles the camera can see per scene-object name, from `__cc.tris()`) and `demoTown` / `autoPlace` now fill outwards from the town, so the demo town sits where the camera looks on a big map.
+
+| Scenario (base -> new map) | base pan / 4x fps | new pan / 4x fps | new vs base (pan) | triangles base -> new |
+|---|---|---|---|---|
+| green-valley 20 -> 32 | 60 / 58 | 59 / 56 | -1% | 22k -> 39k |
+| coal-coast 40 -> 64 | 23.1 / 21.4 | 19.4 / 17.9 | -16% | 74k -> 117k |
+| river-town 40 -> 64 | 13.1 / 14.0 | 12.3 / 12.5 | -6% | 74k -> 137k |
+| red-dirt 40 -> 64 | 21.5 / 21.9 | 19.0 / 18.8 | -12% | 66k -> 127k |
+| reef-island 44 -> 64 | 22.1 / 22.3 | 21.9 / 20.7 | -1% | 76k -> 107k |
+| net-zero-city 48 -> 72 | 21.1 / 20.1 | 21.7 / 18.1 | +3% | 86k -> 125k |
+
+Coal Coast and Reef Island were re-run after the last change below (18.3 -> 19.4 and 20.4 -> 21.9 fps); River Town, Red Dirt and Net Zero City were not, so their rows are slightly pessimistic. A map with 2.3 to 2.6 times the tiles costs between 0% and 16% more frame time on the proxy; the triangle count is 1.4 to 1.9 times the old one. **The 30 fps goal cannot be checked on this host** (the old build is at 13 to 23 fps on it, except the valley): by the ratio, the round 5 quiet-host numbers (River Town 40, Red Dirt 52, Reef 39, City 43, Coal 47) become about 38, 46, 39, 44 and 39 fps, so Coal Coast and River Town should be re-measured on a quiet machine.
+
+What was done to hold the cost down:
+
+- **Open on the town, not the whole map.** The home view frames 22 tiles round the town (the scale a 40x40 map had), not the whole slab, so the camera does not start by looking at 4x the ground. A 3/4 view still sees a long way (most of a 64x64 map's terrain stays in view), so this alone is worth little; the whole-map view is one key (F) away.
+- **Terrain culling.** The ground is cut into 16x16 tile meshes sharing one vertex array (`buildTerrain().chunks`), culled by the camera. Measured: most of the 64x64 terrain is still in frustum at the default view, so it saves little on its own; it matters when the player zooms in.
+- **Lite tiers draw big maps one terrain step coarser** (`terrainResFor`): Very low draws a map over 48 tiles at 1 segment per tile (2 triangles a tile) and Low at 2 (was 3 on maps over 40); Medium and up are unchanged. Coal Coast's terrain and water went from 39k to 10k triangles (frame rate +6% on the proxy).
+- **Shadows follow the camera** on maps bigger than 34 units across (Medium and up), so the shadow map keeps its detail. Not measurable on the proxy (shadows are off on its tiers).
+- **Vegetation chunk size** (22 tiles at 64x64) was tried at 14 and 10: 8 to 14% fewer triangles at Medium for 50 to 100% more draw calls, nothing at Very low, so it stays.
+- **Season cost.** `ripFraction` and `buildRestoreCtx` scanned a 5x5 / 7x7 neighbourhood of every tile each season, about half of River Town's 23 ms; `dilate` (`sim/grid.ts`) does the same in O(tiles). Per Act 2 season (`tools/simbench.ts`, Node, 80 seasons): Coal Coast 10.7 -> 2.6 ms, Green Valley 2.5 -> 0.6, River Town 22.8 -> 5.2, Reef Island 10.4 -> 2.2, Red Dirt 9.8 -> 2.1, Net Zero City 14.2 -> 4.4 (the new map sizes cost 3 to 5 times more per season than the old before this).
+
+Medium on the proxy, for the record (2 fps, unusable on a CPU rasteriser either way): River Town 2.4 -> 1.3 fps and 1.4M -> 3.0M triangles, Net Zero City 2.6 -> 1.7 fps and 1.4M -> 1.9M; the extra triangles are the forest in view (`veg:redgum` 460k, `veg:saltbush` 320k, `veg:mulga` 240k at the River Town default view). A real GPU takes 3M triangles easily; the Auto tier steps down to Low and Very low on slow machines as before.

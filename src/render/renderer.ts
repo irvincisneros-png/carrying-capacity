@@ -16,7 +16,7 @@ import { makeClouds } from './clouds';
 import { Cursor, type CursorMode, type PickResult } from './cursor';
 import { Fx } from './fx';
 import { Parts } from './geo';
-import { MapGeo, resFor, terrainSignature } from './mapgeo';
+import { MapGeo, terrainResFor, terrainSignature } from './mapgeo';
 import { biomeLook, type BiomeLook } from './biome';
 import { getScenario } from '../sim/scenarios';
 import { townFocus } from '../sim/roads';
@@ -190,7 +190,7 @@ export class GameRenderer {
   // ------------------------------------------------------------------ world
   /** Build (or rebuild) the diorama for the state's map. */
   setWorld(s: GameState): void {
-    const terrainRes = TIERS[this.tier]!.terrainRes;
+    const terrainRes = terrainResFor(TIERS[this.tier]!.terrainRes, TIERS[this.tier]!.lite, s.grid.w, s.grid.h);
     const key = `${s.scenarioId}:${s.seed}:${s.grid.w}x${s.grid.h}:${terrainRes}`;
     if (this.world && this.world.key === key) {
       this.setState(s, true);
@@ -690,7 +690,7 @@ export class GameRenderer {
       this.sun.shadow.map?.dispose();
       this.sun.shadow.map = null;
     }
-    if (this.world && this.state && this.world.map.res !== (d.terrainRes > 0 ? d.terrainRes : resFor(this.world.map.w, this.world.map.h))) {
+    if (this.world && this.state && this.world.map.res !== terrainResFor(d.terrainRes, d.lite, this.world.map.w, this.world.map.h)) {
       // terrain resolution is baked into the map: rebuild the diorama (setWorld calls back here once the res matches)
       this.setWorld(this.state);
       return;

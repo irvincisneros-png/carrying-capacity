@@ -1,5 +1,5 @@
 /**
- * Red Dirt (40x40): red plains under a low range along the north, a dry creek that runs after rain, a permanent
+ * Red Dirt (64x64): red plains under a low range along the north, a dry creek that runs after rain, a permanent
  * waterhole on its middle bend, scattered mulga, and two old open-cut pits at the foot of the range. Pit tiles are
  * marked zone 1 (the mine site) and ringed by rock spoil, so a mine can be worked beside them.
  */

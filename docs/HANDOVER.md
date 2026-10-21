@@ -75,18 +75,80 @@ then `docs/GAMEPLAY.md` (the design) and `docs/reviews/qa-playthrough.md` (three
    `tests/scenario-play.test.ts` and, if it has an Act 1, to `tests/balance-seeds.test.ts`. The thoughtful run must
    win on every seed, the idle run must not.
 
-## Map sizes (enlarged 2026-10-21)
+## Map sizes (enlarged again 2026-10-22, round 6 WP6)
 
-Green Valley 20x20 (was 16), Coal Coast, River Town and Red Dirt 40x40 (were 32), Reef Island 44x44 (was 32, island about
-2.2x the land with hills, an inland valley and real inland bush), Net Zero City 48x48 (unchanged). All terrain
-generators size their features from the map (`s = min(w, h) / original`), so a scenario can be resized by changing
-`mapW` / `mapH`. Things that were tied to the map area: `pollutionRefTiles` on the scenario (the Environment meter and
-River Town's river-pollution mean are normalised to the original area so a bigger map does not dilute the same town's
-pollution), the Red Dirt pit (about 89 tiles), the Reef Island reef (about 320 tiles) and its Act 2 cap / transition
-fund, and the scripted players' restoration counts (`tests/helpers/mapscale.ts`). The scripted towns are limited by
-money, not space, so Act 1 and the energy build-out are unchanged; the extra land is extra restoration, habitat and
-room to spread. Saves are version 4 and keep the size they were made with (3 and older still load). Tile counts for the
-renderer: 400 (valley), 1600 (coal, river, red), 1936 (reef), 2304 (city, still the largest).
+Green Valley 32x32 (was 20, originally 16), Coal Coast, River Town, Red Dirt and Reef Island 64x64 (were 40, 40, 40 and 44,
+originally 32), Net Zero City 72x72 (was 48). Tile counts for the renderer: 1024 (valley), 4096 (coal, river, red, reef),
+5184 (city, the largest). All terrain generators size their features from the map (`s = min(w, h) / original`), so a
+scenario can be resized by changing `mapW` / `mapH`; `tools/dumpmap.ts <id>` prints a generated map as text.
+
+**How the generators grew.** Coal Coast, River Town, Red Dirt and Reef Island scale with `s` as before (s = 2 now). River
+Town keeps the river's wave count at about 2.2 (more waves made the middle reach a straight, thick column). The Red Dirt pit
+grows at 0.75 of the linear scale, about 128 tiles in all (89 at 40x40), and any stray tiles of its noisy edge are handed
+back to the plain so each pit is one piece. Reef Island's island keeps its share of the map (land about 4x the original
+32x32 island) and the reef is about 415 tiles. **Net Zero City** scales its harbour, ranges, river and wetlands by
+`s = 1.5` but the built-up city does not grow: `prebuilt.ts` has the same ring of blocks (`radius` 17.5) and a new
+`homes` cap (4240) on suburbs and cottages, so the start is the 48x48 city (about 4300 homes, 1640 jobs, every building on
+a road, the same emissions), with a ring of hinterland (bush, open land, the river) round it for the player to spread into.
+
+**Map-tied quantities, and what was done about each** (a cash-limited town is the same size on any map, so anything
+measured as a share of the map or of the river had to be re-anchored to the original size):
+
+- `pollutionRefTiles` (coal, river, red, reef 1024, valley 256, city 2304): the Environment meter's pollution term.
+- Environment's **bush term** is now measured against the bush of the reference area (`economy.ts`: the share lost is
+  divided by `ref / area`), so clearing 100 tiles costs the same Environment on 64x64 as on 32x32. Without it the dirty
+  Coal Coast run ended Environment about 42 instead of 19.
+- River Town: `meanRiverWaterPollution` is the river's pollution total over `RIVER_REF_TILES` (140) instead of the mean
+  times the area growth (that overstated it: the river grows more slowly than the area, and floods pollute every river tile);
+  the bank-clearing share in `riverHealth` is scaled by the river's length the same way.
+- Cool burns and co-management reach `CARE_REACH` (9 tiles) round the clicked tile (`country.ts`). One click used to mean
+  "the whole connected patch of bush"; on a big map that is the whole hinterland, a cool burn burns a share of its patch and
+  releases 0.2 kt a tile, and Net Zero City's line is 48 kt a year. The scripted city player co-manages up to 100 tiles.
+- Reef Island: reef heat tolerance and nursery boost raised (`nurseryBoost` 0.14 -> 0.3: a nursery reaches about 80 of 415
+  reef tiles), turtle `maxWater` 0.6 -> 0.45 and the tourism goal 45 -> 55 (the bigger beach and wildlife hold an idle
+  island's tourism index at 47 and its beach water at 0.54, so the idle run met two goals it must miss).
+- Wildlife habitat minima (patch sizes, tile counts) are absolute and stay: a bigger map just has more habitat. Fire and
+  weed spread are per tile and per neighbour, so they scale themselves; satellites, roads and entrance roads needed nothing
+  (the entrance is a free road from the map edge to the town, however long).
+- Scripted players: Act 2 restoration counts (`tests/helpers/mapscale.ts`) barely matter on Coal Coast (natural spread from
+  the bush covers the land: 10, 15, 25 or 40 nurseries end at the same meanHealth, 0.75 to 0.78). River Town's thoughtful
+  run still plants 3 riparian nurseries; Red Dirt places as many nurseries as the pit needs; Reef Island 6 coral nurseries.
+  `DIRTY_ROADS` 1 -> 1.5 (the longer roads of the 64x64 coast made the dirty run too clean to be the "worst case").
+
+**Re-bands (all recorded in the test comments):** Coal Coast good play 3 -> 5 short-power years, Red Dirt 3 -> 4; idle River
+Town farm viability < 45 (was 40); idle runs need 3 (coal), 4 (river, red) bad resident endings (were 4, 5, 5);
+the idle Coal Coast ending lets Priya and Sam and Jordan read `mixed`; the idle town loses 3 animals, not 4; the city's
+forgiveness ordering allows two more passing variants than the hard scenarios; Reef Island goal text (tourism 55).
+Thoughtful runs still win on every seed (River Town 61.9 to 95 river health, Reef Island 51 to 76) and idle still loses.
+
+**Play time** (`tests/helpers/playtime.ts`, thoughtful run): valley 35, coal 114, river 93, red 99, reef 89, city 97
+minutes against the declared bands (28-38, 100-115, 80-110, 80-110, 75-105, 85-120): all inside. The map-size term of the
+estimator (half a minute a decade for every extra 1024 tiles) is now 11 to 15 minutes of panning and reading; the brush
+tools below take clicks away, but the estimator does not count the clicks it saves, so it stays as an allowance.
+
+**Camera.** The home view no longer frames the whole slab: `CameraRig.home` frames `FRAME_HALF` (22) tiles round the town
+(`townFocus` in `sim/roads.ts`: the city centre, the centre of the non-road buildings, or the water hub on a fresh map),
+the scale a 40x40 map had. The home button and `F` toggle between that and the whole map, `H` goes back to the town. Pan
+limits are the map (plus a tile); max zoom is 2.6 x the map size. The title screen backdrop is the Coal Coast estuary at
+the same framing.
+
+**Render and performance.** The terrain is cut into 16x16 tile meshes sharing one set of vertex arrays (`buildTerrain`
+returns `chunks`; the whole surface stays for the overlay and the grid and is the one edits are written to), so the camera
+culls the ground it cannot see (little gain at the default view, which still sees most of a 64x64 map; it pays when zoomed in).
+The lite tiers draw a map over 48 tiles one terrain step coarser (`terrainResFor` in `mapgeo.ts`: Very low 1 segment a tile,
+Low 2), which is what keeps Very low's frame time within 0 to 16% of the old maps' on the proxy. Shadows (Medium and up) cover a 34-unit window that follows the camera on maps bigger than
+that, so the shadow map keeps its detail. `GameRenderer.debugTris()` / `__cc.tris()` give the triangles the camera sees per
+scene-object name. Season cost: `ripFraction` and `buildRestoreCtx` scanned a 5x5 / 7x7 neighbourhood of every tile each
+season (about half of River Town's 23 ms); `dilate` in `sim/grid.ts` does the same in O(tiles) and a season now takes
+0.6 to 5.2 ms on every scenario (2.2 to 23 ms before). Proxy numbers are in `docs/reviews/perf-chromebook-proxy.md`.
+
+**Brush tools** (`BRUSH_SPACING` in `ui/toolbar.ts`, `paintStep` in `ui/app.ts`): hold the mouse and sweep to place a row
+of cottages, rooftop solar, street trees, seawall or wildlife crossings (every tile), or native plant nurseries (7 tiles
+apart), coral nurseries (6), wetlands and phytoremediation beds (4) along the stroke. Rehabilitation (Red Dirt),
+co-management and cool burns already act on a whole patch per click. Touch still places one piece per tap.
+
+**Saves.** Still version 4; a save keeps the grid it was made on (a 40x40 Coal Coast save loads and plays on this build,
+checked for all six scenarios at their old sizes). The camera frames a loaded game on its town.
 
 ## Known issues
 

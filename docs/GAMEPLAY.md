@@ -149,3 +149,18 @@ The card shows each option's money in plain words ("Costs $14k now. About $8k mo
 **Hybrid time in Act 1.** Act 1 years tick in real time (about 6 seconds a year at 1x, on the same clock widget as Act 2: pause, 1x, 2x, 4x; Space pauses). A new game opens paused. Each year `advanceYear` (sim/game.ts) pays a tenth of the decade's income (jobs, mechanics income and card income, from the buildings that stand that year, so a building placed mid-decade pays from the next year) and moves the population a tenth of the way to the decade's target. At the tenth year the decade step runs (pollution, climate, meters, residents' moods, history, cards) and the clock auto-pauses on the decade report. "Skip to end of decade" (or Enter) fast-forwards the years that are left. `advanceDecade` is ten `advanceYear` calls and gives exactly the state it always did (tests/hybrid-time.test.ts), so scripted players and balance runs are unchanged. Mid-decade bookkeeping lives in `flags['dec.*']` (absent at a boundary, so old saves load); `state.year` stays the decade's first year and `displayYear(state)` is the clock's year. Building unlocks, cards, residents and the demand panel change per decade. Undo lasts until the next year ticks. Autosave runs every year.
 
 **Play time.** Green Valley is estimated at about 35 minutes by `tests/helpers/playtime.ts` (six boom cards at 55 seconds each, up from one), so the scenario-select card says 28 to 38 minutes.
+
+## 8. Bigger maps (Round 6, WP6)
+
+Owner note: "the actual map needs to be much larger"; only the part on screen should cost anything to draw.
+
+**Sizes.** Green Valley 32x32, Coal Coast, River Town, Red Dirt and Reef Island 64x64, Net Zero City 72x72. A town is limited by its money, not its land, so the extra ground is room to spread, habitat to protect and country to restore, not more chores. Each scenario still takes about the playing time on its card.
+
+**Rules that changed because the map grew** (details in `HANDOVER.md`, "Map sizes"):
+
+- The Environment meter's bush term, River Town's river pollution and bank clearing are measured against the original map's size, so the same clearing or pollution costs the same.
+- Co-managing bush and cool burns work on the bush within 9 tiles of the tile you click, not on the whole connected stretch (a cool burn releases CO2 for every tile it burns).
+- Reef Island: the tourism goal is an index of 55 (was 45), and turtles need cleaner water by the beach (0.45, was 0.6), because the larger island's beaches and wildlife kept an idle island's tourism and turtles alive.
+- Net Zero City starts with the same city on more land (a ring of hinterland round it), so its scripted win and its 48 kt line are unchanged.
+
+**Controls.** The camera opens on the town at a fixed scale (about 44 tiles across) and the home button / F toggles to the whole map (H goes back to the town). Hold and drag with a building tool to place several: cottages, rooftop solar, street trees, seawalls and wildlife crossings on every tile, native plant nurseries 7 tiles apart, coral nurseries 6, wetlands and phytoremediation beds 4.

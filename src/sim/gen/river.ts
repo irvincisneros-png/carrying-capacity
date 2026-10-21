@@ -1,5 +1,5 @@
 /**
- * River Town (40x40): a wide, meandering inland river crossing the map from the north-west to the south-east. A broad
+ * River Town (64x64): a wide, meandering inland river crossing the map from the north-west to the south-east. A broad
  * floodplain (elevation 1) of river red gum woodland lines both banks, with billabongs (wetland) in old oxbows. Open
  * plains (elevation 2) beyond the floodplain are the farmland. Low ranges close the north-east and south-west corners.
  * A weir (River tiles raised to elevation 1) crosses the river upstream of the town reach.
