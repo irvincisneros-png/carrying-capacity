@@ -14,7 +14,7 @@ import {
 } from './ambient';
 import { mulgaGeo, palmGeo, saltbushGeo, spinifexGeo, streetTreeGeo } from './biomeveg';
 
-export interface Rotor { x: number; y: number; z: number; /** facing yaw (rad) about +Y; rotor disc normal = (sin yaw, 0, cos yaw) */ yaw: number; /** blade length scale (1 = 1.3 units blade) */ scale: number }
+export interface Rotor { x: number; y: number; z: number; /** facing yaw (rad) about +Y; rotor disc normal = (sin yaw, 0, cos yaw) */ yaw: number; /** blade length scale (1 = 1.3 units blade; for a wheel, 1 = the 0.15 radius pump wheel) */ scale: number; /** 'wheel' = windmill pump wheel (see wheelGeo); default is the 3-blade turbine rotor */ kind?: 'wheel' }
 export interface Stack { x: number; y: number; z: number; /** relative plume size 0.3..2 */ size: number; /** 0 = dark coal smoke, 1 = white steam */ steam: number }
 export interface BuildingModel { geo: BufferGeometry; stacks: Stack[]; rotors: Rotor[]; /** world height of tallest point, for label/tooltip anchoring */ height: number }
 
@@ -359,8 +359,7 @@ function mFarm(k: Kit): void {
       q.box(r, yy, 0, 0.006, 0.006, r * 2, 0xb8b8b0, IRON);
     }
     q.box(0, H, 0, 0.05, 0.03, 0.08, 0x9a9a92, IRON);
-    const wheel = q.add(T(new CylinderGeometry(0.15, 0.15, 0.012, q.seg(16)), 0, H + 0.02, 0.06, Math.PI / 2, 0, 0), 0xe8e6de, IRON);
-    facets(wheel, (cx, cy) => (Math.floor(((Math.atan2(cy - H - 0.02, cx) + Math.PI) / (Math.PI * 2)) * 16) % 2 ? 0x9aa0a0 : undefined));
+    pumpWheel(q, H + 0.02, 0.06);
     q.cyl(0, H + 0.02, 0.07, 0.03, 0.03, 0.012, 0x6f7575, 8);
     q.rbox(0, H + 0.03, -0.14, 0.006, 0.08, 0.14, 0xd8d4c8, 0, 0, 0, IRON);
   });
@@ -2015,6 +2014,19 @@ function veg(k: Kit, g: BufferGeometry, x: number, y: number, z: number, s = 1, 
   k.put(g, x, y, z, ry, 0xffffff, s);
 }
 
+/**
+ * Windmill pump wheel at (0, y, z) in the group, disc facing +Z. Most tiers register it as a rotor so BuildingLayer
+ * spins it; Very low (partCull > 0) keeps the old static disc baked into the model so it stays cheap.
+ */
+function pumpWheel(q: Kit, y: number, z: number): void {
+  if (q.cull > 0) {
+    const wheel = q.add(T(new CylinderGeometry(0.15, 0.15, 0.012, q.seg(16)), 0, y, z, Math.PI / 2, 0, 0), 0xe8e6de, IRON);
+    facets(wheel, (cx, cy) => (Math.floor(((Math.atan2(cy - y, cx) + Math.PI) / (Math.PI * 2)) * 16) % 2 ? 0x9aa0a0 : undefined));
+    return;
+  }
+  q.rotors.push({ x: 0, y, z, yaw: 0, scale: 1, kind: 'wheel' });
+}
+
 /** Aussie windmill water pump (Southern Cross style), local origin at ground. */
 function windmill(q: Kit, H: number): void {
   for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) q.beam([sx * 0.07, 0, sz * 0.07], [sx * 0.018, H, sz * 0.018], 0.01, 0.01, 0xb8b8b0, IRON);
@@ -2024,8 +2036,7 @@ function windmill(q: Kit, H: number): void {
     q.box(r, yy, 0, 0.006, 0.006, r * 2, 0xb8b8b0, IRON);
   }
   q.box(0, H, 0, 0.05, 0.03, 0.08, 0x9a9a92, IRON);
-  const wheel = q.add(T(new CylinderGeometry(0.15, 0.15, 0.012, q.seg(16)), 0, H + 0.02, 0.06, Math.PI / 2, 0, 0), 0xe8e6de, IRON);
-  facets(wheel, (cx, cy) => (Math.floor(((Math.atan2(cy - H - 0.02, cx) + Math.PI) / (Math.PI * 2)) * 16) % 2 ? 0x9aa0a0 : undefined));
+  pumpWheel(q, H + 0.02, 0.06);
   q.cyl(0, H + 0.02, 0.07, 0.03, 0.03, 0.012, 0x6f7575, 8);
   q.rbox(0, H + 0.03, -0.14, 0.006, 0.08, 0.14, 0xd8d4c8, 0, 0, 0, IRON);
 }
@@ -2573,5 +2584,22 @@ export function rotorGeo(detail: 0 | 1): BufferGeometry {
     // red tip marking
     if (detail) facets(g, (cx, cy) => (Math.hypot(cx, cy) > 1.2 ? 0xc9483a : undefined));
   }
+  return k.merge();
+}
+
+/** Windmill pump wheel: a ring of curved sheet-steel vanes in the local XY plane (disc normal +Z), radius 0.15, hub at the origin. */
+export function wheelGeo(detail: 0 | 1): BufferGeometry {
+  const k = new Kit(detail);
+  const n = detail ? 18 : 12;
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    const vane = new BoxGeometry(0.118, 0.032, 0.005);
+    T(vane, 0.09, 0, 0, 0.5, 0, 0);
+    T(vane, 0, 0, 0, 0, 0, a);
+    k.add(vane, i % 2 ? 0xe8e6de : 0xa9afaf, { rough: 0.5, metal: 0.3 });
+  }
+  const rim = new CylinderGeometry(0.15, 0.15, 0.006, k.seg(24), 1, true);
+  T(rim, 0, 0, 0, Math.PI / 2, 0, 0);
+  k.add(rim, 0x8d9494, { rough: 0.5, metal: 0.3 });
   return k.merge();
 }

@@ -6,7 +6,7 @@ import { TileKind, type BuildingId, type GameState, type PlacedBuilding } from '
 import { Batch, prepBatchGeo } from './batch';
 import type { MapGeo } from './mapgeo';
 import type { MatLib } from './materials';
-import { buildBuildingModel, rotorGeo, type BuildingModel } from './models/buildings';
+import { buildBuildingModel, rotorGeo, wheelGeo, type BuildingModel } from './models/buildings';
 import { dirtArmGeo, dirtHubGeo, railArmGeo, railHubGeo, roadArmGeo, roadHubGeo } from './roadgeo';
 
 export interface Emitter {
@@ -93,7 +93,9 @@ export class BuildingLayer {
   private roadsDirty = false;
   private initial = true;
   rotors: InstancedMesh;
-  private rotorInfo: { x: number; y: number; z: number; yaw: number; scale: number; speed: number; phase: number }[] = [];
+  /** Windmill pump wheels (farm, bore): same spin machinery as the turbine rotors, own model. Static on Very low. */
+  wheels: InstancedMesh;
+  private rotorInfo: { x: number; y: number; z: number; yaw: number; scale: number; speed: number; phase: number; wheel: boolean }[] = [];
   readonly emitters: Emitter[] = [];
   /** Wind multiplier for rotor speed (Act 2 weather). */
   wind = 1;
@@ -102,11 +104,19 @@ export class BuildingLayer {
 
   constructor(private map: MapGeo, private lib: MatLib, private group: Group) {
     this.batch = this.makeBatch();
-    this.rotors = new InstancedMesh(prepBatchGeo(rotorGeo(1)), lib.get({ key: 'rotor', kind: 'prop', noSmog: true }), 64);
+    const rotorMat = lib.get({ key: 'rotor', kind: 'prop', noSmog: true });
+    this.rotors = new InstancedMesh(prepBatchGeo(rotorGeo(1)), rotorMat, 128);
     this.rotors.count = 0;
     this.rotors.castShadow = true;
     this.rotors.frustumCulled = false;
+    this.rotors.name = 'rotors';
     group.add(this.rotors);
+    this.wheels = new InstancedMesh(prepBatchGeo(wheelGeo(1)), rotorMat, 128);
+    this.wheels.count = 0;
+    this.wheels.castShadow = true;
+    this.wheels.frustumCulled = false;
+    this.wheels.name = 'wheels';
+    group.add(this.wheels);
   }
 
   private makeBatch(): Batch {
@@ -142,6 +152,9 @@ export class BuildingLayer {
     const old = this.rotors.geometry;
     this.rotors.geometry = prepBatchGeo(rotorGeo(detail));
     old.dispose();
+    const oldW = this.wheels.geometry;
+    this.wheels.geometry = prepBatchGeo(wheelGeo(detail));
+    oldW.dispose();
   }
 
   setOutlines(on: boolean): void {
@@ -365,7 +378,8 @@ export class BuildingLayer {
       const tx = (lx: number, lz: number): [number, number] => [rec.x + lx * cos + lz * sin, rec.z - lx * sin + lz * cos];
       m.rotors.forEach((r, i) => {
         const [x, z] = tx(r.x, r.z);
-        this.rotorInfo.push({ x, y: rec.y + r.y * BSCALE_Y, z, yaw: r.yaw + rec.yaw, scale: r.scale, speed: 1.0 + ((rec.uid * 0.37 + i * 0.21) % 1) * 0.5, phase: rec.uid * 1.7 + i });
+        const wheel = r.kind === 'wheel';
+        this.rotorInfo.push({ x, y: rec.y + r.y * BSCALE_Y, z, yaw: r.yaw + rec.yaw, scale: r.scale * (wheel ? BSCALE_XZ : 1), speed: (wheel ? 0.8 : 1.0) + ((rec.uid * 0.37 + i * 0.21) % 1) * 0.5, phase: rec.uid * 1.7 + i, wheel });
       });
       const def = BUILDINGS[rec.type];
       let strength = def.co2 > 0 ? Math.min(1.6, Math.max(0.25, def.co2 / 50)) : 0.3;
@@ -378,8 +392,29 @@ export class BuildingLayer {
         this.emitters.push({ x, y: rec.y + st.y * BSCALE_Y, z, size: st.size, steam: st.steam, strength });
       }
     }
-    this.rotors.count = this.rotorInfo.length;
-    this.rotors.visible = this.rotorInfo.length > 0;
+    const nw = this.rotorInfo.filter((r) => r.wheel).length;
+    this.rotors.count = this.rotorInfo.length - nw;
+    this.rotors.visible = this.rotors.count > 0;
+    this.wheels.count = nw;
+    this.wheels.visible = nw > 0;
+    this.growRotors();
+  }
+
+  /** Instance capacity for rotors / wheels (rebuilt as new InstancedMeshes when a huge wind or farm field outgrows it). */
+  private growRotors(): void {
+    for (const key of ['rotors', 'wheels'] as const) {
+      const m = this[key];
+      if (m.count <= m.instanceMatrix.count) continue;
+      const cap = Math.max(m.count, m.instanceMatrix.count * 2);
+      const nm = new InstancedMesh(m.geometry, m.material, cap);
+      nm.count = m.count;
+      nm.castShadow = true;
+      nm.frustumCulled = false;
+      nm.name = m.name;
+      this.group.add(nm);
+      this.group.remove(m);
+      this[key] = nm;
+    }
   }
 
   /** Per-frame: pop animations + rotor spin. No allocations. */
@@ -418,16 +453,20 @@ export class BuildingLayer {
         this.anims.splice(i, 1);
       }
     }
-    // rotors
+    // rotors (turbines) and pump wheels (windmills): spin speed follows the Act 2 wind multiplier, a gentle constant in Act 1
     const n = this.rotorInfo.length;
+    let ri = 0;
+    let wi = 0;
     for (let i = 0; i < n; i++) {
       const r = this.rotorInfo[i]!;
-      _e.set(0, r.yaw, -(time * r.speed * this.wind * 1.6 + r.phase), 'YXZ');
+      _e.set(0, r.yaw, -(time * r.speed * this.wind * (r.wheel ? 1.1 : 1.6) + r.phase), 'YXZ');
       _q.setFromEuler(_e);
       _m.compose(_p.set(r.x, r.y, r.z), _q, _s.set(r.scale, r.scale, r.scale));
-      this.rotors.setMatrixAt(i, _m);
+      if (r.wheel) this.wheels.setMatrixAt(wi++, _m);
+      else this.rotors.setMatrixAt(ri++, _m);
     }
-    if (n) this.rotors.instanceMatrix.needsUpdate = true;
+    if (ri) this.rotors.instanceMatrix.needsUpdate = true;
+    if (wi) this.wheels.instanceMatrix.needsUpdate = true;
   }
 
   private rescalePieces(rec: Rec, sc: number): void {
