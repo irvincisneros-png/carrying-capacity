@@ -5,8 +5,10 @@ import { getScenario } from '../sim/scenarios';
 import { upgradeOptions } from '../sim/upgrades';
 import type { UpgradeOption } from '../sim/upgrades';
 import type { DecadeReport, GameState, PlacedBuilding } from '../sim/types';
+import type { ChainKey } from '../content/causes';
 import { clear, fmtInt, h, svg } from './dom';
 import { UI_ICONS } from './icons';
+import { LEARN_ICONS } from './learnicons';
 
 function goalValue(g: Act1GoalResult): string {
   if (g.metric === 'powerCovered') return g.current >= 1 ? 'Power covers everything' : 'Some buildings are short of power';
@@ -101,9 +103,14 @@ function trade(label: string, before: number, after: number, unit: string, dir: 
 }
 
 /** "What it cost" beside "what it earned": the decade's money and the change to the land that came with it. */
-export function ledgerView(r: DecadeReport): HTMLElement | null {
+export function ledgerView(r: DecadeReport, onWhy?: (key: ChainKey, what: string) => void): HTMLElement | null {
   const c = r.cost;
   if (!c) return null;
+  const whys: { key: ChainKey; label: string; what: string }[] = [];
+  if (c.creekAfter < c.creekBefore) whys.push(c.bushLost > 0 ? { key: 'erosion', label: 'Why did the creek get muddier?', what: `Creek health fell from ${c.creekBefore}% to ${c.creekAfter}%.` } : { key: 'algal-bloom', label: 'Why did the creek get dirtier?', what: `Creek health fell from ${c.creekBefore}% to ${c.creekAfter}%.` });
+  if (c.airAfter < c.airBefore || c.airAfter < 70) whys.push({ key: 'smog', label: 'Why is the air worse?', what: `Air quality around homes is ${c.airAfter}% clean.` });
+  if (c.birdsAfter < c.birdsBefore) whys.push({ key: 'species-loss', label: 'Why are the birds going?', what: `Bush birds fell from about ${c.birdsBefore} to ${c.birdsAfter} pairs.` });
+  if (c.fishAfter < c.fishBefore) whys.push({ key: 'fish-kill', label: 'Why are there fewer fish?', what: `Creek fish fell from about ${c.fishBefore} to ${c.fishAfter} schools.` });
   return h('div', { class: 'ledger', 'data-qa': 'ledger' },
     h('div', { class: 'graph-title' }, 'What the decade earned, and what it cost', h('span', null, '')),
     h('div', { class: 'ledger-cols' },
@@ -115,7 +122,8 @@ export function ledgerView(r: DecadeReport): HTMLElement | null {
         trade('Air quality', c.airBefore, c.airAfter, '%', 'good-up'),
         h('div', { class: 'ledger-row' }, h('span', null, 'CO₂ added'), h('b', null, `${fmtInt(c.co2Kt)} kt`), h('em', null, `${r.deltaCo2 >= 0 ? '+' : ''}${r.deltaCo2.toFixed(1)} ppm in the air`)),
         trade('Bush birds', c.birdsBefore, c.birdsAfter, ' pairs', 'good-up', 'a rough guide'),
-        trade('Creek fish', c.fishBefore, c.fishAfter, ' schools', 'good-up', 'a rough guide'))));
+        trade('Creek fish', c.fishBefore, c.fishAfter, ' schools', 'good-up', 'a rough guide'))),
+    onWhy && whys.length ? h('div', { class: 'why-links', 'data-qa': 'why-links' }, ...whys.map((w) => h('button', { class: 'btn small why-btn', type: 'button', onclick: () => onWhy(w.key, w.what) }, svg(LEARN_ICONS.chain), w.label))) : null);
 }
 
 // ---------------------------------------------------------------- turning point and report card

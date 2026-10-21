@@ -1,5 +1,6 @@
 // Modal stack, toasts, floaters and tooltip primitives.
 import { h, svg } from './dom';
+import { glossify } from './glossary';
 import { UI_ICONS } from './icons';
 import { sfx } from '../audio/sfx';
 
@@ -31,6 +32,7 @@ export function openModal(content: (HTMLElement | null)[], opts: { wide?: boolea
     wrap.addEventListener('pointerdown', (e) => { if (e.target === wrap) close(); });
   }
   for (const c of content) if (c) card.appendChild(c);
+  glossify(card);
   document.body.appendChild(wrap);
   stack.push(entry);
   sfx('open');
@@ -50,12 +52,14 @@ export function closeTopModal(): boolean {
 
 // ---------------------------------------------------------------- toasts
 let toastBox: HTMLElement | null = null;
-export function toast(title: string, text: string, kind: 'info' | 'good' | 'warn' | 'bad' = 'info', icon: string = UI_ICONS.info, ms = 6500): void {
+/** `onOpen` makes the toast clickable: it runs the handler (for example the cause chain) instead of just dismissing. */
+export function toast(title: string, text: string, kind: 'info' | 'good' | 'warn' | 'bad' = 'info', icon: string = UI_ICONS.info, ms = 6500, onOpen?: () => void): void {
   if (!toastBox) {
     toastBox = h('div', { class: 'toasts', 'aria-live': 'polite' });
     document.body.appendChild(toastBox);
   }
-  const t = h('div', { class: `toast panel ${kind}` }, svg(icon), h('div', null, h('b', null, title), text ? h('p', null, text) : null));
+  const t = h('div', { class: `toast panel ${kind}${onOpen ? ' why' : ''}`, ...(onOpen ? { role: 'button', tabindex: 0, 'data-why': '1' } : {}) }, svg(icon), h('div', null, h('b', null, title), text ? h('p', null, text) : null, onOpen ? h('small', { class: 'why-hint' }, 'Why did that happen? Click to see') : null));
+  glossify(t);
   toastBox.prepend(t);
   // Phones keep only the two newest so toasts never bury the map.
   const keep = window.innerWidth < 700 ? 2 : 4;
@@ -64,7 +68,7 @@ export function toast(title: string, text: string, kind: 'info' | 'good' | 'warn
     t.classList.add('out');
     setTimeout(() => t.remove(), 350);
   };
-  t.addEventListener('click', kill);
+  t.addEventListener('click', () => { kill(); onOpen?.(); });
   setTimeout(kill, ms);
 }
 

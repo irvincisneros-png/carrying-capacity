@@ -62,5 +62,6 @@ export function cloneState(s: GameState): GameState {
     country: structuredClone(s.country),
     circular: structuredClone(s.circular),
     satellites: structuredClone(s.satellites),
+    ...(s.learn ? { learn: structuredClone(s.learn) } : {}),
   };
 }

@@ -4,6 +4,8 @@
 import * as SIM from '../sim';
 import { TileKind, type GameState, type SimEvent } from '../sim/types';
 import { presentReportCard } from '../sim/presentation';
+import { winLoseFor } from '../content/winlose';
+import type { DilemmaOption as SimOption } from '../sim/dilemmas';
 import { hideDraft, isHiddenCharacter, NEUTRAL_COMMUNITY, scrubNames } from './draft';
 import type { DilemmaCard, DilemmaImpact, ReportCard, Speaker, SpeciesStatus, StoryLine } from './types';
 
@@ -180,7 +182,8 @@ export function dilemmaCard(s: GameState, e: SimEvent): DilemmaCard | null {
     options: opts.map((o) => {
       const pv = isObj(o.preview) ? o.preview : null;
       const money = moneyLine(isObj(o.effects) ? o.effects : null);
-      return { id: String(o.id), label: String(o.label), ...(money ? { detail: money } : {}), impacts: mergeImpacts(
+      const wl = def ? winLoseFor(m.ref ?? '', o as unknown as SimOption, (id, type) => (type === 'creature' ? nameOf({ type, id }) : speaker(s, id).name)) : null;
+      return { id: String(o.id), label: String(o.label), ...(money ? { detail: money } : {}), ...(wl ? { winLose: wl } : {}), impacts: mergeImpacts(
         ((pv && Array.isArray(pv.helps) ? pv.helps : []) as Record<string, unknown>[]).map((t) => ({ who: nameOf(t), why: String(t.why ?? '') })),
         ((pv && Array.isArray(pv.hurts) ? pv.hurts : []) as Record<string, unknown>[]).map((t) => ({ who: nameOf(t), why: String(t.why ?? '') })),
       ) };

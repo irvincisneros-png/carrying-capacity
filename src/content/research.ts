@@ -1,3 +1,5 @@
+import { CLEAN_TECH_REVIEW } from './hiddencosts';
+
 /** Recycling innovations (syllabus 4.4.5) with costs, effects and accurate blurbs. */
 
 export interface ResearchEffects {
@@ -63,7 +65,7 @@ export const RESEARCH: readonly ResearchDef[] = [
   {
     id: 'battery-recycling', name: 'Battery recycling', kind: 'innovation', cost: 40,
     blurb: 'Used lithium-ion batteries are shredded and processed to recover cobalt, nickel, lithium and copper for new batteries.',
-    evidence: 'Mining battery metals has large environmental and human costs, and the first big wave of grid and vehicle batteries will reach the end of their lives from the 2030s. Recovering the metals means less mining, but plants need steady supplies of old batteries to work well.',
+    evidence: 'Mining battery metals has large environmental and human costs, and the first big wave of grid and vehicle batteries will reach the end of their lives from the 2030s. Recovering the metals means less mining, but plants need steady supplies of old batteries to work well. In Australia only about 2% of lithium-ion battery waste was recycled in 2018 (CSIRO), while 98% of lead-acid batteries were, so a high rate is possible. One WA lithium mine sought to clear up to 541 hectares of bush.',
     effects: { recycleRefund: 0.1, recycleEmissions: 0.9 },
   },
   {
@@ -78,6 +80,12 @@ export const RESEARCH: readonly ResearchDef[] = [
     blurb: 'A company says it can turn plastic back into fuel. Before anyone signs, you commission an independent look at what it can and cannot do.',
     evidence: 'Plastic-to-fuel heats some plastics without oxygen (pyrolysis) to make oil and gas. It uses a lot of energy, the oil usually needs refining, and when the fuel is burned its carbon becomes CO2. Using less plastic, reusing it and recycling suitable plastics into new products usually keeps the material in use longer and does better for the climate, though results depend on the plastic, the process and the energy source.',
     effects: { society: 1, flags: { 'knows.plasticToFuel': 1 } },
+  },
+  {
+    id: 'clean-tech-costs', name: 'Clean tech: the hidden costs', kind: 'critique', cost: 10,
+    blurb: CLEAN_TECH_REVIEW.blurb,
+    evidence: CLEAN_TECH_REVIEW.evidence,
+    effects: { society: 1, flags: { 'knows.cleanTechCosts': 1 } },
   },
 ];
 

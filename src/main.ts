@@ -1,5 +1,6 @@
 // Carrying Capacity - browser client entry.
 import './ui/styles.css';
+import './ui/learn.css';
 import { App } from './ui/app';
 
 const root = document.getElementById('app')!;

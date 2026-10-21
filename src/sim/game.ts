@@ -18,6 +18,8 @@ import { buildingAt, canPlace, CLEAR_COST, CLEAR_KT_PER_TILE, DEMOLISH_REFUND, a
 import { mulberry32 } from './rng';
 import { applyLingeringRunoff } from './effects';
 import { recordAct1 } from './act1goals';
+import { applyCapacityToMap, capacityIncomePerDecade, capSummary, stepCapacity } from './capacity';
+import { applyLearn, stepLearn } from './fieldkit';
 import { decadeCost, landSnapshot } from './ledger';
 import type { LandSnapshot } from './ledger';
 import { applyUpgrade, choiceIncomePerDecade, co2Of } from './upgrades';
@@ -134,6 +136,7 @@ function record(s: GameState, emissions: EmissionsBySource, total: number, commu
     population: s.population,
     budget: s.budget,
     ...(commuteKt !== undefined ? { commuteKt } : {}),
+    cap: capSummary(s),
   };
 }
 
@@ -156,6 +159,8 @@ export function applyAction(state: GameState, action: Action): { state: GameStat
     state,
     result: { ok: false, code, reason } as ActionResult,
   });
+  // Reflections, the letter and household ticks are written at the end of the game too, so they skip the playable check.
+  if (action.type === 'learn') return applyLearn(state, action);
   const storyAction = action.type === 'respond' || action.type === 'choose';
   if (!isPlayable(state) && !(storyAction && state.phase === 'turning-point')) return fail('game-over', 'This act is finished');
 
@@ -300,7 +305,7 @@ export function advanceYear(state: GameState): { state: GameState; report: Decad
     const target = growPopulation(pop0, economySnapshot(state).housing);
     next.population = final ? target : Math.round(pop0 + (target - pop0) * (n + 1) / DECADE_YEARS);
     const snap = economySnapshot(next, target);
-    const decade = decadeIncome(snap, sc.modifiers.budgetMult) + Math.round(mechIncome(next) * DECADE_YEARS) + Math.round(choiceIncomePerDecade(next));
+    const decade = decadeIncome(snap, sc.modifiers.budgetMult) + Math.round(mechIncome(next) * DECADE_YEARS) + Math.round(choiceIncomePerDecade(next)) + Math.round(capacityIncomePerDecade(next));
     const paidTotal = final ? decade : Math.round(decade * (n + 1) / DECADE_YEARS);
     next.budget += paidTotal - paidSoFar;
     next.lastIncome = decade;
@@ -309,6 +314,7 @@ export function advanceYear(state: GameState): { state: GameState; report: Decad
 
   if (!final) {
     economyStep();
+    stepCapacity(next);
     next.flags[DEC_N] = n + 1;
     next.flags[DEC_POP0] = pop0;
     if (n === 0) {
@@ -331,9 +337,11 @@ export function advanceYear(state: GameState): { state: GameState; report: Decad
   // 2. Local pollution spreads / decays (only buildings that work, i.e. connected to the road in, pollute).
   updatePollution(next.grid, workingBuildings(state));
   applyLingeringRunoff(next);
+  applyCapacityToMap(next, DECADE_YEARS);
 
   // 3. Economy: the last year's population and income (the other nine arrived as the years went by).
   economyStep();
+  stepCapacity(next);
   for (const k of DEC_KEYS) delete next.flags[k];
 
   // Commuting along the road network is part of the transport total (and reported on its own).
@@ -358,6 +366,7 @@ export function advanceYear(state: GameState): { state: GameState; report: Decad
   layersDecadeMoods(next);
   next.meters = computeMeters(next);
   next.history.push(record(next, em, total, commute.ktPerDecade));
+  stepLearn(next);
   if (next.year >= sc.endYear) {
     next.status = 'act1-complete';
     recordAct1(next);

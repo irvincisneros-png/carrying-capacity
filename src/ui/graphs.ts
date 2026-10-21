@@ -1,5 +1,7 @@
 // Hand-drawn canvas graphs: CO2 and temperature (player vs dashed real record) and emissions by source as
 // stacked decade bars. Hover crosshair + tooltip, CSV export, "The science" explainers. One axis per chart.
+import { capCSV } from '../sim/capacity';
+import { kitCSV } from '../sim/fieldkit';
 import { REAL_YEARS, realCO2, realTemp } from '../sim/realData';
 import { getScenario } from '../sim/scenarios';
 import { EMISSION_CATEGORIES, type EmissionCategory, type GameState } from '../sim/types';
@@ -354,6 +356,7 @@ export class GraphsPanel {
     for (const r of s.a2?.yearly ?? []) {
       rows.push([r.year, f(r.co2), r.year <= 2020 ? f(realCO2(r.year)) : '', f(r.tempC), r.year <= 2020 ? f(realTemp(r.year)) : '', ...EMISSION_CATEGORIES.map((c) => f(r.emissionsKt[c], 1)), f(r.totalKt, 1), 'year'].join(','));
     }
-    download(`carrying-capacity-${s.scenarioId}-${s.year}.csv`, rows.join('\n') + '\n');
+    // The land limits and the player's water tests and predictions go in the same file, as their own tables below the data.
+    download(`carrying-capacity-${s.scenarioId}-${s.year}.csv`, rows.join('\n') + '\n' + capCSV(s) + kitCSV(s));
   }
 }

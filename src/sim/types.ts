@@ -1,4 +1,5 @@
 /** Shared types for the pure-TS simulation. No DOM / three.js imports allowed in src/sim. */
+import type { LearnAction, LearnState } from './learnTypes';
 import type {
   CircularState, CountryState, DilemmasState, ResidentsState, SatelliteOverlay, SatelliteState, StoryMeta,
   WildlifeState,
@@ -190,6 +191,10 @@ export interface HistoryRecord {
   budget: number;
   /** kt CO2-e of the total that came from commuting along the road network (already inside emissionsKt.transport). */
   commuteKt?: number;
+  /** Carrying capacity ratios (use / renewal, x100) at this record: water, food, harvest, energy, carbon. See sim/capacity.ts. */
+  cap?: number[];
+  /** Field kit readings for the year or decade, if the player tested the water (see sim/fieldkit.ts). */
+  kit?: number[];
 }
 
 export type GameStatus = 'playing' | 'act1-complete' | 'act2-complete' | 'failed';
@@ -314,6 +319,8 @@ export interface YearRecord {
   renewableShare: number;
   /** kt CO2-e of the year's total that came from commuting (already inside emissionsKt.transport). */
   commuteKt?: number;
+  /** Carrying capacity ratios (use / renewal, x100): water, food, harvest, energy, carbon. */
+  cap?: number[];
   estuaryHealth: number;
   meanHealth: number;
   reefHealth: number;
@@ -422,6 +429,8 @@ export interface GameState {
   circular: CircularState;
   /** Satellite overlays and the marine heatwave early warning. */
   satellites: SatelliteState;
+  /** Learning layer (field kit, predictions, the player's own words, household ticks). Optional so older saves load. */
+  learn?: LearnState;
 }
 
 export type DisposalHow = 'repurpose' | 'recycle' | 'landfill';
@@ -455,7 +464,9 @@ export type Action =
   /** Red Dirt: take the next rehabilitation step on the connected mine-site patch containing this tile. */
   | { type: 'rehab'; x: number; y: number }
   /** Act 1: fit an upgrade (smoke scrubber, creek buffer, ...) to a building. See sim/upgrades.ts. */
-  | { type: 'upgrade'; uid: number; id: string };
+  | { type: 'upgrade'; uid: number; id: string }
+  /** Learning layer: test the water, predict, write a reflection, tick a household idea (see sim/fieldkit.ts). */
+  | LearnAction;
 
 export type ActionFailCode =
   | 'game-over'
