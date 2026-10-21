@@ -26,7 +26,7 @@ import { bIcon, UI_ICONS } from './icons';
 import { closeAllModals, closeTopModal, floater, modalOpen, Tip, toast } from './modal';
 import { Act1GoalsPanel, upgradeBlock } from './act1';
 import { showDecadeReport, showEnding, showIntro, showSettings, showTitle, showTurningPoint } from './screens';
-import { Toolbar, type Tool } from './toolbar';
+import { BRUSH_SPACING, Toolbar, type Tool } from './toolbar';
 import { EVENT_NAMES } from '../content/act2';
 import * as SIM from '../sim';
 
@@ -61,7 +61,9 @@ export class App {
   private debugEl: HTMLElement | null = null;
   private rot: Rotation = 0;
   private hover: { tx: number; ty: number } | null = null;
-  private down: { x: number; y: number; button: number; moved: boolean; painted: Set<number> } | null = null;
+  private down: { x: number; y: number; button: number; moved: boolean; painted: Set<number>; anchors: { x: number; y: number }[] } | null = null;
+  /** Set by act() when a building went down, so a brush stroke can keep its spacing. */
+  private placedNow = false;
   private playing = false;
   private lastUiVersion = -1;
   private pendingPhase = false;
@@ -162,7 +164,7 @@ export class App {
       clearTile: () => this.renderer.markTile(null),
       onComplete: () => this.tutorialDone(),
     });
-    const frame = h('button', { class: 'iconbtn', title: 'Frame the whole map (F)', 'aria-label': 'Frame the whole map', onclick: () => { sfx('click'); this.renderer.rig?.home(true); } }, svg(UI_ICONS.home));
+    const frame = h('button', { class: 'iconbtn', title: 'Frame the whole map, or back to the town (F)', 'aria-label': 'Frame the whole map or the town', onclick: () => { sfx('click'); this.toggleFrame(); } }, svg(UI_ICONS.home));
     this.hud.el.querySelector('.hud-right')?.append(frame);
     this.warnEl = h('div', { class: 'toast panel bad hidden', style: 'position:fixed;top:140px;left:50%;transform:translateX(-50%);z-index:44;width:min(420px, calc(100vw - 24px))' });
     document.body.appendChild(this.warnEl);
@@ -231,7 +233,8 @@ export class App {
     const rig = this.renderer.rig;
     if (rig) {
       rig.idleSpin = 0;
-      rig.home(true);
+      this.framedWhole = false;
+      this.renderer.frameTown(true);
     }
     const s = this.game.state;
     this.syncUi(s, true);
@@ -252,6 +255,13 @@ export class App {
     this.game.state = s;
     this.renderer.setWorld(s);
     this.showTitleScreen();
+  }
+
+  /** The home view alternates between the town (a fixed stretch of map) and the whole map. */
+  private framedWhole = false;
+  private toggleFrame(): void {
+    this.framedWhole = !this.framedWhole;
+    this.renderer.frameTown(true, this.framedWhole);
   }
 
   /** "Skip to end of decade": fast-forwards the years that are left, then shows the report. */
@@ -675,13 +685,13 @@ export class App {
       }
       const p = this.renderer.pick(e.clientX, e.clientY);
       this.hover = p ? { tx: p.tx, ty: p.ty } : null;
-      // drag-paint roads / rail
+      // drag-paint roads / rail, and the brush buildings
       const t = this.toolbar.tool;
-      if (this.down && this.down.button === 0 && e.pointerType === 'mouse' && (t === 'road' || t === 'rail' || t === 'demolish' || t === 'clear') && p) {
+      if (this.down && this.down.button === 0 && e.pointerType === 'mouse' && this.paints(t) && p) {
         const k = p.ty * 1000 + p.tx;
         if (!this.down.painted.has(k)) {
           this.down.painted.add(k);
-          this.act(p.tx, p.ty, e.clientX, e.clientY, true);
+          this.paintStep(t, p.tx, p.ty, e.clientX, e.clientY, true);
         }
       }
       this.refreshHover(e.clientX, e.clientY);
@@ -694,13 +704,13 @@ export class App {
     cv.addEventListener('pointerdown', (e) => {
       if (!this.playing) return;
       unlockAudio();
-      this.down = { x: e.clientX, y: e.clientY, button: e.button, moved: false, painted: new Set() };
+      this.down = { x: e.clientX, y: e.clientY, button: e.button, moved: false, painted: new Set(), anchors: [] };
       const t = this.toolbar.tool;
-      if (e.button === 0 && e.pointerType === 'mouse' && (t === 'road' || t === 'rail' || t === 'demolish' || t === 'clear')) {
+      if (e.button === 0 && e.pointerType === 'mouse' && this.paints(t)) {
         const p = this.renderer.pick(e.clientX, e.clientY);
         if (p) {
           this.down.painted.add(p.ty * 1000 + p.tx);
-          this.act(p.tx, p.ty, e.clientX, e.clientY, false);
+          this.paintStep(t, p.tx, p.ty, e.clientX, e.clientY, false);
         }
       }
     });
@@ -744,7 +754,8 @@ export class App {
       else if (k === 'x') this.toolbar.select(this.toolbar.tool === 'demolish' ? null : 'demolish');
       else if (k === 'i') this.toolbar.select(this.toolbar.tool === 'inspect' ? null : 'inspect');
       else if (k === 'g') this.toggleGraphs();
-      else if (k === 'h' || k === 'f') rig?.home(true);
+      else if (k === 'h') { this.framedWhole = false; this.renderer.frameTown(true); }
+      else if (k === 'f') this.toggleFrame();
       else if (k === ' ' && (this.game.state.phase === 'act2' || this.game.state.phase === 'act1') && !modalOpen()) { e.preventDefault(); this.game.togglePause(); }
       else if (k === 'enter' && this.game.state.phase === 'act1') this.nextDecade();
       else if (/^[1-9]$/.test(k)) this.toolbar.selectIndex(Number(k) - 1);
@@ -755,6 +766,28 @@ export class App {
   }
 
   /** Anchor so the footprint is centred on the hovered tile. */
+  /** Tools that drag-paint: roads, rail, demolish, clear, and the brush buildings (see BRUSH_SPACING). */
+  private paints(t: Tool): boolean {
+    return t === 'road' || t === 'rail' || t === 'demolish' || t === 'clear' || (t !== null && t in BRUSH_SPACING);
+  }
+
+  /**
+   * One step of a drag stroke. Roads and the like act on every new tile; a brush building also keeps its spacing from the others
+   * placed in the same stroke (a nursery only needs to be about a seed-reach from the next), so one drag across a stretch of land
+   * plants it, instead of one click per building.
+   */
+  private paintStep(t: Tool, tx: number, ty: number, cx: number, cy: number, painting: boolean): void {
+    const d = this.down;
+    const gap = t !== null && t in BRUSH_SPACING ? BRUSH_SPACING[t as BuildingId] ?? 1 : 0;
+    if (gap > 1 && d) {
+      const a = this.anchor(t as BuildingId, tx, ty);
+      if (d.anchors.some((o) => Math.max(Math.abs(o.x - a.x), Math.abs(o.y - a.y)) < gap)) return;
+    }
+    this.placedNow = false;
+    this.act(tx, ty, cx, cy, painting);
+    if (gap > 1 && d && this.placedNow) d.anchors.push(this.anchor(t as BuildingId, tx, ty));
+  }
+
   private anchor(tool: BuildingId, tx: number, ty: number): { x: number; y: number; w: number; h: number } {
     const fp = footprintFor(BUILDINGS[tool], this.rot);
     return { x: tx - Math.floor((fp.w - 1) / 2), y: ty - Math.floor((fp.h - 1) / 2), w: fp.w, h: fp.h };
@@ -913,6 +946,7 @@ export class App {
     const a = this.anchor(bt, tx, ty);
     const r = this.game.dispatch({ type: 'place', building: bt, x: a.x, y: a.y, rotation: this.rot });
     if (r.ok) {
+      this.placedNow = true;
       sfx('place');
       setTimeout(() => sfx('coin'), 90);
       floater(cx, cy - 20, `-$${r.spent}k`, 'cost');
@@ -1059,6 +1093,15 @@ export class App {
     this.inspectEl.classList.add('hidden');
   }
 
+  /** Debug: every tile of the map, nearest the town first (the demo helpers fill outwards from the town, not from the map's corner). */
+  private tilesNearTown(): [number, number][] {
+    const g = this.game.state.grid;
+    const f = SIM.townFocus(this.game.state);
+    const out: [number, number][] = [];
+    for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) out.push([x, y]);
+    return out.sort((a, b) => Math.hypot(a[0] - f.x, a[1] - f.y) - Math.hypot(b[0] - f.x, b[1] - f.y) || a[1] - b[1] || a[0] - b[0]);
+  }
+
   private exposeDebug(): void {
     (window as unknown as { __cc: unknown }).__cc = {
       app: this,
@@ -1078,7 +1121,9 @@ export class App {
           let placed = 0;
           const st = (): GameState => g.state;
           const from = t === 'port' || t === 'outfall' ? 16 : 5;
-          for (let y = 0; y < st().grid.h && placed < n; y++) for (let x = from; x < st().grid.w && placed < n; x++) {
+          for (const [x, y] of this.tilesNearTown()) {
+            if (placed >= n) break;
+            if (x < from * (st().grid.w / 32) / 1.5) continue;
             if (SIM.canPlace(st(), t, x, y, 0).ok && g.dispatch({ type: 'place', building: t, x, y, rotation: 0 }).ok) placed++;
           }
         };
@@ -1152,7 +1197,9 @@ export class App {
       autoPlace: (type: BuildingId, n = 1, rot: Rotation = 0, from = 0) => {
         let placed = 0;
         const st = () => this.game.state;
-        for (let y = 0; y < st().grid.h && placed < n; y++) for (let x = from; x < st().grid.w && placed < n; x++) {
+        for (const [x, y] of this.tilesNearTown()) {
+          if (placed >= n) break;
+          if (x < from) continue;
           if (SIM.canPlace(st(), type, x, y, rot).ok && this.game.dispatch({ type: 'place', building: type, x, y, rotation: rot }).ok) placed++;
         }
         return placed;

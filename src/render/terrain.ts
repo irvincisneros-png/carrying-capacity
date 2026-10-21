@@ -1,6 +1,6 @@
 // Terrain surface, cut-away slab walls (strata) and water-side "glass" wall, sized to the map.
 import {
-  BufferGeometry, ClampToEdgeWrapping, Color, DataTexture, Float32BufferAttribute, LinearFilter, RedFormat, UnsignedByteType,
+  BufferGeometry, ClampToEdgeWrapping, Color, DataTexture, Float32BufferAttribute, LinearFilter, RedFormat, Sphere, UnsignedByteType, Vector3,
 } from 'three';
 import { TileKind } from '../sim/types';
 import { MapGeo } from './mapgeo';
@@ -91,8 +91,17 @@ function kindColours(G: GC, look: BiomeLook, kind: number, stage: number, zone: 
   }
 }
 
+/** Tiles along one side of a terrain chunk (the unit the camera culls the ground in). */
+export const TERRAIN_CHUNK = 16;
+
 export interface TerrainBuild {
   terrain: BufferGeometry;
+  /**
+   * The same surface cut into TERRAIN_CHUNK x TERRAIN_CHUNK tile pieces that share the vertex data of `terrain` (so edits to its
+   * attributes show in every piece) but each have their own triangles and bounding sphere, so a big map only draws the ground
+   * the camera can see. `terrain` itself stays whole for the overlay and the grid.
+   */
+  chunks: BufferGeometry[];
   slab: BufferGeometry;
   waterSide: BufferGeometry;
   heightTex: DataTexture;
@@ -159,11 +168,14 @@ export function buildTerrain(map: MapGeo): TerrainBuild {
     }
   }
   const idx: number[] = [];
+  const cw = Math.ceil(W / TERRAIN_CHUNK), chn = Math.ceil(H / TERRAIN_CHUNK);
+  const buckets: number[][] = Array.from({ length: cw * chn }, () => []);
   for (let j = 0; j < map.segZ; j++) {
     for (let i = 0; i < map.segX; i++) {
       const a = j * vx + i, b = a + 1, c = a + vx, d = c + 1;
-      if ((i + j) % 2 === 0) idx.push(a, c, b, b, c, d);
-      else idx.push(a, c, d, a, d, b);
+      const bucket = buckets[Math.min(chn - 1, Math.floor(j / RES / TERRAIN_CHUNK)) * cw + Math.min(cw - 1, Math.floor(i / RES / TERRAIN_CHUNK))] as number[];
+      if ((i + j) % 2 === 0) { idx.push(a, c, b, b, c, d); bucket.push(a, c, b, b, c, d); }
+      else { idx.push(a, c, d, a, d, b); bucket.push(a, c, d, a, d, b); }
     }
   }
   const terrain = new BufferGeometry();
@@ -173,6 +185,20 @@ export function buildTerrain(map: MapGeo): TerrainBuild {
   terrain.setIndex(idx);
   terrain.computeVertexNormals();
   terrain.computeBoundingSphere();
+  // Chunks: shared vertex attributes, own index and a bounding sphere that covers the tile block over the full height range
+  // (heights live in [-2, 3.5]; roads grade the ground a little, so the sphere is padded rather than recomputed).
+  const chunks: BufferGeometry[] = [];
+  for (let cy = 0; cy < chn; cy++) {
+    for (let cx = 0; cx < cw; cx++) {
+      const g = new BufferGeometry();
+      for (const name of ['position', 'color', 'color2', 'normal']) g.setAttribute(name, terrain.getAttribute(name));
+      g.setIndex(buckets[cy * cw + cx] as number[]);
+      const x0 = cx * TERRAIN_CHUNK, x1 = Math.min(W, x0 + TERRAIN_CHUNK), z0 = cy * TERRAIN_CHUNK, z1 = Math.min(H, z0 + TERRAIN_CHUNK);
+      const centre = new Vector3(-W / 2 + (x0 + x1) / 2, 0.75, -H / 2 + (z0 + z1) / 2);
+      g.boundingSphere = new Sphere(centre, Math.hypot((x1 - x0) / 2 + 1, (z1 - z0) / 2 + 1, 3));
+      chunks.push(g);
+    }
+  }
 
   // ---- slab walls (perimeter)
   const sp: number[] = [];
@@ -250,5 +276,5 @@ export function buildTerrain(map: MapGeo): TerrainBuild {
   heightTex.minFilter = LinearFilter;
   heightTex.wrapS = heightTex.wrapT = ClampToEdgeWrapping;
   heightTex.needsUpdate = true;
-  return { terrain, slab, waterSide, heightTex };
+  return { terrain, chunks, slab, waterSide, heightTex };
 }

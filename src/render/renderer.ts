@@ -19,6 +19,7 @@ import { Parts } from './geo';
 import { MapGeo, resFor, terrainSignature } from './mapgeo';
 import { biomeLook, type BiomeLook } from './biome';
 import { getScenario } from '../sim/scenarios';
+import { townFocus } from '../sim/roads';
 import { seaRiseM } from '../sim/mechanics';
 import { MatLib, type SharedUniforms } from './materials';
 import { LOOK } from './palette';
@@ -60,7 +61,9 @@ interface World {
   rig: CameraRig;
   overlay: Overlay;
   grid: Mesh;
-  terrainMesh: Mesh;
+  /** The ground, one mesh per chunk (see buildTerrain); `terrainGeo` is the whole surface that edits are written to. */
+  terrainChunks: Group;
+  terrainGeo: BufferGeometry;
   slabMesh: Mesh;
   waterMesh: Mesh;
   waterSide: Mesh;
@@ -71,6 +74,9 @@ interface World {
   level: number;
   dispose(): void;
 }
+
+/** Half-width (world units) of the biggest area the sun's shadow map covers at once. */
+const SHADOW_HALF = 34;
 
 const _c1 = new Color();
 const _c2 = new Color();
@@ -83,6 +89,9 @@ export class GameRenderer {
   readonly lib: MatLib;
   private sun: DirectionalLight;
   private hemi: HemisphereLight;
+  private sunDir = new Vector3(0, 1, 0);
+  private shadowHalf = 30;
+  private shadowFollow = false;
   private skyU: Record<string, IUniform>;
   private skyMesh: Mesh;
   private clouds: ReturnType<typeof makeClouds>;
@@ -203,10 +212,7 @@ export class GameRenderer {
     const tiles = new TileData(s.grid.w, s.grid.h);
     this.shared.uTile.value = tiles.tex;
     this.shared.uMap.value = { x: s.grid.w, y: s.grid.h, z: 1 / s.grid.w, w: 1 / s.grid.h };
-    const terrain = new Mesh(tb.terrain, this.lib.get({ key: 'terrain', kind: 'terrain' }));
-    terrain.receiveShadow = true;
-    terrain.castShadow = true;
-    terrain.name = 'terrain';
+    const terrain = this.makeTerrainChunks(tb.chunks);
     const slab = new Mesh(tb.slab, this.lib.get({ key: 'slab', kind: 'slab' }));
     slab.castShadow = true;
     slab.name = 'slab';
@@ -243,6 +249,11 @@ export class GameRenderer {
     bld.onPop = (x, y, z, size, demolish) => fx.dust(x, y, z, size, demolish);
     bld.onTerrain = () => this.refreshTerrainHeights();
     const rig = new CameraRig(this.renderer.domElement, s.grid.w, s.grid.h);
+    try {
+      const f = townFocus(s);
+      rig.setFocus(f.x + 0.5 - s.grid.w / 2, f.y + 0.5 - s.grid.h / 2);
+      rig.home(false);
+    } catch { /* keep the middle of the map */ }
     if (prevCam && this.world && this.world.map.w === s.grid.w && this.world.map.h === s.grid.h) {
       // same map rebuilt at another terrain resolution (a graphics tier change): keep the player's view
       rig.camera.position.copy(prevCam.camera.position);
@@ -251,13 +262,18 @@ export class GameRenderer {
     }
     prevCam?.controls.dispose();
     this.scene.add(group);
-    // shadow camera covers the slab
-    const half = Math.max(s.grid.w, s.grid.h) * 0.5 + 3;
+    // shadow camera covers the slab; on a map bigger than SHADOW_HALF it covers a window that follows the camera instead, so the
+    // shadow map keeps the same detail on any size of map
+    const mapHalf = Math.max(s.grid.w, s.grid.h) * 0.5 + 3;
+    const half = Math.min(mapHalf, SHADOW_HALF);
+    this.shadowHalf = half;
+    this.shadowFollow = mapHalf > SHADOW_HALF;
     const sc = this.sun.shadow.camera;
     sc.left = -half; sc.right = half; sc.top = half; sc.bottom = -half;
     sc.near = 5; sc.far = half * 5;
     sc.updateProjectionMatrix();
     _v.set(...LOOK.sun.dir).normalize();
+    this.sunDir.copy(_v);
     this.sun.position.copy(_v).multiplyScalar(half * 2.4);
     this.sun.target.position.set(0, 0, 0);
     this.scene.remove(this.clouds.mesh);
@@ -265,7 +281,7 @@ export class GameRenderer {
     this.scene.add(this.clouds.mesh);
     this.clouds.setFraction(TIERS[this.tier]!.clouds);
     this.world = {
-      key, map, group, tiles, veg, bld, amb, smoke, fx, cursor, rig, overlay, grid: gridMesh, terrainMesh: terrain, slabMesh: slab, waterMesh, waterSide, heightTex: tb.heightTex, wu,
+      key, map, group, tiles, veg, bld, amb, smoke, fx, cursor, rig, overlay, grid: gridMesh, terrainChunks: terrain, terrainGeo: tb.terrain, slabMesh: slab, waterMesh, waterSide, heightTex: tb.heightTex, wu,
       sig: terrainSignature(s.grid), seaLevel: (getScenario(s.scenarioId).mechanics ?? []).includes('reef'), level: 0,
       dispose: () => {
         this.scene.remove(group);
@@ -347,6 +363,21 @@ export class GameRenderer {
     w.bld.wind = a2?.lastGrid ? 0.8 + (((a2.lastGrid.seasonIndex * 0.618) % 1) * 0.6) : 1;
   }
 
+  /** One mesh per terrain chunk, so the camera culls the ground it cannot see. */
+  private makeTerrainChunks(geos: BufferGeometry[]): Group {
+    const mat = this.lib.get({ key: 'terrain', kind: 'terrain' });
+    const g = new Group();
+    g.name = 'terrain';
+    for (const geo of geos) {
+      const m = new Mesh(geo, mat);
+      m.receiveShadow = true;
+      m.castShadow = true;
+      m.name = 'terrain';
+      g.add(m);
+    }
+    return g;
+  }
+
   /** Terrain changed shape (mine pits reshaped, zones seeded): rebuild the surface in place. */
   private rebuildTerrain(s: GameState, sig: number): void {
     const w = this.world;
@@ -355,11 +386,16 @@ export class GameRenderer {
     w.map.update(s.grid);
     w.bld.markRoadsStale();
     const tb = buildTerrain(w.map);
-    const oldT = w.terrainMesh.geometry;
-    w.terrainMesh.geometry = tb.terrain;
+    const oldT = w.terrainGeo;
+    const oldChunks = w.terrainChunks.children.map((m) => (m as Mesh).geometry);
+    w.group.remove(w.terrainChunks);
+    w.terrainChunks = this.makeTerrainChunks(tb.chunks);
+    w.group.add(w.terrainChunks);
+    w.terrainGeo = tb.terrain;
     w.overlay.mesh.geometry = tb.terrain;
     w.grid.geometry = tb.terrain;
     oldT.dispose();
+    for (const g of oldChunks) g.dispose();
     w.slabMesh.geometry.dispose();
     w.slabMesh.geometry = tb.slab;
     w.waterSide.geometry.dispose();
@@ -376,7 +412,7 @@ export class GameRenderer {
   private refreshTerrainHeights(): void {
     const w = this.world;
     if (!w) return;
-    const geo = w.terrainMesh.geometry;
+    const geo = w.terrainGeo;
     const pos = geo.getAttribute('position');
     const h = w.map.heights;
     for (let k = 0; k < h.length; k++) pos.setY(k, h[k]!);
@@ -462,6 +498,19 @@ export class GameRenderer {
   }
 
   /** Centre of a tile footprint in world space (top surface). */
+  /** Fly the camera to the default view of the town (or, with `whole`, of the whole map). */
+  frameTown(animate = true, whole = false): void {
+    const w = this.world;
+    if (!w || !this.state) return;
+    if (!whole) {
+      try {
+        const f = townFocus(this.state);
+        w.rig.setFocus(f.x + 0.5 - w.map.w / 2, f.y + 0.5 - w.map.h / 2);
+      } catch { /* keep the last focus */ }
+    }
+    w.rig.home(animate, whole);
+  }
+
   tileWorld(tx: number, ty: number, w = 1, h = 1): { x: number; y: number; z: number } {
     const m = this.world?.map;
     if (!m) return { x: 0, y: 0, z: 0 };
@@ -724,6 +773,7 @@ export class GameRenderer {
     const time = this.shared.uTime.value;
     w.rig.update(dt);
     w.veg.setFocus(w.rig.controls.target.x, w.rig.controls.target.z);
+    if (this.shadowFollow && this.sun.castShadow) this.followShadow(w.rig.controls.target.x, w.rig.controls.target.z);
     w.tiles.update(dt);
     w.bld.update(dt, time);
     w.amb.update(dt, time);
@@ -788,6 +838,16 @@ export class GameRenderer {
       this.cpuAcc = 0;
     }
     this.auto.frame(rawDt, cpu, document.hidden, this.pref.mode === 'manual');
+  }
+
+  /** Slide the shadow window over the part of the map the camera is looking at (snapped to shadow texels so edges do not shimmer). */
+  private followShadow(tx: number, tz: number): void {
+    const texel = (this.shadowHalf * 2) / Math.max(1, this.sun.shadow.mapSize.x);
+    const x = Math.round(tx / texel) * texel, z = Math.round(tz / texel) * texel;
+    this.sun.target.position.set(x, 0, z);
+    this.sun.position.copy(this.sunDir).multiplyScalar(this.shadowHalf * 2.4).add(this.sun.target.position);
+    this.sun.target.updateMatrixWorld();
+    this.sun.updateMatrixWorld();
   }
 
   /** Debug: count visible draw objects per frame category. */

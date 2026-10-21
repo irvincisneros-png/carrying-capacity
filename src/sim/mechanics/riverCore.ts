@@ -4,6 +4,7 @@
  * billabongs. Flow follows the weather, drought and warming; the player's levers are the allocation policies, storage,
  * efficient irrigation, a fishway at the weir and plantings along the banks.
  */
+import { dilate } from '../grid';
 import { getScenario } from '../scenarios';
 import { policyValue } from '../policyCore';
 import { TileKind } from '../types';
@@ -124,25 +125,15 @@ export function naturalFlow(s: GameState, season: number, rainfall: number, w: F
 /** Fraction of vegetated (red gum, shrub, reed) tiles on the banks: all land within 2 tiles of the river or a billabong. */
 export function ripFraction(s: GameState): number {
   const g = s.grid;
+  const water = new Uint8Array(g.kind.length);
+  for (let i = 0; i < g.kind.length; i++) water[i] = g.kind[i] === TileKind.River || g.kind[i] === TileKind.Wetland ? 1 : 0;
+  const near = dilate(water, g.w, g.h, 2);
   let n = 0, veg = 0;
-  for (let y = 0; y < g.h; y++) {
-    for (let x = 0; x < g.w; x++) {
-      const i = y * g.w + x;
-      const k = g.kind[i];
-      if (k !== TileKind.Land && k !== TileKind.Bush) continue;
-      let near = false;
-      for (let dy = -2; dy <= 2 && !near; dy++) {
-        for (let dx = -2; dx <= 2; dx++) {
-          const xx = x + dx, yy = y + dy;
-          if (xx < 0 || yy < 0 || xx >= g.w || yy >= g.h) continue;
-          const kk = g.kind[yy * g.w + xx];
-          if (kk === TileKind.River || kk === TileKind.Wetland) { near = true; break; }
-        }
-      }
-      if (!near) continue;
-      n++;
-      if ((g.building[i] ?? 0) === 0 && (k === TileKind.Bush || ((g.stage[i] ?? 0) >= 2 && (g.health[i] ?? 0) > 0))) veg++;
-    }
+  for (let i = 0; i < g.kind.length; i++) {
+    const k = g.kind[i];
+    if ((k !== TileKind.Land && k !== TileKind.Bush) || near[i] !== 1) continue;
+    n++;
+    if ((g.building[i] ?? 0) === 0 && (k === TileKind.Bush || ((g.stage[i] ?? 0) >= 2 && (g.health[i] ?? 0) > 0))) veg++;
   }
   return n > 0 ? veg / n : 1;
 }
