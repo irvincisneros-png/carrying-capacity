@@ -11,6 +11,9 @@ import { buildAmbient, type AmbientId } from './models/ambient';
 import { hash2 } from './noise';
 import { Parts, T, blob } from './geo';
 import { BoxGeometry, type BufferGeometry } from 'three';
+import { TrafficLayer } from './traffic';
+import { RoadMarkers } from './roadmarkers';
+import type { Tier } from './quality';
 
 /** Low ring of sandstone stones with an ochre band: marks a place the community asked to be consulted about. */
 function markerGeo(): BufferGeometry {
@@ -42,9 +45,25 @@ export class AmbientLayer {
   private detail: 0 | 1 = 1;
   private sig = '';
   density = 1;
+  /** Moving cars, trucks, buses, pedestrians, cyclists and the tractor (driven from update()). */
+  readonly traffic: TrafficLayer;
+  /** Floating "no road" tokens over buildings the road network does not reach. */
+  readonly markers: RoadMarkers;
 
   constructor(private map: MapGeo, private lib: MatLib, private group: Group) {
     this.batch = this.make();
+    this.traffic = new TrafficLayer(map, lib, group);
+    this.markers = new RoadMarkers(map, group);
+  }
+
+  setTier(t: Tier): void {
+    this.traffic.setTier(t);
+  }
+
+  dispose(): void {
+    this.batch.dispose();
+    this.traffic.dispose();
+    this.markers.dispose();
   }
 
   private make(): Batch {
@@ -56,15 +75,16 @@ export class AmbientLayer {
     return b;
   }
 
-  /**
-   * Per-frame hook for moving life (traffic, pedestrians). Nothing moves yet: the cars and wagons placed by sync()
-   * are static. A later layer drives its own instanced meshes from here (called once a frame with the clock in seconds).
-   */
-  update(_dt: number, _time: number): void {}
+  /** Per-frame hook for moving life (called once a frame with the clock in seconds). The parked cars, wagons and props placed by sync() are static. */
+  update(dt: number, time: number): void {
+    this.traffic.update(dt, time);
+    this.markers.update(time);
+  }
 
   setDetail(detail: 0 | 1): void {
     if (detail === this.detail) return;
     this.detail = detail;
+    this.traffic.setDetail(detail);
     this.group.remove(this.batch.mesh);
     this.batch.dispose();
     this.batch = this.make();
@@ -87,6 +107,8 @@ export class AmbientLayer {
   }
 
   sync(s: GameState): void {
+    this.traffic.sync(s);
+    this.markers.sync(s);
     const g = s.grid;
     const est = Math.round(estuaryHealth(s) / 10);
     const act2 = s.phase === 'act2' || s.phase === 'epilogue' || s.phase === 'failed';
@@ -138,20 +160,8 @@ export class AmbientLayer {
           const mz = cz + (r(92) - 0.5) * 0.4;
           this.putGeo('marker', markerGeo, mx, map.heightAt(mx, mz) - 0.005, mz, r(93) * 6.28, consulted.includes(sig) ? 1.15 : 1, consulted.includes(sig) ? 0xffffff : 0xe8d0c0);
         }
-        // ---- roads: cars + trucks
-        if (own === 'road' && era > 0) {
-          const p = (era === 1 ? 0.18 : 0.42) * dens + (near(tx, ty, HOMES, 1) ? 0.15 : 0);
-          if (r(1) < p) {
-            const along = r(2) < 0.5;
-            const off = (r(3) - 0.5) * 0.5;
-            const lane = r(4) < 0.5 ? -0.1 : 0.1;
-            const x = cx + (along ? lane : off);
-            const z = cz + (along ? off : lane);
-            const truck = near(tx, ty, INDUSTRY, 2) && r(5) < 0.5;
-            this.put(truck ? 'truck' : 'car', x, map.heightAt(cx, cz) + 0.045, z, (along ? 0 : Math.PI / 2) + (lane > 0 ? Math.PI : 0) + Math.PI / 2, 1, CAR_COLS[(r(6) * CAR_COLS.length) | 0]);
-          }
-          continue;
-        }
+        // ---- roads: the cars on them move (see traffic.ts)
+        if (own === 'road') continue;
         // ---- rail: coal wagons in strings
         if (own === 'rail' && r(1) < 0.45 * dens && !act2) {
           const ns = tAt(tx, ty - 1) === 'rail' || tAt(tx, ty + 1) === 'rail';
@@ -190,6 +200,7 @@ export class AmbientLayer {
             else if (pick < 0.8) this.put('watertank', cx + ox, y(cx + ox, cz + oz), cz + oz, 0, 1.1);
             else if (act2) this.put('picnic', cx + ox, y(cx + ox, cz + oz), cz + oz, r(24) * 3, 1.2);
             else this.put('bin', cx + ox, y(cx + ox, cz + oz), cz + oz, 0, 1.2);
+            if (era > 0 && !act2 && r(26) < 0.3 * dens) this.put('car', cx + (r(27) - 0.5) * 0.3, y(cx, cz) + 0.01, cz + (r(28) - 0.5) * 0.3, yawQ(r(29)), 1, CAR_COLS[(r(34) * CAR_COLS.length) | 0]);
             if (r(25) < 0.6) {
               for (let f = 0; f < 4; f++) {
                 const fx = cx - 0.375 + f * 0.25;

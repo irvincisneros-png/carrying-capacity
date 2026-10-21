@@ -274,7 +274,7 @@ export class GameRenderer {
           if (m.geometry) m.geometry.dispose();
         });
         bld.batch.dispose();
-        amb.batch.dispose();
+        amb.dispose();
         tb.heightTex.dispose();
         tiles.tex.dispose();
         water.mat.dispose();
@@ -657,6 +657,7 @@ export class GameRenderer {
       w.bld.setDetail(d.detail, this.state, d.partCull);
       w.bld.setOutlines(d.outlines && this.pref.outlines === 'subtle');
       w.amb.setDetail(d.detail);
+      w.amb.setTier(this.tier);
       w.amb.density = d.props * (w.map.w > 40 && this.tier <= 1 ? 0.5 : 1);
       w.smoke.density = d.smoke;
       this.ghostGeos.clear();

@@ -421,10 +421,71 @@ export class App {
     }
   }
 
+  private noRoadEl: HTMLElement | null = null;
+  private noRoadText: HTMLElement | null = null;
+  private noRoadList: number[] = [];
+  private noRoadIdx = -1;
+
+  /** The "N buildings have no road" line in the demand-bar block, with a button that pans the camera to the next one. */
+  private updateNoRoad(s: GameState): void {
+    let list: number[] = [];
+    if (s.phase === 'act1' || s.phase === 'act2') {
+      try { const a = SIM.roadAccess(s); list = a.enforced ? [...a.unconnected] : []; } catch { list = []; }
+    }
+    this.noRoadList = list;
+    if (!this.noRoadEl) {
+      this.noRoadText = h('span', { style: 'flex:1' });
+      this.noRoadEl = h('div', { style: 'display:flex;align-items:center;gap:8px;width:100%' },
+        svg(bIcon('road')), this.noRoadText,
+        h('button', { class: 'btn small', type: 'button', title: 'Pan the camera to a building with no road', onclick: () => this.locateNoRoad() }, svg(UI_ICONS.target), 'Locate'));
+    }
+    if (this.noRoadText) this.noRoadText.textContent = `${list.length} building${list.length === 1 ? ' has' : 's have'} no road`;
+    this.hud.demand.setSlot(list.length ? this.noRoadEl : null);
+  }
+
+  private locateNoRoad(): void {
+    const s = this.game.state;
+    const list = this.noRoadList;
+    if (!list.length) return;
+    this.noRoadIdx = (this.noRoadIdx + 1) % list.length;
+    const b = s.buildings.find((x) => x.uid === list[this.noRoadIdx]);
+    if (!b) return;
+    const p = this.renderer.tileWorld(b.x, b.y, b.w, b.h);
+    this.renderer.rig?.focus(p.x, p.z, 22);
+    this.renderer.sparkle(b.x, b.y, b.w, b.h, false);
+  }
+
+  /** One line for the placement tip: does this spot touch a road that is joined to the entrance? */
+  private roadNote(s: GameState, bt: BuildingId, a: { x: number; y: number; w: number; h: number }): string {
+    let acc: ReturnType<typeof SIM.roadAccess>;
+    try { acc = SIM.roadAccess(s); } catch { return ''; }
+    if (!acc.enforced) return '';
+    const def = BUILDINGS[bt];
+    const g = s.grid;
+    let road = false, rail = false;
+    const look = (x: number, y: number): void => {
+      if (x < 0 || y < 0 || x >= g.w || y >= g.h) return;
+      const r = acc.reached[y * g.w + x] ?? 0;
+      if (r === 1) road = true;
+      else if (r === 2) rail = true;
+    };
+    for (let k = 0; k < a.w; k++) { look(a.x + k, a.y - 1); look(a.x + k, a.y + a.h); }
+    for (let k = 0; k < a.h; k++) { look(a.x - 1, a.y + k); look(a.x + a.w, a.y + k); }
+    if (def.network === 'road') {
+      const entrance = acc.entrances.includes(a.y * g.w + a.x);
+      return road || entrance ? '<br>Joins the road from the edge of the map.' : '<br><b>Not joined to the road from the edge yet.</b> Start from the road or build beside it.';
+    }
+    if (def.needsRoad === false || def.network) return '';
+    return road || (rail && def.railServed === true)
+      ? '<br>A connected road touches this spot.'
+      : '<br><b>No connected road touches this spot.</b> It will not work until a road reaches it.';
+  }
+
   private syncUi(s: GameState, force: boolean): void {
     if (!force && s.version === this.lastUiVersion) return;
     this.lastUiVersion = s.version;
     this.hud.update(s);
+    this.updateNoRoad(s);
     this.toolbar.update(s);
     this.graphs.update(s);
     const act1 = s.phase === 'act1';
@@ -774,7 +835,8 @@ export class App {
       }
       reach = `<br>Replants ${n} reef tile${n === 1 ? '' : 's'} nearby${n < 20 ? ' (try a spot closer to the reef)' : ''}`;
     }
-    if (chk.ok) this.tip.show(px, py, `<b>${def.name}</b> · $${chk.cost}k${chk.bushCleared ? `<br>Clears ${chk.bushCleared} bush tile${chk.bushCleared > 1 ? 's' : ''} (releases CO₂)` : ''}${reach}${siteWarn}`, 'ok');
+    const roadNote = chk.ok ? this.roadNote(s, bt, a) : '';
+    if (chk.ok) this.tip.show(px, py, `<b>${def.name}</b> · $${chk.cost}k${roadNote}${chk.bushCleared ? `<br>Clears ${chk.bushCleared} bush tile${chk.bushCleared > 1 ? 's' : ''} (releases CO₂)` : ''}${reach}${siteWarn}`, 'ok');
     else this.tip.show(px, py, degC(chk.reason ?? 'Cannot build here'), 'bad');
   }
 
@@ -868,6 +930,10 @@ export class App {
       const d = BUILDINGS[b.type];
       rows.push(h('h3', null, svg(bIcon(b.type)), d.name));
       rows.push(h('p', { style: 'margin:4px 0 8px' }, d.blurb));
+      try {
+        const ra = SIM.roadAccess(s);
+        if (ra.enforced && ra.unconnected.includes(b.uid)) rows.push(h('div', { class: 'fact', style: 'margin:0 0 8px' }, h('p', null, h('b', null, 'Not connected to the road in — it does nothing until a road reaches it.'))));
+      } catch { /* old state */ }
       try {
         if (d.housing > 0 && (getScenarioMech(s) ?? []).includes('reef') && SIM.wouldFlood(s, b, SIM.DESIGN_SURGE_M)) {
           rows.push(h('div', { class: 'fact', style: 'margin:0 0 8px;color:#b5651d' }, h('p', null, h('b', null, '⚠ Low ground. '), 'A storm surge could flood these homes. Demolish and rebuild them on raised or high ground, or grow mangroves in front.')));
@@ -1011,6 +1077,7 @@ export class App {
           if (g.state.phase !== 'act1' || g.state.year >= untilYear) break;
           g.state.budget = Math.max(g.state.budget, 600);
           for (const [t, n] of step) auto(t, n);
+          SIM.connectAllFree(g.state); // the scripted town's roads must reach everything (roads matter)
           g.nextDecade();
         }
         closeAllModals();
