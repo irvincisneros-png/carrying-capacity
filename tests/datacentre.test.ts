@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  applyAction, balanceGrid, BUILDINGS, dataCentreCount, DATACENTRE_CARDS, dcLoad, deserialize, getDilemma, mechBegin, mechMetric, mechSeason, offerDataCentre,
+  applyAction, balanceGrid, dcLeaseIncome, BUILDINGS, dataCentreCount, DATACENTRE_CARDS, dcLoad, deserialize, getDilemma, mechBegin, mechMetric, mechSeason, offerDataCentre,
   dataCentreOfferYear, renderText, serialize, storyVars, tick, TileKind, wordCount,
 } from '../src/sim';
 import type { GameState, ScenarioId } from '../src/sim';
@@ -72,7 +72,7 @@ describe('the data-centre card places a building and sets its terms', () => {
       const r = applyAction(s, { type: 'choose', dilemmaId: 'dc-offer', optionId: 'dc-offered' });
       expect(r.result.ok).toBe(true);
       expect(dataCentreCount(r.state)).toBe(0);
-      expect(r.state.flags['income.adj']).toBe(4);
+      expect(Number(r.state.flags['income.adj'])).toBeGreaterThanOrEqual(10);
     }
   });
   it('is not in the build menu: players only get one by saying yes to the company', () => {
@@ -80,12 +80,24 @@ describe('the data-centre card places a building and sets its terms', () => {
     const s = act2Sandbox(TileKind.Land, { scenario: 'net-zero-city', year: 2040 });
     expect(applyAction(s, { type: 'place', building: 'datacentre', x: 5, y: 5 }).result.ok).toBe(false);
   });
-  it('pays more up front and in rent when accepted as offered, and costs the town something to take on conditions', () => {
+  it('pays more up front and in rent when accepted as offered than on conditions, and both are worth tempting', () => {
     const o = city('offered'), c = city('conditions'), n = city('none');
-    expect(o.budget).toBeGreaterThan(n.budget);
-    expect(c.budget).toBeLessThan(n.budget);
-    expect(o.flags['income.adj']).toBeGreaterThan(Number(c.flags['income.adj']));
-    expect(Number(c.flags['income.adj'])).toBeGreaterThan(0);
+    expect(o.budget - n.budget).toBeGreaterThanOrEqual(150);
+    expect(c.budget - n.budget).toBeGreaterThan(0);
+    expect(o.budget).toBeGreaterThan(c.budget);
+    expect(dcLeaseIncome(o)).toBeGreaterThan(dcLeaseIncome(c));
+    expect(dcLeaseIncome(o)).toBeGreaterThanOrEqual(25);
+    expect(dcLeaseIncome(c)).toBeGreaterThan(0);
+    expect(o.flags['income.adj']).toBeUndefined();
+  });
+  it('the lease stops when the data centre is demolished', () => {
+    const o = city('offered');
+    const dc = o.buildings.find((x) => x.type === 'datacentre')!;
+    expect(dcLeaseIncome(o)).toBeGreaterThan(0);
+    const after = applyAction(o, { type: 'demolish', x: dc.x, y: dc.y });
+    expect(after.result.ok, after.result.reason).toBe(true);
+    expect(dcLeaseIncome(after.state)).toBe(0);
+    expect(after.state.flags['income.adj']).toBeUndefined();
   });
 });
 

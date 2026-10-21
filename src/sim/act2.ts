@@ -1,4 +1,5 @@
 import { BUILDINGS } from './buildings';
+import { dcLeaseIncome } from './datacentre';
 import { climateAt } from './climate';
 import { ACT2_INCOME_MULT, ACT2_POP_GROWTH, computeMeters, economySnapshot, INCOME_PER_JOB, BASE_GRANT } from './economy';
 import { applyCapacityToMap, capacityIncomePerDecade, capSummary, stepCapacity } from './capacity';
@@ -250,7 +251,7 @@ function yearEnd(s: GameState, quiet: boolean): void {
 
   const snap = economySnapshot(s);
   const income = ((snap.filledJobs * INCOME_PER_JOB + BASE_GRANT) * sc.modifiers.budgetMult / 10) * ACT2_INCOME_MULT * (1 - 0.8 * unmet);
-  const incomeAdj = typeof s.flags['income.adj'] === 'number' ? s.flags['income.adj'] : 0;
+  const incomeAdj = (typeof s.flags['income.adj'] === 'number' ? s.flags['income.adj'] : 0) + dcLeaseIncome(s);
   s.lastIncome = Math.round(income + incomeAdj + mechIncome(s) + (choiceIncomePerDecade(s) + capacityIncomePerDecade(s)) / 10);
   s.budget += s.lastIncome;
   payFund(s);

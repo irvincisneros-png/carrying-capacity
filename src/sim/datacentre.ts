@@ -8,6 +8,7 @@
  */
 import { BUILDINGS } from './buildings';
 import { bumpRect } from './restoration';
+import { workingBuildings } from './roads';
 import { TileKind } from './types';
 import type { GameState, PlacedBuilding } from './types';
 
@@ -119,4 +120,13 @@ export function placeDataCentre(s: GameState): boolean {
   }
   bumpRect(g, x, y, w, h);
   return true;
+}
+
+/**
+ * Yearly lease and rates paid by the company while its data centre stands and works (flag dc.lease, set by the card). Nothing
+ * stays once the building is demolished.
+ */
+export function dcLeaseIncome(s: GameState): number {
+  if (!workingBuildings(s).some((b) => b.type === 'datacentre')) return 0;
+  return flagNum(s, 'dc.lease');
 }
