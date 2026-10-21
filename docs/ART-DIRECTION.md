@@ -1,4 +1,4 @@
-# Art Direction — decision (2026-10-20)
+# Art Direction — decision (2026-10-20; owner approved B on 2026-10-21)
 
 **Chosen: B "Painterly toon"**, with A's faceted geometry where it reads better and D's clarity for the UI.
 
