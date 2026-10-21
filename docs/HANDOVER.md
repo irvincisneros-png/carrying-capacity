@@ -12,7 +12,7 @@ then `docs/GAMEPLAY.md` (the design) and `docs/reviews/qa-playthrough.md` (three
   wildlife with named families, residents with story beats and moods, dilemma cards with evidence, Caring for Country
   (draft), satellites and early warnings, circular economy (repurpose / recycle / landfill and research), community
   projects (late-game money sink), scenario policies (water sharing, drought plan, starfish control, turtle lighting,
-  water restrictions), scenario mechanics (river, reef, outback, city heat), graphs with CSV export.
+  water restrictions), scenario mechanics (river, reef, outback, city heat), graphs with CSV export, and the learning layer (land limits meter, water field kit with predictions, cause chains, field guide, who wins and loses, My household, printable report; see GAMEPLAY.md section 8).
 - **Quality bar**: `npx vitest run` (about 670 tests including whole-scenario balance runs on four event seeds),
   `npx tsc --noEmit -p .` and `npx vite build` all clean. No console errors in the QA replays. 60 fps on the
   test machine with 4× CPU throttling.
@@ -100,13 +100,14 @@ renderer: 400 (valley), 1600 (coal, river, red), 1936 (reef), 2304 (city, still 
   next real tick). Players never see this.
 - `vite build` warns that the main chunk is over 900 kB (three.js + post-processing); it loads once and is cached.
 - Phones work at 375 px but are cramped; a laptop is the intended device.
-- Reflection answers and the letter are not saved or exported.
+- The water kit readings are a model tuned to sit near the NSW / ANZECC trigger values, not real measurements; the figures flagged as uncertain in `docs/research/wp8-wp9-facts.md` are worded cautiously in the game. Confirm the ANZG 2018 tables before the text goes to print.
+- The land limits constants (`CAP` in `sim/capacity.ts`, `content/capacity.ts`) were tuned on the scripted players on the maps as they were; after a map is resized, re-run `tests/capacity.test.ts` and re-tune (the thoughtful runs must end under the line, the idle runs over it).
 
 ## Next steps
 
 1. AECG / Local Aboriginal Land Council consultation on all `needsConsultation` content, then revise text and names.
 2. Classroom pilot with one Year 9 class: watch where students get stuck (QA estimates are adult driver-based).
-3. Optional: export the Report Card and reflections as a printable page or PDF for assessment.
+3. Done in Round 6 (WP8): the report, reflections and household choices print from the end screen. Remaining idea: a teacher view that collects them from a class.
 4. Optional: let the scripted balance players fund community projects, and add a balance band for them.
 5. Optional: code-split three.js post-processing to shrink the first load on slow school networks.
 

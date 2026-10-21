@@ -144,7 +144,7 @@ export class GameController {
     const { state, result } = applyAction(this.state, a);
     if (result.ok) {
       if (a.type === 'place') this.undoState = before;
-      else this.undoState = null;
+      else if (a.type !== 'learn') this.undoState = null; // notes, tests and field guide terms do not cancel the Undo
       this.set(state);
       this.scheduleSave();
     }
@@ -161,7 +161,8 @@ export class GameController {
     const s = this.undoState;
     this.undoState = null;
     // keep version monotonic so renderers notice
-    const restored = { ...s, version: this.state.version + 1 };
+    // What the player has written or tested since the building was placed stays (the learning notes are not part of the undo).
+    const restored = { ...s, ...(this.state.learn ? { learn: this.state.learn } : {}), version: this.state.version + 1 };
     this.set(restored);
     this.scheduleSave();
     return true;

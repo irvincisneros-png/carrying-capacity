@@ -2,9 +2,12 @@
    and the layout fixes for the Act 1 clock and the right-hand column. Loaded after styles.css. */
 
 /* ---------- layout: the clock lives in the HUD's centre column, under the demand bars, so nothing sits on top of it */
-.hud-center .clock { position: static; transform: none; align-self: center; top: auto; left: auto; z-index: auto; }
+.hud-center .clock { position: static; transform: none; align-self: center; top: auto; left: auto; z-index: auto; max-width: 100%; flex-wrap: wrap; justify-content: center; row-gap: 4px; }
+/* The Act 2 goals panel starts a little lower so the top-left HUD never touches it. */
+.objectives:not(.act1goals) { top: 96px; }
 @media (max-width: 700px) {
-  .hud-center .clock { position: fixed; top: auto; bottom: 214px; left: 6px; align-self: auto; max-width: calc(100vw - 120px); z-index: 20; }
+  .hud-center .clock { position: fixed; top: auto; bottom: 258px; left: 6px; align-self: auto; max-width: calc(100vw - 120px); z-index: 20; }
+  .objectives:not(.act1goals) { top: auto; }
 }
 
 /* ---------- layout: one right-hand column (goals above, what the town needs and the Skip button below) */

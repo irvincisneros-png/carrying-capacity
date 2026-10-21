@@ -14,7 +14,7 @@ let onNew: ((id: string) => void) | null = null;
 let tipEl: HTMLElement | null = null;
 
 const RES: { t: GlossTerm; re: RegExp }[] = GLOSSARY.map((t) => ({ t, re: new RegExp(`\\b(?:${t.match})\\b`, 'i') }));
-const SKIP = 'button, textarea, input, select, script, style, kbd, .gloss, .x, .portrait, svg, canvas, [data-nogloss]';
+const SKIP = 'button, textarea, input, select, script, style, kbd, h1, h2, h3, h4, small, label, summary, th, .gloss, .x, .portrait, .kicker, .graph-title, .stat, .badge, .cap-row-top, .legend, .chain-n, svg, canvas, [data-nogloss]';
 
 export function setGlossarySeen(ids: readonly string[]): void {
   seen.clear();

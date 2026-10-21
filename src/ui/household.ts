@@ -58,7 +58,7 @@ export function showHousehold(s: GameState, hooks: LearnHooks, onDone?: () => vo
     ...HOUSEHOLD_AREAS.map((a) => h('div', { class: 'hh-area', 'data-area': a.id },
       h('h4', null, a.title),
       h('p', { style: 'margin:2px 0' }, a.link),
-      townNumber(s, a.id) ? h('p', { class: 'hh-town' }, svg(LEARN_ICONS.chain), degC(townNumber(s, a.id) as string)) : null,
+      townNumber(s, a.id) ? h('p', { class: 'hh-town' }, svg(LEARN_ICONS.chain), h('span', null, degC(townNumber(s, a.id) as string))) : null,
       h('p', { class: 'muted', style: 'margin:2px 0 4px;font-size:13px' }, a.why),
       h('div', { class: 'hh-ideas' }, ...a.ideas.map((i) => {
         const box = h('input', { type: 'checkbox', id: `hh-${i.id}`, 'data-idea': i.id }) as HTMLInputElement;
