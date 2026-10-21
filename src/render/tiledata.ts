@@ -38,7 +38,7 @@ export class TileData {
     const t = this.target;
     for (let i = 0; i < this.n; i++) {
       const k = g.kind[i] ?? 0;
-      const built = (g.building[i] ?? 0) !== 0;
+      const built = (g.building[i] ?? 0) !== 0 && k !== TileKind.River;
       const soil = g.soilContamination[i] ?? 0;
       const water = g.waterPollution[i] ?? 0;
       const health = g.health[i] ?? 0;

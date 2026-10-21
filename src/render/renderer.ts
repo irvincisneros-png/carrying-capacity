@@ -571,7 +571,8 @@ export class GameRenderer {
     const water = tool === 'offshorewind' || tool === 'tidal';
     const x = tx + fp.w / 2 - w.map.w / 2;
     const z = ty + fp.h / 2 - w.map.h / 2;
-    const y = tool === 'road' || tool === 'rail' ? w.map.heightAt(x, z) + 0.03 : w.map.padHeight(tx, ty, fp.w, fp.h, water);
+    const bridgeGhost = tool === 'road' && w.map.kinds[ty * w.map.w + tx] === TileKind.River;
+    const y = bridgeGhost ? 0.25 : tool === 'road' || tool === 'rail' ? w.map.heightAt(x, z) + 0.03 : w.map.padHeight(tx, ty, fp.w, fp.h, water);
     w.cursor.showGhost(x, y, z, -rot * (Math.PI / 2), ok, this.lib.ghostCol);
     const radius = def.nursery?.radius ?? def.remediation?.radius ?? (def.localPollution >= 2 ? Math.min(6, 1 + Math.ceil(def.localPollution)) : 0);
     if (radius > 0) w.cursor.showRing(x, z, radius + Math.max(fp.w, fp.h) / 2);

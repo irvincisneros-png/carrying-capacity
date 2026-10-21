@@ -6,6 +6,7 @@ import {
 } from './economy';
 import { enterTurningPoint, startAct2 } from './act2';
 import { buildCity } from './prebuilt';
+import { BRIDGE_COST_MULT } from './bridges';
 import { commuteStats, connectAllFree, ensureEntrance, isEntrance, workingBuildings } from './roads';
 import { mechIncome } from './mechanics';
 import { applyLayerAction, emptyLayers, layersDecadeMoods, layersDecadeStory, onDemolishedBuilding, onPlaced } from './layers';
@@ -222,7 +223,8 @@ export function applyAction(state: GameState, action: Action): { state: GameStat
       }
       bumpRect(g, b.x, b.y, b.w, b.h);
       next.buildings = next.buildings.filter((o) => o.uid !== b.uid);
-      const refund = Math.floor(availability(state.scenarioId, b.type).cost * DEMOLISH_REFUND);
+      const bridge = b.type === 'road' && state.grid.kind[b.y * state.grid.w + b.x] === TileKind.River;
+      const refund = Math.floor(availability(state.scenarioId, b.type).cost * (bridge ? BRIDGE_COST_MULT : 1) * DEMOLISH_REFUND);
       next.budget += refund;
       onDemolishedBuilding(next, b);
       next.meters = computeMeters(next);

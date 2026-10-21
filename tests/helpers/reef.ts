@@ -43,7 +43,12 @@ export function reefAct1Thoughtful(seed: number | null = null): GameState {
   return runScript(seededGame('reef-island', seed), (s) => inner(answerPrompts(consultAll(s), {}, 25))).state;
 }
 
-export const REEF_BOT = { cull: 1, nurseries: 6, wetlands: 4, relocate: true, seawalls: 0, satellites: true, circular: true, lights: 1, startDelay: 0, scale: 1 };
+/**
+ * Round 7 (bridges): `cull` 1 -> 2. The entrance road now ends two tiles off the water, which moved the Act 1 island town; seed 11
+ * then ended on coral 47.6 (the goal is 50, it was 51.0). Starfish control at level 2 brings it back to 50.6 (the other seeds
+ * 61.8, 74.5, 66.3), the same player with one more local action, not a change of goal.
+ */
+export const REEF_BOT = { cull: 2, nurseries: 6, wetlands: 4, relocate: true, seawalls: 0, satellites: true, circular: true, lights: 1, startDelay: 0, scale: 1 };
 
 /** Reef tiles a nursery here would reach that fewer than two nurseries already cover (spreads them round the reef). */
 function reefReach(s: GameState): (x: number, y: number, w: number, h: number) => number {

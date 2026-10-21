@@ -8,6 +8,7 @@ export * from './rules';
 export * from './pollution';
 export * from './climate';
 export * from './economy';
+export * from './bridges';
 export * from './roads';
 export * from './game';
 export * from './save';

@@ -258,6 +258,34 @@ export class MapGeo {
     return (a + (b - a) * tx) * (1 - tz) + (c + (d - c) * tx) * tz;
   }
 
+  private decks = new Map<number, { ax: 0 | 1; a: number; c: number; b: number }>();
+
+  /** The bridge decks the road grading produced (by tile key ty * w + tx). */
+  setDecks(d: Map<number, { ax: 0 | 1; a: number; c: number; b: number }>): void {
+    this.decks = d;
+  }
+
+  /** The deck on tile (tx, ty), if it is a bridge tile. */
+  deckOn(tx: number, ty: number): { ax: 0 | 1; a: number; c: number; b: number } | undefined {
+    return this.decks.get(ty * this.w + tx);
+  }
+
+  /** Deck surface height (before the asphalt lift) at a world point on a bridge tile, or null off the bridges. */
+  deckAt(x: number, z: number): number | null {
+    if (this.decks.size === 0) return null;
+    const tx = this.tileX(x), ty = this.tileY(z);
+    const d = this.decks.get(ty * this.w + tx);
+    if (!d) return null;
+    const s = d.ax === 0 ? x - this.cx(tx) : z - this.cz(ty);
+    const f = Math.max(-0.5, Math.min(0.5, s));
+    return f < 0 ? d.c + (d.a - d.c) * (-f / 0.5) : d.c + (d.b - d.c) * (f / 0.5);
+  }
+
+  /** Height of the surface a vehicle or walker stands on: the bridge deck where there is one, else the ground. */
+  driveAt(x: number, z: number): number {
+    return this.deckAt(x, z) ?? this.heightAt(x, z);
+  }
+
   /** World x of a tile's centre. */
   cx(tx: number): number { return tx - this.w / 2 + 0.5; }
   cz(ty: number): number { return ty - this.h / 2 + 0.5; }

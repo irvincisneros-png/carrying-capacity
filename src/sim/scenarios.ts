@@ -193,6 +193,12 @@ export interface ScenarioDef {
    * above 1); without this a town on a 64x64 map would never overshoot. Defaults to the map's own size.
    */
   landReachTiles?: number;
+  /**
+   * Where the start-of-game country road should lead and which map edge it comes in from, when the default (the open ground
+   * nearest the water hub, from the nearest edge) is not the best start. Green Valley brings the road in from the north and
+   * carries it over the creek on a pre-built bridge to the open southern valley, where the town will grow.
+   */
+  entranceHint?: { site?: { x: number; y: number }; edge?: 'n' | 's' | 'e' | 'w' };
   /** Estimated minutes of real play, for the scenario-select card. */
   playMinutes?: readonly [number, number];
   /** Dilemma cards offered per in-game decade of Act 2 (default 3). */

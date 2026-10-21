@@ -5,8 +5,13 @@ import type { Plan } from './autoplay';
 
 /** A careful player builds compactly along the roads it has (one tile of new road is worth three tiles of walking to the hub). */
 export const CAREFUL_ROADS = 3;
-/** The build-everything player gives some weight to where the roads already run, but less than a careful one. */
-export const DIRTY_ROADS = 1.5;
+/**
+ * The build-everything player gives some weight to where the roads already run. Re-tuned 1.5 -> 1 with bridges (round 7): the
+ * entrance road now ends two tiles off the water and the creek south of it can be bridged, so this knife-edge run builds a
+ * different town (1.17 C by 2020, was 1.26 C; fewer factories and steelworks before the first power station). Values from 2.25 to
+ * 2.6 give a hotter town (1.35 C) that breaks more Act 2 bands than this does; 1 is the nearest to the old worst case.
+ */
+export const DIRTY_ROADS = 1;
 
 interface Want {
   id: BuildingId;

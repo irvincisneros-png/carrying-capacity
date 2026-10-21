@@ -907,7 +907,7 @@ export class App {
       try { legacy = !!b && s.phase === 'act2' && SIM.itemAt(s, hv.tx, hv.ty)?.status === 'standing'; } catch { legacy = false; }
       const nm = availability(s.scenarioId, b?.type ?? 'road').name ?? (b ? BUILDINGS[b.type].name : '');
       if (b && legacy) this.tip.show(px, py, `<b>Demolish ${nm}</b><br>${s.circular?.unlocked ? 'This old site would go to landfill (the worst choice). Use the <b>Old sites</b> tool to repurpose or recycle it.' : 'It closes now and is left as rubble; once the circular economy opens you can still recycle what is left.'}`, s.circular?.unlocked ? 'bad' : '');
-      else if (b) this.tip.show(px, py, `<b>Demolish ${nm}</b><br>Refund $${Math.floor(availability(s.scenarioId, b.type).cost * DEMOLISH_REFUND)}k`, '');
+      else if (b) this.tip.show(px, py, `<b>Demolish ${nm}</b><br>Refund $${Math.floor(availability(s.scenarioId, b.type).cost * (b.type === 'road' && s.grid.kind[b.y * s.grid.w + b.x] === TileKind.River ? SIM.BRIDGE_COST_MULT : 1) * DEMOLISH_REFUND)}k`, '');
       if (b) { const pw = powerLossWarning(s, b.type, b.uid); if (pw) this.tip.show(px, py, `${this.tip.el.innerHTML}<br><b>${pw}</b>`, pw.startsWith('✓') ? '' : 'bad'); }
       else this.tip.hide();
       return;
@@ -1040,8 +1040,9 @@ export class App {
       const big = Math.max(a.w, a.h);
       if (big >= 2) this.renderer.rig?.shake(0.03 * big);
       if (GREEN.has(bt)) setTimeout(() => this.renderer.sparkle(a.x, a.y, a.w, a.h, bt === 'nursery'), 450);
-    } else if (!painting) {
-      sfx('error');
+    } else if (!painting || (bt === 'road' && /bridge/i.test(r.reason ?? ''))) {
+      // Dragging a road over a creek says why a bridge is refused (too long, not straight); other refusals stay quiet in a stroke.
+      if (!painting) sfx('error');
       floater(cx, cy - 30, degC(r.reason ?? 'Cannot build here'), 'bad');
     }
   }

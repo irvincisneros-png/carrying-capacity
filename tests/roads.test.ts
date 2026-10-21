@@ -200,9 +200,9 @@ describe('road access', () => {
     let s = field();
     const c = put(s, 'cottage', 12, 3); s = c.state;
     expect(roadRoute(s, c.uid)).not.toBeNull();
-    // Wall the cottage in with bush-free water on every side that is open: a 1x1 home in a pond has no road.
+    // Wall the cottage in with sea on every side that is open (a creek could be bridged, the sea cannot): a 1x1 home in a pond has no road.
     const pond = cloneState(s);
-    for (const [x, y] of [[11, 3], [13, 3], [12, 2], [12, 4]]) pond.grid.kind[(y as number) * pond.grid.w + (x as number)] = TileKind.River;
+    for (const [x, y] of [[11, 3], [13, 3], [12, 2], [12, 4]]) pond.grid.kind[(y as number) * pond.grid.w + (x as number)] = TileKind.Sea;
     expect(roadRoute(pond, c.uid)).toBeNull();
   });
 });

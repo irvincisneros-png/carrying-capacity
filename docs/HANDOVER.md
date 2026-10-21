@@ -164,6 +164,28 @@ co-management and cool burns already act on a whole patch per click. Touch still
 **Saves.** Still version 4; a save keeps the grid it was made on (a 40x40 Coal Coast save loads and plays on this build,
 checked for all six scenarios at their old sizes). The camera frames a loaded game on its town.
 
+## Bridges and entrance roads (round 7)
+
+The Road tool over a **River** tile builds a bridge ($6k a tile, at most 3 tiles of water, straight, open ground at both
+ends; rules and messages in `src/sim/bridges.ts`, placement in `canPlace`). It is a `road` building on a River tile, so
+`roadAccess`, the commute search, traffic, demolish and saves need no new type; the wildlife road buffer ignores road tiles on
+water. `roadRoute` plans bridges (direction-aware Dijkstra `routeWithBridges`, a bridge tile weighs 8) only when cheaper than the
+dry way round; `roadUnreachable` treats bridgeable river as land. Net Zero City keeps its old two entrances and dry roads
+(`bridgesOn`). Renderer: `roadnet.ts` grades a deck between the banks (`Deck`, `BRIDGE_CAMBER`), `roadmesh.ts` `bridge()` draws
+deck, parapets, pier and abutments (Very low: deck and abutments only), `MapGeo.driveAt` gives traffic the deck height.
+
+**Entrance roads** now run to the open tile nearest the town site that is at least `ENTRANCE_CLEARANCE` (2) tiles from water, so
+they never stop at the water's edge; land across a bridgeable creek is one region (one entrance, a pre-built bridge where the
+site is across). Green Valley uses `entranceHint` (north edge, site south of the creek): the start shows the bridge.
+`tools/dumpmap.ts <id> --game` prints roads (`+`), bridges (`#`) and entrances (`E`); `tools/bridge-shots.mjs` takes the screenshots.
+
+**Re-bands (round 7, all reasoned in the test comments):** `DIRTY_ROADS` 1.5 -> 1 (dirty Coal Coast start 1.17 C, was 1.26),
+dirty worst-case and tuning warming floors 1.25/1.2 -> 1.15, idle blackout floor 0.02 -> 0.005, "late" Act 2 delay 20 -> 25 years,
+Reef thoughtful starfish control 1 -> 2 (seed 11 coral 47.6 -> 50.6), River Town idle farms < 50, Reef idle homes no longer
+asserted lost, Reef no longer asserted stricter than River Town in `difficulty.test.ts` (its scripted island town is smaller and
+forgives every version). Thoughtful runs still win on all seeds; idle still loses. Also fixed: `roadRoute` started routes from rail sidings for
+buildings a siding cannot serve.
+
 ## Known issues
 
 - **Content consultation** (above) is still outstanding now that the game is public.

@@ -3,7 +3,7 @@
  * town's entrance, so every scripted player connects what it builds with `connectToEntrance`: the shortest road path,
  * paid for at the road's price like any player would.
  */
-import { applyAction, availability, roadAccess, roadRoute } from '../../src/sim';
+import { applyAction, availability, BRIDGE_COST_MULT, roadAccess, roadRoute, TileKind } from '../../src/sim';
 import type { GameState } from '../../src/sim';
 
 /** Money the shortest road to the entrance would cost (0 if already connected, Infinity if there is no route). */
@@ -11,7 +11,9 @@ export function connectionCost(state: GameState, uid: number): number {
   if (!roadAccess(state).enforced) return 0;
   const route = roadRoute(state, uid);
   if (route === null) return Infinity;
-  return route.length * availability(state.scenarioId, 'road').cost;
+  const one = availability(state.scenarioId, 'road').cost;
+  // a road tile over a creek is a bridge, which costs BRIDGE_COST_MULT times as much
+  return route.reduce((sum, i) => sum + one * (state.grid.kind[i] === TileKind.River ? BRIDGE_COST_MULT : 1), 0);
 }
 
 /**

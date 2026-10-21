@@ -189,7 +189,7 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
     id: 'road', network: 'road', needsRoad: false, name: 'Road', w: 1, h: 1, cost: 1, jobs: 0, housing: 0, power: 0,
     co2: 0, localPollution: 0, pollutes: {}, unlock: 1850, category: 'transport',
     placement: { on: [Land, Bush] },
-    blurb: 'Connects buildings to the road from the edge of the map. A building with no road to the edge gives nothing: no homes, jobs or power.',
+    blurb: 'Connects buildings to the road from the edge of the map. A building with no road to the edge gives nothing: no homes, jobs or power. Lay a road across a creek or river to build a bridge: straight, up to 3 tiles of water, 6 times the price per tile.',
   },
   coalmine: {
     id: 'coalmine', railServed: true, phases: ACT1, name: 'Coal mine', w: 2, h: 2, cost: 40, jobs: 40, housing: 0, power: -2,

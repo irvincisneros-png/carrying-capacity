@@ -11,7 +11,24 @@ export interface RoadTile {
   /** connection mask: bit i = neighbour in DIRS[i] (+z, +x, -z, -x) */
   mask: number;
   dirt: boolean;
+  /** A bridge: a road tile over a creek or river (the deck is graded between its two banks, not draped on the riverbed). */
+  bridge?: boolean;
+  /** Bit i set when the neighbour in DIRS[i] is a bridge tile (this tile's arm that way meets a bridge deck). */
+  bridgeMask?: number;
 }
+
+/** Deck heights of one bridge tile (graded centre heights, no asphalt lift): at the two tile edges and the centre. */
+export interface Deck {
+  /** 0: runs along x (dirs 3 -> 1), 1: runs along z (dirs 2 -> 0) */
+  ax: 0 | 1;
+  /** height at the -axis edge, the centre, the +axis edge */
+  a: number;
+  c: number;
+  b: number;
+}
+
+/** Hump the deck rises above the straight line between its banks, so it clears the water. */
+export const BRIDGE_CAMBER = 0.07;
 
 /** The surface of a road tile's edge in direction `dir` is fixed to world height `y` (a suburb street mouth). */
 export interface RoadPin {
@@ -34,6 +51,31 @@ export interface GradeResult {
   /** graded centre height per tile (key ty * W + tx) */
   heights: Map<number, number>;
   segs: RoadSeg[];
+  /** bridge decks by tile key */
+  decks: Map<number, Deck>;
+}
+
+const RIVER = 3; // TileKind.River
+
+/** Which way a bridge tile runs: along its road connections, else along the axis that lands on open ground. */
+function bridgeAxis(map: MapGeo, t: RoadTile): 0 | 1 {
+  const mx = (t.mask & 0b1010) !== 0, mz = (t.mask & 0b0101) !== 0;
+  if (mx && !mz) return 0;
+  if (mz && !mx) return 1;
+  const run = (ax: 0 | 1): number => {
+    let len = 1;
+    for (const sgn of [-1, 1]) {
+      for (let k = 1; k < 8; k++) {
+        const x = t.tx + (ax === 0 ? sgn * k : 0), y = t.ty + (ax === 1 ? sgn * k : 0);
+        if (!map.inBounds(x, y)) return 99;
+        const kd = map.kinds[y * map.w + x];
+        if (kd !== RIVER) { if (kd !== 4 && kd !== 5) return 99; break; }
+        len++;
+      }
+    }
+    return len;
+  };
+  return run(0) <= run(1) ? 0 : 1;
 }
 
 /**
@@ -48,11 +90,30 @@ export function gradeRoads(map: MapGeo, tiles: RoadTile[], pins: RoadPin[]): Gra
   tiles.forEach((t, i) => idx.set(key(t.tx, t.ty), i));
   const n = tiles.length;
   const h0 = new Float32Array(n);
+  const axes: (0 | 1)[] = [];
   const nb: number[][] = [];
   const pinned: number[][] = []; // pinned edge heights per tile
   for (let i = 0; i < n; i++) {
     const t = tiles[i]!;
     h0[i] = Math.max(0.06, map.baseHeightAt(map.cx(t.tx), map.cz(t.ty)));
+    axes.push(0);
+    if (t.bridge) {
+      // The deck is level with the banks it joins: straight between the ground at each end, with a small hump to clear the water.
+      const ax = bridgeAxis(map, t);
+      axes[i] = ax;
+      const ends: { d: number; h: number }[] = [];
+      for (const sgn of [-1, 1]) {
+        for (let k = 1; k < 10; k++) {
+          const x = t.tx + (ax === 0 ? sgn * k : 0), y = t.ty + (ax === 1 ? sgn * k : 0);
+          if (!map.inBounds(x, y)) break;
+          if (map.kinds[y * map.w + x] === RIVER) continue;
+          ends.push({ d: k, h: Math.max(0.06, map.baseHeightAt(map.cx(x), map.cz(y))) });
+          break;
+        }
+      }
+      const e0 = ends[0], e1 = ends[1];
+      h0[i] = (e0 && e1 ? (e0.h * e1.d + e1.h * e0.d) / (e0.d + e1.d) : e0 ? e0.h : e1 ? e1.h : 0.2) + BRIDGE_CAMBER;
+    }
     const list: number[] = [];
     for (let d = 0; d < 4; d++) {
       if (!(t.mask & (1 << d))) continue;
@@ -80,11 +141,23 @@ export function gradeRoads(map: MapGeo, tiles: RoadTile[], pins: RoadPin[]): Gra
     [h, nx] = [nx, h];
   }
   const heights = new Map<number, number>();
+  const decks = new Map<number, Deck>();
   const segs: RoadSeg[] = [];
   for (let i = 0; i < n; i++) {
     const t = tiles[i]!;
     const k = key(t.tx, t.ty);
     heights.set(k, h[i]!);
+    if (t.bridge) {
+      const ax = axes[i]!;
+      const lo = ax === 0 ? DIRS[3]! : DIRS[2]!;
+      const hi = ax === 0 ? DIRS[1]! : DIRS[0]!;
+      const edge = (d: readonly [number, number]): number => {
+        const j = idx.get(key(t.tx + d[0], t.ty + d[1]));
+        const hn = j !== undefined ? h[j]! : Math.max(0.06, map.baseHeightAt(map.cx(t.tx + d[0]), map.cz(t.ty + d[1])));
+        return (h[i]! + hn) / 2;
+      };
+      decks.set(k, { ax, a: edge(lo), c: h[i]!, b: edge(hi) });
+    }
     const hw = HALF_WIDTH[t.fam];
     const cx = map.cx(t.tx);
     const cz = map.cz(t.ty);
@@ -104,5 +177,5 @@ export function gradeRoads(map: MapGeo, tiles: RoadTile[], pins: RoadPin[]): Gra
     const cz = map.cz(t.ty);
     segs.push({ x0: cx, z0: cz, y0: h[i]!, x1: cx + d[0] * 0.5, z1: cz + d[1] * 0.5, y1: p.y, hw: HALF_WIDTH[t.fam] });
   }
-  return { heights, segs };
+  return { heights, segs, decks };
 }

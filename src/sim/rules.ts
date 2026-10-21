@@ -1,5 +1,6 @@
 import { BUILDINGS, footprintFor, isBuildingId } from './buildings';
 import type { BuildingDef } from './buildings';
+import { BRIDGE_COST_MULT, MSG_KIND, bridgeProblem } from './bridges';
 import { roadUnreachable } from './roads';
 import { getScenario } from './scenarios';
 import { inBounds } from './terrain';
@@ -153,6 +154,7 @@ export function canPlace(
   }
 
   let bush = 0;
+  let cost = av.cost;
   for (let yy = y; yy < y + h; yy++) {
     for (let xx = x; xx < x + w; xx++) {
       const i = yy * g.w + xx;
@@ -180,6 +182,13 @@ export function canPlace(
       // A stormwater wetland may go into bush in Act 2: it adds habitat rather than clearing it.
       const wetlandInBush = k === TileKind.Bush && phase === 'act2' && def.wetland === true;
       if (wetlandInBush) continue;
+      // The road tool on a creek or river builds a bridge: dearer, straight, and no more than a few tiles of water.
+      if (buildingId === 'road' && (k === TileKind.River || k === TileKind.Estuary || k === TileKind.Sea || k === TileKind.Reef)) {
+        const why = k === TileKind.River ? bridgeProblem(state, xx, yy) : MSG_KIND;
+        if (why) return fail('bad-terrain', why, fp, av.cost);
+        cost = av.cost * BRIDGE_COST_MULT;
+        continue;
+      }
       if (!def.placement.on.includes(k)) {
         if (k === TileKind.Bush && phase === 'act2') return fail('bad-terrain', 'This bushland is protected now - build on cleared land (open ground without trees) instead', fp, av.cost);
         return fail('bad-terrain', terrainReason(def, k), fp, av.cost);
@@ -228,10 +237,10 @@ export function canPlace(
 
   if (roadUnreachable(state, buildingId, x, y, w, h)) return fail('bad-siting', 'No road can reach here', fp, av.cost, bush);
 
-  if (state.budget < av.cost) {
-    return fail('no-funds', `Not enough money: ${def.name} costs ${av.cost}`, fp, av.cost, bush);
+  if (state.budget < cost) {
+    return fail('no-funds', `Not enough money: ${cost === av.cost ? def.name : 'A bridge'} costs ${cost}`, fp, cost, bush);
   }
-  return { ok: true, cost: av.cost, footprint: fp, bushCleared: bush };
+  return { ok: true, cost, footprint: fp, bushCleared: bush };
 }
 
 /** Elevation, exposure, drop and cable rules. Returns a human-readable reason, or null if the site is fine. */

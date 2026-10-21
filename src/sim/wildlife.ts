@@ -121,7 +121,8 @@ export function roadExposure(s: GameState, tiles: readonly number[]): number {
   for (const b of s.buildings) {
     const idxs: number[] = [];
     for (let y = b.y; y < b.y + b.h; y++) for (let x = b.x; x < b.x + b.w; x++) idxs.push(y * g.w + x);
-    if (BARRIERS.includes(b.type)) for (const i of idxs) barrier.add(i);
+    // A bridge over water does not split land habitat.
+    if (BARRIERS.includes(b.type) && !(b.type === 'road' && g.kind[idxs[0] as number] === TileKind.River)) for (const i of idxs) barrier.add(i);
     if (BUILDINGS[b.type].crossing) cross.push(...idxs);
   }
   if (barrier.size === 0) return 0;

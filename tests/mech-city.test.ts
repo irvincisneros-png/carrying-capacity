@@ -205,7 +205,9 @@ describe('the pre-built city', () => {
     for (const u of city.grid.building) if (u !== 0) expect(seen.has(u)).toBe(true);
     for (const b of city.buildings) {
       if (['coalpower', 'gaspower', 'suburb', 'cottage', 'factory', 'steelworks', 'road', 'carpark', 'rail', 'landfill', 'farm'].includes(b.type)) {
-        for (let y = b.y; y < b.y + b.h; y++) for (let x = b.x; x < b.x + b.w; x++) expect([TileKind.Land, TileKind.Bush]).toContain(city.grid.kind[y * city.grid.w + x]);
+        // A road may be a bridge: the joining roads (connectAllFree) cross a short stretch of the city's river on River tiles.
+        const ok = b.type === 'road' ? [TileKind.Land, TileKind.Bush, TileKind.River] : [TileKind.Land, TileKind.Bush];
+        for (let y = b.y; y < b.y + b.h; y++) for (let x = b.x; x < b.x + b.w; x++) expect(ok).toContain(city.grid.kind[y * city.grid.w + x]);
       }
     }
   });

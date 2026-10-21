@@ -611,12 +611,12 @@ export class TrafficLayer {
     const b = this.batch!;
     const x = a.x, z = a.z;
     const motor = a.kind === 'car' || a.kind === 'truck' || a.kind === 'bus' || a.kind === 'cart';
-    let y = map.heightAt(x, z);
+    let y = map.driveAt(x, z);
     if (y < 0.03 && a.kind === 'orbit') { b.visible(a.inst, false); a.state = 'wait'; a.waitFor = 1e9; return; }
     y = Math.max(y, 0.02) + (a.kind === 'orbit' ? 0.004 : a.kind === 'ped' ? 0.014 : ASPHALT_LIFT + 0.003);
     // pitch along the grade
-    const ahead = map.heightAt(x + a.hx * 0.1, z + a.hz * 0.1);
-    const behind = map.heightAt(x - a.hx * 0.1, z - a.hz * 0.1);
+    const ahead = map.driveAt(x + a.hx * 0.1, z + a.hz * 0.1);
+    const behind = map.driveAt(x - a.hx * 0.1, z - a.hz * 0.1);
     const pitch = motor || a.kind === 'cyclist' ? Math.atan2(ahead - behind, 0.2) * 0.9 : 0;
     // three.js yaw about +y takes +x to (cos, 0, -sin): heading (hx, hz) is yaw = atan2(-hz, hx)
     _q.setFromAxisAngle(_up, Math.atan2(-a.hz, a.hx));

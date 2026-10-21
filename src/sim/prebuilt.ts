@@ -139,7 +139,8 @@ export function buildCity(s: GameState, mix: CityMix = DEFAULT_CITY_MIX): void {
       if (tryPlace(s, 'carpark', x, y - 1, 1) || tryPlace(s, 'carpark', x, y, 0)) hw++;
     }
   }
-  for (const i of roadTiles) tryPlace(s, 'road', i % g.w, Math.floor(i / g.w));
+  // The finished city's own grid stays on dry ground (it has no bridges).
+  for (const i of roadTiles) if (g.kind[i] !== TileKind.River) tryPlace(s, 'road', i % g.w, Math.floor(i / g.w));
 
   // 3. Blocks: suburbs (2x2) in a pattern that leaves 1-tile gaps (street trees, pocket parks), factories near the harbour.
   const blocks: { x: number; y: number }[] = [];

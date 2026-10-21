@@ -8,6 +8,7 @@
  * createGame and old saves both get an entrance, so real games always enforce the rule.
  */
 import { BUILDINGS } from './buildings';
+import { bridgeAxes, bridgeOkAlong, bridgeProblem } from './bridges';
 import { cityCentre } from './prebuilt';
 import { getScenario } from './scenarios';
 import { TileKind } from './types';
@@ -15,7 +16,7 @@ import type { BuildingId, GameState, PlacedBuilding } from './types';
 
 /**
  * flags keys holding the tile index (y * w + x) of an entrance road: `road.entrance` for the main one, `road.entrance.2`,
- * `.3`... for any other stretch of buildable land that a river or the sea cuts off from it (there are no bridges).
+ * `.3`... for any other stretch of buildable land that the sea or a river too wide to bridge cuts off from it.
  */
 export const ENTRANCE_FLAG = 'road.entrance';
 /** Smallest stretch of open land that gets an entrance of its own. */
@@ -73,6 +74,9 @@ export function entranceIndex(state: Pick<GameState, 'flags'>): number | null {
 export function isEntrance(state: Pick<GameState, 'flags' | 'grid'>, x: number, y: number): boolean {
   return entranceList(state).includes(y * state.grid.w + x);
 }
+
+/** The finished Net Zero City keeps its two entrances and its dry-ground roads; every other scenario may bridge. */
+const bridgesOn = (state: Pick<GameState, 'scenarioId'>): boolean => getScenario(state.scenarioId).prebuilt !== 'city';
 
 const needsRoad = (type: BuildingId): boolean => BUILDINGS[type].needsRoad !== false;
 
@@ -184,7 +188,9 @@ function entranceLand(state: GameState): Uint8Array | null {
   if (hit && hit.version === state.version && hit.key === key) return hit.mask;
   const n = g.w * g.h;
   const mask = new Uint8Array(n);
-  const isLand = (i: number): boolean => g.kind[i] === TileKind.Land || g.kind[i] === TileKind.Bush;
+  // Short stretches of river can be bridged, so land across one still counts as reachable.
+  const bridges = bridgesOn(state);
+  const isLand = (i: number): boolean => g.kind[i] === TileKind.Land || g.kind[i] === TileKind.Bush || (bridges && g.kind[i] === TileKind.River && bridgeAxes(g, i).length > 0);
   const queue: number[] = [];
   for (const e of entrances) if (e >= 0 && e < n && mask[e] === 0) { mask[e] = 1; queue.push(e); }
   for (let qh = 0; qh < queue.length; qh++) {
@@ -294,25 +300,30 @@ export function townFocus(state: GameState): { x: number; y: number } {
 
 /**
  * Stretches of buildable land (Land and Bush, ignoring buildings) that are big enough to build a town on, found by flood
- * fill. The one nearest the town site comes first.
+ * fill. Land on either side of a creek or river that a bridge could cross counts as one stretch (the bridge tiles are part of
+ * the region but are not land). The one nearest the town site comes first.
  */
 function landRegions(state: GameState): number[][] {
   const g = state.grid;
   const seen = new Uint8Array(g.kind.length);
   const regions: number[][] = [];
   const site = townSite(state);
+  const bridges = bridgesOn(state);
   for (let s0 = 0; s0 < g.kind.length; s0++) {
     const k0 = g.kind[s0];
     if (seen[s0] === 1 || (k0 !== TileKind.Land && k0 !== TileKind.Bush)) continue;
     const tiles = [s0];
     seen[s0] = 1;
+    let landCount = 0;
     for (let qh = 0; qh < tiles.length; qh++) {
-      for (const j of neighbours(tiles[qh] as number, g.w, g.h)) {
+      const t = tiles[qh] as number;
+      if (g.kind[t] !== TileKind.River) landCount++;
+      for (const j of neighbours(t, g.w, g.h)) {
         const k = g.kind[j];
-        if (seen[j] === 0 && (k === TileKind.Land || k === TileKind.Bush)) { seen[j] = 1; tiles.push(j); }
+        if (seen[j] === 0 && (k === TileKind.Land || k === TileKind.Bush || (bridges && k === TileKind.River && bridgeAxes(g, j).length > 0))) { seen[j] = 1; tiles.push(j); }
       }
     }
-    if (tiles.length >= MIN_REGION_TILES) regions.push(tiles);
+    if (landCount >= MIN_REGION_TILES) regions.push(tiles);
   }
   const nearest = (r: number[]): number => Math.min(...r.map((i) => Math.hypot((i % g.w) - site.x, Math.floor(i / g.w) - site.y)));
   return regions.sort((a, b) => nearest(a) - nearest(b));
@@ -322,12 +333,13 @@ function landRegions(state: GameState): number[][] {
  * The tile for a region's entrance: a free tile on the map edge if it has one (otherwise the free tile nearest the edge),
  * nearest to `toward` first.
  */
-function entranceFor(state: GameState, region: number[], toward: { x: number; y: number }, ok: (i: number) => boolean): number | null {
+function entranceFor(state: GameState, region: number[], toward: { x: number; y: number }, ok: (i: number) => boolean, side?: 'n' | 's' | 'e' | 'w'): number | null {
   const g = state.grid;
   let best: number | null = null, bestKey = Infinity;
   for (const i of region) {
     if (!ok(i)) continue;
     const x = i % g.w, y = Math.floor(i / g.w);
+    if (side && !(side === 'n' ? y === 0 : side === 's' ? y === g.h - 1 : side === 'w' ? x === 0 : x === g.w - 1)) continue;
     const edge = Math.min(x, y, g.w - 1 - x, g.h - 1 - y);
     const key = edge * 1000 + Math.hypot(x - toward.x, y - toward.y);
     if (key < bestKey) { bestKey = key; best = i; }
@@ -335,12 +347,71 @@ function entranceFor(state: GameState, region: number[], toward: { x: number; y:
   return best;
 }
 
+/** Routing weight of one bridge tile: a bridge is only worth it when the way round is more than this many tiles longer. */
+export const BRIDGE_STEP = 8;
+/** The entrance road crosses a creek only when the land beyond it is more than this many tiles nearer the town site. */
+export const BRIDGE_PREFERENCE = 3;
+/** The entrance road ends at least this many tiles from water (less if there is no such tile). */
+export const ENTRANCE_CLEARANCE = 2;
+
 /**
- * Lays free road tiles along the shortest open-ground path from tile `from` to tile `to` (both included). Setup only.
- * Returns the number of tiles laid (0 if there is no path).
+ * Cheapest path (tile indices, first source to goal) from any of `sources` to a tile where `goal` holds. `cost(j)` is what
+ * entering tile j costs (-1 blocked, 0 free). A River tile with a positive cost is a bridge tile: it must be entered along an
+ * axis the bridge rules allow, and the path may not turn while it is on water. Direction is part of the search state.
+ */
+function routeWithBridges(state: GameState, sources: readonly number[], goal: (i: number) => boolean, cost: (j: number) => number): { path: number[]; cost: number } | null {
+  const g = state.grid;
+  const n = g.w * g.h;
+  const DX = [-1, 1, 0, 0], DY = [0, 0, -1, 1];
+  const dist = new Int32Array(n * 5).fill(-1);
+  const prev = new Int32Array(n * 5).fill(-1);
+  const settled = new Uint8Array(n * 5);
+  const buckets: number[][] = [[]];
+  for (const i of sources) { dist[i * 5 + 4] = 0; (buckets[0] as number[]).push(i * 5 + 4); }
+  let found = -1;
+  for (let d = 0; d < buckets.length && found < 0; d++) {
+    const cur = buckets[d] as number[];
+    while (cur.length > 0) {
+      const st = cur.pop() as number;
+      if (settled[st] === 1 || dist[st] !== d) continue;
+      settled[st] = 1;
+      const i = Math.floor(st / 5), dir = st % 5;
+      if (goal(i)) { found = st; break; }
+      const x = i % g.w, y = Math.floor(i / g.w);
+      for (let nd = 0; nd < 4; nd++) {
+        const xx = x + (DX[nd] as number), yy = y + (DY[nd] as number);
+        if (xx < 0 || yy < 0 || xx >= g.w || yy >= g.h) continue;
+        const j = yy * g.w + xx;
+        const c = cost(j);
+        if (c < 0) continue;
+        // no turning on a bridge still to be built (turning on an existing bridge's lane is fine: it is joined already)
+        if (g.kind[i] === TileKind.River && dir !== 4 && dir !== nd && cost(i) > 0) continue;
+        if (c > 0 && g.kind[j] === TileKind.River && (!bridgeOkAlong(g, j, ((nd >> 1) as 0 | 1)) || bridgeProblem(state, xx, yy) !== null)) continue;
+        const sj = j * 5 + nd;
+        if (settled[sj] === 1) continue;
+        const ndist = d + c;
+        if (dist[sj] === -1 || ndist < (dist[sj] as number)) {
+          dist[sj] = ndist;
+          prev[sj] = st;
+          while (buckets.length <= ndist) buckets.push([]);
+          (buckets[ndist] as number[]).push(sj);
+        }
+      }
+    }
+  }
+  if (found < 0) return null;
+  const path: number[] = [];
+  for (let st = found; st >= 0; st = prev[st] as number) path.push(Math.floor(st / 5));
+  return { path: path.reverse(), cost: dist[found] as number };
+}
+
+/**
+ * Lays free road tiles (and free bridge tiles over a creek the road has to cross) along the shortest path from tile `from`
+ * to tile `to` (both included). Setup only. Returns the number of tiles laid (0 if there is no path).
  */
 function layApproach(state: GameState, from: number, to: number, ok: (i: number) => boolean): number {
   const g = state.grid;
+  // Shortest path over open ground (breadth first). Only when the open ground does not join them does the road take a bridge.
   const prev = new Int32Array(g.kind.length).fill(-2);
   prev[from] = -1;
   const queue = [from];
@@ -349,12 +420,35 @@ function layApproach(state: GameState, from: number, to: number, ok: (i: number)
       if (prev[j] === -2 && ok(j)) { prev[j] = queue[qh] as number; queue.push(j); }
     }
   }
-  if (prev[to] === -2) return 0;
-  const path: number[] = [];
-  for (let i = to; i !== -1; i = prev[i] as number) path.push(i);
+  let path: number[] | null = null;
+  if (prev[to] !== -2) {
+    path = [];
+    for (let i = to; i !== -1; i = prev[i] as number) path.push(i);
+    path.reverse();
+  } else {
+    path = routeWithBridges(state, [from], (i) => i === to, (j) => {
+      if ((g.building[j] ?? 0) !== 0) return -1;
+      if (ok(j)) return 1;
+      return g.kind[j] === TileKind.River ? BRIDGE_STEP : -1;
+    })?.path ?? null;
+  }
+  if (!path) return 0;
   let n = 0;
-  for (const i of path.reverse()) if ((g.building[i] ?? 0) === 0) { addFreeRoad(state, i); n++; }
+  for (const i of path) if ((g.building[i] ?? 0) === 0) { addFreeRoad(state, i); n++; }
   return n;
+}
+
+const WATERISH: ReadonlySet<number> = new Set([TileKind.Sea, TileKind.Reef, TileKind.Estuary, TileKind.River, TileKind.Wetland, TileKind.Beach, TileKind.Pit]);
+
+/** True when no water, beach or pit lies within `r` tiles of tile i. */
+function clearOfWater(state: GameState, i: number, r: number): boolean {
+  const g = state.grid;
+  const x = i % g.w, y = Math.floor(i / g.w);
+  for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+    const xx = x + dx, yy = y + dy;
+    if (xx >= 0 && yy >= 0 && xx < g.w && yy < g.h && WATERISH.has(g.kind[yy * g.w + xx] ?? 0)) return false;
+  }
+  return true;
 }
 
 /**
@@ -385,19 +479,31 @@ export function ensureEntrance(state: GameState): boolean {
     const centroid = { x: 0, y: 0 };
     for (const i of region) { centroid.x += i % g.w; centroid.y += Math.floor(i / g.w); }
     centroid.x /= region.length; centroid.y /= region.length;
-    const toward = n === 0 ? site : centroid;
+    const hint = n === 0 ? getScenario(state.scenarioId).entranceHint : undefined;
+    const toward = n === 0 ? hint?.site ?? site : centroid;
     // First choice keeps the road away from the shore (street lights on the sand keep turtles off the beach); if no such
     // road can be laid, any open ground will do.
     let entrance: number | null = null;
     for (const ok of [inland, plain, anywhere]) {
-      const i = entranceFor(state, region, toward, ok);
+      const i = entranceFor(state, region, toward, ok, hint?.edge) ?? (hint?.edge ? entranceFor(state, region, toward, ok) : null);
       if (i === null) continue;
-      // The tile the road runs in to: open ground nearest where the town will grow.
-      let target = -1, bestD = Infinity;
-      for (const t of region) {
-        if (t === i || !ok(t)) continue;
-        const d = Math.hypot((t % g.w) - toward.x, Math.floor(t / g.w) - toward.y);
-        if (d < bestD) { bestD = d; target = t; }
+      // The tile the road runs in to: open ground nearest where the town will grow, kept off the water's edge (a road that stops at
+      // the water looks broken): never on a tile beside water if any other will do.
+      let target = -1;
+      // Tiles the road can reach from the entrance without crossing water.
+      const dry = new Uint8Array(g.kind.length);
+      { const q = [i]; dry[i] = 1; for (let qh = 0; qh < q.length; qh++) for (const j of neighbours(q[qh] as number, g.w, g.h)) if (dry[j] === 0 && ok(j)) { dry[j] = 1; q.push(j); } }
+      for (let clear = ENTRANCE_CLEARANCE; clear >= 0; clear--) {
+        let bestAny = Infinity, any = -1, bestDry = Infinity, dryT = -1;
+        for (const t of region) {
+          if (t === i || !ok(t) || (clear > 0 && !clearOfWater(state, t, clear))) continue;
+          const d = Math.hypot((t % g.w) - toward.x, Math.floor(t / g.w) - toward.y);
+          if (d < bestAny) { bestAny = d; any = t; }
+          if (dry[t] === 1 && d < bestDry) { bestDry = d; dryT = t; }
+        }
+        // Stay on the entrance's own side of a creek unless the town site is clearly beyond it (then the road is bridged).
+        target = dryT >= 0 && bestDry - bestAny <= BRIDGE_PREFERENCE ? dryT : any;
+        if (target >= 0) break;
       }
       if (target < 0) { if (ok === anywhere) { addFreeRoad(state, i); entrance = i; } continue; }
       if (layApproach(state, i, target, ok) > 0) { entrance = i; break; }
@@ -433,7 +539,7 @@ export function addFreeRoad(state: GameState, i: number, builtYear = state.year)
  * (starting beside the network). Existing roads cost nothing to cross. Empty array when it is already connected, or
  * null when no route exists (or the state does not enforce roads).
  */
-export function roadRoute(state: GameState, uid: number): number[] | null {
+export function roadRoute(state: GameState, uid: number, bridges = bridgesOn(state)): number[] | null {
   const acc = roadAccess(state);
   if (!acc.enforced || acc.entrances.length === 0) return null;
   const target = state.buildings.find((b) => b.uid === uid);
@@ -455,11 +561,16 @@ export function roadRoute(state: GameState, uid: number): number[] | null {
   for (let k = 0; k < target.w; k++) { mark(target.x + k, target.y - 1); mark(target.x + k, target.y + target.h); }
   for (let k = 0; k < target.h; k++) { mark(target.x - 1, target.y + k); mark(target.x + target.w, target.y + k); }
   // Dijkstra from the reached network outward over bucketed costs: existing roads cost 0, open ground 1, bush BUSH_STEP.
+  const sources: number[] = [];
+  // Road-like tiles joined to the entrance; a rail siding only starts a route for a building that a siding can serve.
+  const railOk = BUILDINGS[target.type].railServed === true;
+  for (let i = 0; i < n; i++) { const r = acc.reached[i] ?? 0; if (r === 1 || (r === 2 && railOk)) sources.push(i); }
+  // Over dry ground only (this alone decides the route unless a bridge is cheaper, so towns without a creek in the way are unchanged)...
   const dist = new Int32Array(n).fill(-1);
   const prev = new Int32Array(n).fill(-1);
   const settled = new Uint8Array(n);
   const buckets: number[][] = [[]];
-  for (let i = 0; i < n; i++) if ((acc.reached[i] ?? 0) !== 0) { dist[i] = 0; (buckets[0] as number[]).push(i); }
+  for (const i of sources) { dist[i] = 0; (buckets[0] as number[]).push(i); }
   let found = -1;
   for (let d = 0; d < buckets.length && found < 0; d++) {
     const cur = buckets[d] as number[];
@@ -482,6 +593,16 @@ export function roadRoute(state: GameState, uid: number): number[] | null {
       }
     }
   }
+  const landCost = found >= 0 ? (dist[found] as number) : Infinity;
+  // ...or with bridges over short stretches of creek, taken only when they make the road cheaper (or possible at all).
+  const bridged = !bridges || landCost <= BRIDGE_STEP ? null : routeWithBridges(state, sources, (i) => adjacent[i] === 1, (j) => {
+    if (roadLike[j] === 1) return 0;
+    if ((g.building[j] ?? 0) !== 0) return -1;
+    if (g.kind[j] === TileKind.River) return BRIDGE_STEP;
+    const c = roadTileCost(state, j);
+    return c > 0 ? c : -1;
+  });
+  if (bridged !== null && bridged.cost < landCost) return bridged.path.filter((i) => (g.building[i] ?? 0) === 0);
   if (found < 0) return null;
   const path: number[] = [];
   for (let i = found; i >= 0; i = prev[i] as number) if ((g.building[i] ?? 0) === 0) path.push(i);
@@ -497,7 +618,7 @@ export function connectAllFree(state: GameState): void {
     const acc = roadAccess(state);
     let progressed = false;
     for (const uid of acc.unconnected) {
-      const route = roadRoute(state, uid);
+      const route = roadRoute(state, uid, false); // the finished city's own roads keep to dry ground
       if (route === null || route.length === 0) continue;
       for (const i of route) addFreeRoad(state, i);
       progressed = true;

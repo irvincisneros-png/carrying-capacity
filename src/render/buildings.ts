@@ -273,11 +273,19 @@ export class BuildingLayer {
         else if (mask === 1 || mask === 4) mask = 0b0101;
         else if (mask === 2 || mask === 8) mask = 0b1010;
       }
-      const dirt = rec.type === 'road' && dirtEra;
+      const bridge = rec.type === 'road' && g.kind[by * g.w + bx] === TileKind.River;
+      let bridgeMask = 0;
+      if (rec.type === 'road' && !bridge) {
+        DIRS.forEach(([dx, dy], i) => {
+          const nx = bx + dx, ny = by + dy;
+          if (this.map.inBounds(nx, ny) && g.kind[ny * g.w + nx] === TileKind.River && isType(nx, ny, 'road')) bridgeMask |= 1 << i;
+        });
+      }
+      const dirt = rec.type === 'road' && dirtEra && !bridge;
       rec.mask = mask;
       rec.dirt = dirt;
-      tiles.push({ tx: bx, ty: by, fam: rec.type, mask, dirt });
-      sig = Math.imul(sig ^ (rec.uid * 31 + mask * 7 + (dirt ? 1 : 0) + (rec.type === 'rail' ? 64 : 0)), 16777619);
+      tiles.push({ tx: bx, ty: by, fam: rec.type, mask, dirt, ...(bridge ? { bridge } : {}), ...(bridgeMask ? { bridgeMask } : {}) });
+      sig = Math.imul(sig ^ (rec.uid * 31 + mask * 7 + (dirt ? 1 : 0) + (rec.type === 'rail' ? 64 : 0) + (bridge ? 128 : 0) + bridgeMask * 256), 16777619);
     }
     for (const p of pins) sig = Math.imul(sig ^ (p.tx * 131 + p.ty * 17 + p.dir + Math.round(p.y * 1000) * 3), 16777619);
     sig = Math.imul(sig ^ tiles.length, 16777619);
@@ -297,10 +305,11 @@ export class BuildingLayer {
 
   /** Grade the terrain under the roads, tell the renderer if its heights moved, then redraw the ribbons on top. */
   private regradeRoads(tiles: RoadTile[], pins: RoadPin[]): void {
-    const { segs } = gradeRoads(this.map, tiles, pins);
+    const { segs, heights, decks } = gradeRoads(this.map, tiles, pins);
     const moved = this.map.carve(segs);
+    this.map.setDecks(decks);
     if (moved) this.onTerrain?.();
-    this.roads.rebuild(tiles);
+    this.roads.rebuild(tiles, heights);
   }
 
   /**
