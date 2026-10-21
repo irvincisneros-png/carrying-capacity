@@ -230,7 +230,7 @@ export function showTurningPoint(s: GameState, onBegin: () => void, storyOnly = 
           h('b', null, 'Warning: your town has no power station. '),
           `Homes and factories need about ${sg.short} units of power and nothing is generating any. If the lights go out, Society falls fast and the town can be lost in a year or two. `,
           h('b', null, `First job: build ${sg.stations} gas ${sg.stations === 1 ? 'station' : 'stations'} (about $${sg.cost - 10}k). `),
-          'The transition budget is topped up to cover it, and time will start paused so you can place them. You can retire gas later, once solar and batteries are in.');
+          'The transition budget will cover it (it is topped up if it falls short), and time starts paused so you can place them. You can retire gas later, once solar and batteries are in.');
       })(),
       h('div', { class: 'modal-actions' }, h('button', { class: 'btn green', 'data-tut': 'start-transition', onclick: () => { m.close(); onBegin(); } }, svg(UI_ICONS.sprout), storyOnly ? 'Get to work' : 'Begin the transition')),
     ], { closable: false });

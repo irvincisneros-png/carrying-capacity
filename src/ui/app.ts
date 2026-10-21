@@ -506,6 +506,7 @@ export class App {
   /** Amber pulsing highlight on the tiles a goal still needs (rehab: while the tool is active; legacy / rehab: after Show me). */
   private attn: { kind: 'rehab' | 'legacy'; mode: 'tool' | 'timed' } | null = null;
   private attnTimer = 0;
+  private attnFocus = -1;
   private showMeIdx: Record<string, number> = {};
 
   private attentionMask(kind: 'rehab' | 'legacy', all: boolean): (s: GameState) => ArrayLike<number> {
@@ -515,7 +516,9 @@ export class App {
       if (kind === 'legacy') {
         for (const it of s.circular?.items ?? []) {
           if (it.status !== 'standing' && it.status !== 'rubble') continue;
-          for (let y = it.y; y < it.y + it.h; y++) for (let x = it.x; x < it.x + it.w; x++) if (x >= 0 && y >= 0 && x < g.w && y < g.h) out[y * g.w + x] = 1;
+          // The footprint and a one-tile ring round it (the building itself hides the ground under it); the one the camera is on is brightest.
+          const v = it.uid === this.attnFocus ? 1 : 0.3;
+          for (let y = it.y - 1; y <= it.y + it.h; y++) for (let x = it.x - 1; x <= it.x + it.w; x++) if (x >= 0 && y >= 0 && x < g.w && y < g.h) out[y * g.w + x] = Math.max(out[y * g.w + x] ?? 0, v);
         }
         return out;
       }
@@ -543,12 +546,12 @@ export class App {
   /** Goal row "Show me": highlight what is left and fly the camera to the next place, cycling on each press. */
   private showMe(kind: ShowMeKind): void {
     const s = this.game.state;
-    let spots: { x: number; y: number; label: string }[] = [];
+    let spots: { x: number; y: number; label: string; uid?: number }[] = [];
     try {
       if (kind === 'legacy') {
         spots = (s.circular?.items ?? []).filter((it) => it.status === 'standing' || it.status === 'rubble')
           .sort((a, b) => (a.status === b.status ? 0 : a.status === 'rubble' ? -1 : 1))
-          .map((it) => ({ x: it.x + Math.floor(it.w / 2), y: it.y + Math.floor(it.h / 2), label: `${BUILDINGS[it.type].name} (${it.status === 'rubble' ? 'closed, rubble' : 'still standing'}): use the Old sites tool` }));
+          .map((it) => ({ uid: it.uid, x: it.x + Math.floor(it.w / 2), y: it.y + Math.floor(it.h / 2), label: `${BUILDINGS[it.type].name} (${it.status === 'rubble' ? 'closed, rubble' : 'still standing'}): use the Old sites tool` }));
       } else {
         const w = SIM.rehabWatch(s);
         spots = w.patches.length
@@ -560,7 +563,8 @@ export class App {
     const n = (this.showMeIdx[kind] ?? -1) + 1;
     const idx = n % spots.length;
     this.showMeIdx[kind] = idx;
-    const sp = spots[idx] as { x: number; y: number; label: string };
+    const sp = spots[idx] as { x: number; y: number; label: string; uid?: number };
+    this.attnFocus = sp.uid ?? -1;
     this.setAttention(kind, 'timed', false);
     const p = this.renderer.tileWorld(sp.x, sp.y);
     this.renderer.rig?.focus(p.x, p.z, 26);
