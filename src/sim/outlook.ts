@@ -4,9 +4,11 @@
  * stand today, so it moves the moment the player builds, retrofits or retires something.
  */
 import { BUILDINGS } from './buildings';
-import { wasteEmissionsMult } from './circular';
+import { circularMods, wasteEmissionsMult } from './circular';
+import { REPURPOSE } from '../content/circular';
 import { balanceGrid } from './energy';
 import { mechEmissionFactor } from './mechanics';
+import { availability } from './rules';
 import { getScenario } from './scenarios';
 import { seasonIndexOf } from './season';
 import type { BuildingId, GameState, Season } from './types';
@@ -51,6 +53,84 @@ export interface NetZeroOutlook {
   /** True once this year's buildings put the town at or under the line. */
   atLine: boolean;
   order: OrderStep[];
+  /** The next fossil plant to retire (coal before gas) and whether the grid already holds without it. */
+  retire: RetirePlan | null;
+  /** The cheapest cuts per $ right now (lowest $k per kt a year first), the same figure the build cards show. */
+  value: ValueRow[];
+}
+
+export interface ValueRow {
+  label: string;
+  /** kt a year one more of it cuts, and $k per kt. */
+  kt: number;
+  perKt: number;
+  cost: number;
+}
+
+export interface RetirePlan {
+  type: BuildingId;
+  uid: number;
+  /** True when the four seasons, day and night, are covered without the plant. */
+  safe: boolean;
+  /** When not safe: about how much to build first, and what it costs ($k). */
+  roof: number;
+  battery: number;
+  cost: number;
+  /** The recipe could not be found within a sensible number of buildings. */
+  open: boolean;
+}
+
+/** Worst shortfall (share of that block's demand) over the four seasons for a set of buildings, and what is behind it. */
+export function gridShortfall(s: GameState, buildings: readonly GameState['buildings'][number][]): { worst: number; when: 'by day' | 'at night' | ''; spareByDay: number; nightGap: number } {
+  const without: GameState = { ...s, buildings: buildings.slice() };
+  const base = seasonIndexOf(s) - s.a2.season;
+  let worst = 0, when: 'by day' | 'at night' | '' = '', spareByDay = 0, nightGap = 0;
+  for (let k = 0; k < 4; k++) {
+    const probe: GameState = { ...without, a2: { ...without.a2, season: k as Season } };
+    const r = balanceGrid(probe, base + k).report;
+    for (const [lbl, b] of [['by day', r.day], ['at night', r.night]] as const) {
+      const short = b.demand > 0 ? b.unmet / b.demand : 0;
+      if (short > worst) {
+        worst = short; when = lbl;
+        // Daytime power beyond demand: what is stored (batteries already built) plus what is wasted for want of storage.
+        spareByDay = Math.max(0, r.day.charged + r.day.curtailed);
+        nightGap = r.night.unmet;
+      }
+    }
+  }
+  return { worst, when, spareByDay, nightGap };
+}
+
+const BLACKOUT_SHARE = 0.01;
+
+/**
+ * What it takes to retire a fossil plant (the next one: coal first, then gas, or the one with `uid`): safe already, or
+ * roughly how many rooftop solar panels and grid batteries to build first. Solar first until there is spare daytime power,
+ * then batteries to carry it into the night (the same rule the demolish tooltip gives).
+ */
+export function retirePlan(s: GameState, uid?: number): RetirePlan | null {
+  if (s.phase !== 'act2' || !s.a2?.lastGrid) return null;
+  const plants = [...s.buildings.filter((b) => b.type === 'coalpower'), ...s.buildings.filter((b) => b.type === 'gaspower')];
+  const target = uid !== undefined ? plants.find((b) => b.uid === uid) : plants[0];
+  if (!target) return null;
+  const rest = s.buildings.filter((b) => b.uid !== target.uid);
+  let cur = gridShortfall(s, rest);
+  if (cur.worst <= BLACKOUT_SHARE) return { type: target.type, uid: target.uid, safe: true, roof: 0, battery: 0, cost: 0, open: false };
+  const roofCost = availability(s.scenarioId, 'rooftopsolar').cost;
+  const batCost = availability(s.scenarioId, 'battery').cost;
+  const extra: GameState['buildings'] = [];
+  let roof = 0, battery = 0;
+  const mk = (type: BuildingId): GameState['buildings'][number] => ({ uid: -1, type, x: 0, y: 0, rotation: 0, w: BUILDINGS[type].w, h: BUILDINGS[type].h, builtYear: s.year });
+  for (let i = 0; i < 90 && cur.worst > BLACKOUT_SHARE; i++) {
+    // Try both a batch of rooftop solar and one battery; keep whichever closes more of the gap (solar when they tie:
+    // a battery with no spare daytime power to store does nothing).
+    const solar = [...extra]; for (let k = 0; k < 5; k++) solar.push(mk('rooftopsolar'));
+    const withSolar = gridShortfall(s, [...rest, ...solar]);
+    const stored = [...extra, mk('battery')];
+    const withBattery = gridShortfall(s, [...rest, ...stored]);
+    if (withBattery.worst < withSolar.worst - 1e-6) { extra.splice(0, extra.length, ...stored); battery++; cur = withBattery; } else { extra.splice(0, extra.length, ...solar); roof += 5; cur = withSolar; }
+  }
+  return { type: target.type, uid: target.uid, safe: false, roof, battery, cost: roof * roofCost + battery * batCost, open: cur.worst > BLACKOUT_SHARE };
 }
 
 const GROUP: Partial<Record<BuildingId, SourceKey>> = {
@@ -153,6 +233,31 @@ function cuttingPace(s: GameState, nowKt: number, n = 5): number | null {
   return den > 0 ? -num / den : null;
 }
 
+/** The best-value ways to cut emissions at today's buildings: clean-power builds, retrofits, transit, and (once open) turning a factory into a recycling plant. */
+export function bestValue(s: GameState, max = 4): ValueRow[] {
+  const rows: ValueRow[] = [];
+  const total = (st: GameState): number => emissionSources(st).reduce((a, r) => a + r.kt, 0);
+  for (const id of ['transitline', 'greensuburb', 'rooftopsolar', 'solarfarm', 'windfarm', 'offshorewind'] as const) {
+    const av = availability(s.scenarioId, id);
+    if (av.disabled || BUILDINGS[id].unlock > s.year) continue;
+    const c = cutPerBuild(s, id, av.cost);
+    if (c) rows.push({ label: av.name ?? BUILDINGS[id].name, kt: c.kt, perKt: c.perKt, cost: av.cost });
+  }
+  if (s.circular.unlocked) {
+    const item = s.circular.items.find((i) => i.type === 'factory' && i.status === 'standing');
+    const opt = REPURPOSE.factory?.find((o) => o.into === 'recycler');
+    const k = item ? s.buildings.findIndex((b) => b.uid === item.uid) : -1;
+    if (item && opt && k >= 0) {
+      const buildings = s.buildings.slice();
+      buildings[k] = { ...(buildings[k] as GameState['buildings'][number]), type: 'recycler' };
+      const kt = total(s) - total({ ...s, buildings });
+      const cost = Math.round(opt.cost * circularMods(s).repurposeCost);
+      if (kt >= 0.05) rows.push({ label: 'Factory into a recycling plant (Old sites)', kt: Math.round(kt * 10) / 10, perKt: Math.round(cost / kt), cost });
+    }
+  }
+  return rows.sort((a, b) => a.perKt - b.perKt).slice(0, max);
+}
+
 export function netZeroOutlook(s: GameState): NetZeroOutlook | null {
   const sc = getScenario(s.scenarioId);
   const line = sc.act2.netZeroKt;
@@ -188,7 +293,11 @@ export function netZeroOutlook(s: GameState): NetZeroOutlook | null {
     });
   }
   if (has('mines')) order.push({ text: 'Close the mines (Old sites) as soon as the town has other jobs', done: false });
-  return { line, byYear, nowKt, rows, lever, need: Math.round(need * 10) / 10, pace, projected, atLine, order };
+  let retire: RetirePlan | null = null;
+  try { retire = s.phase === 'act2' ? retirePlan(s) : null; } catch { retire = null; }
+  let value: ValueRow[] = [];
+  try { value = s.phase === 'act2' && !atLine ? bestValue(s) : []; } catch { value = []; }
+  return { line, byYear, nowKt, rows, lever, need: Math.round(need * 10) / 10, pace, projected, atLine, order, retire, value };
 }
 
 /**

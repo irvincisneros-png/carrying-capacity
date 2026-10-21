@@ -293,13 +293,26 @@ export function outlookView(nz: NetZeroOutlook, s: GameState): HTMLElement {
   const lever = nz.lever && !nz.atLine
     ? fold('lever', h('span', null, h('b', null, 'Biggest lever now: '), nz.lever.short), h('div', null, nz.lever.lever), 'nz-lever')
     : null;
+  const rt = nz.retire;
+  const money = (v: number): string => (v >= 1000 ? `$${(v / 1000).toFixed(1)}M` : `$${Math.round(v)}k`);
+  const plant = rt ? (rt.type === 'coalpower' ? 'a coal station' : 'a gas station') : '';
+  const retireLine = rt && !nz.atLine
+    ? h('div', { class: `nz-retire ${rt.safe ? 'ok' : ''}`, 'data-qa': 'nz-retire' }, h('b', null, rt.safe ? `✓ Retire ${plant} now: ` : `Next to retire: ${plant}. `),
+      rt.safe ? `the grid holds without it, day and night, in every season. Use the ${s.circular.unlocked ? 'Old sites' : 'Demolish'} tool on it, then check the next one.`
+        : rt.open ? 'The grid is a long way from holding without it. Keep building solar, batteries and wind first.'
+          : `Build about ${[rt.roof > 0 ? `${rt.roof} rooftop solar` : '', rt.battery > 0 ? `${rt.battery} batteries` : ''].filter(Boolean).join(' and ')} (about ${money(rt.cost)}) first, then retire it. Point at a plant with Demolish or Old sites to check it.`)
+    : null;
+  const valueLine = nz.value.length && !nz.atLine
+    ? h('div', { class: 'nz-sub', 'data-qa': 'nz-value' }, h('b', null, 'Best value now '), '($k per kt a year cut, lower is better): ',
+      nz.value.map((v) => `${v.label.replace(/ \(Old sites\)/, '')} $${v.perKt}k`).join(' · '))
+    : null;
   const waiting = nz.rows.find((r) => r.waitsFor && r.kt >= 5);
   const done = nz.order.filter((o) => o.done).length;
   const order = nz.atLine ? null : fold('order', `Suggested order (${done} of ${nz.order.length} done)`,
     h('ol', { class: 'nz-order' }, ...nz.order.map((o) => h('li', { class: o.done ? 'done' : '' }, o.done ? '✓ ' : '', o.text))), 'nz-orderfold');
   return h('div', { class: 'nz', 'data-qa': 'nz-outlook' },
     h('div', { class: 'nz-title' }, 'Your emissions by source'),
-    head, sub, bars, lever,
+    head, sub, bars, lever, retireLine, valueLine,
     waiting && !nz.atLine ? h('div', { class: 'nz-sub' }, `${waiting.short}: ${waiting.waitsFor}. Save up for it.`) : null,
     order);
 }

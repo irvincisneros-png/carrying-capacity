@@ -714,7 +714,7 @@ export class App {
       const nm = availability(s.scenarioId, b?.type ?? 'road').name ?? (b ? BUILDINGS[b.type].name : '');
       if (b && legacy) this.tip.show(px, py, `<b>Demolish ${nm}</b><br>${s.circular?.unlocked ? 'This old site would go to landfill (the worst choice). Use the <b>Old sites</b> tool to repurpose or recycle it.' : 'It closes now and is left as rubble; once the circular economy opens you can still recycle what is left.'}`, s.circular?.unlocked ? 'bad' : '');
       else if (b) this.tip.show(px, py, `<b>Demolish ${nm}</b><br>Refund $${Math.floor(availability(s.scenarioId, b.type).cost * DEMOLISH_REFUND)}k`, '');
-      if (b) { const pw = powerLossWarning(s, b.type, b.uid); if (pw) this.tip.show(px, py, `${this.tip.el.innerHTML}<br><b>${pw}</b>`, 'bad'); }
+      if (b) { const pw = powerLossWarning(s, b.type, b.uid); if (pw) this.tip.show(px, py, `${this.tip.el.innerHTML}<br><b>${pw}</b>`, pw.startsWith('✓') ? '' : 'bad'); }
       else this.tip.hide();
       return;
     }
@@ -723,7 +723,7 @@ export class App {
       const live = it && it.status === 'standing' ? it : undefined;
       this.renderer.showCursor('demolish', hv.tx, hv.ty, 0, !!live, live ? { x: live.x, y: live.y, w: live.w, h: live.h } : undefined);
       const pw = live ? powerLossWarning(s, live.type, live.uid) : '';
-      this.tip.show(px, py, live ? `<b>${BUILDINGS[live.type].name}</b><br>Click to choose its future${pw ? `<br><b>${pw}</b>` : ''}` : 'Point at an old Act 1 building', live && !pw ? 'ok' : 'bad');
+      this.tip.show(px, py, live ? `<b>${BUILDINGS[live.type].name}</b><br>Click to choose its future${pw ? `<br><b>${pw}</b>` : ''}` : 'Point at an old Act 1 building', live && (!pw || pw.startsWith('✓')) ? 'ok' : 'bad');
       return;
     }
     if (t === 'rehab') {
@@ -1096,29 +1096,23 @@ function powerLossWarningUncached(s: GameState, type: BuildingId, uid?: number):
   if (!d.energy || s.phase !== 'act2' || !s.a2?.lastGrid) return '';
   const gone = uid ?? s.buildings.find((b) => b.type === type)?.uid;
   if (gone === undefined) return '';
-  const without: GameState = { ...s, buildings: s.buildings.filter((b) => b.uid !== gone) };
-  const base = SIM.seasonIndexOf(s) - s.a2.season;
-  let worst = 0, when = '', spareByDay = 0, nightGap = 0;
-  for (let k = 0; k < 4; k++) {
-    const probe: GameState = { ...without, a2: { ...without.a2, season: k as 0 | 1 | 2 | 3 } };
-    const r = SIM.balanceGrid(probe, base + k).report;
-    for (const [lbl, b] of [['by day', r.day], ['at night', r.night]] as const) {
-      const short = b.demand > 0 ? b.unmet / b.demand : 0;
-      if (short > worst) {
-        worst = short; when = lbl;
-        spareByDay = Math.max(0, r.day.supply - r.day.demand);
-        nightGap = r.night.unmet;
-      }
-    }
-  }
-  if (worst <= 0.01) return '';
+  const fossil = type === 'coalpower' || type === 'gaspower';
+  const { worst, when, spareByDay, nightGap } = SIM.gridShortfall(s, s.buildings.filter((b) => b.uid !== gone));
+  if (worst <= 0.01) return fossil ? '✓ The grid holds without it, by day and night in every season: safe to retire now.' : '';
   // Say which fix: batteries only move spare daytime power into the night, so with little to spare they can't help.
   const fix = when === 'at night'
     ? spareByDay < nightGap
-      ? `There is only about ${Math.round(spareByDay)} spare by day to charge batteries and the night needs about ${Math.round(nightGap)} more: add wind (it keeps turning after dark) or more solar plus batteries.`
+      ? `There is only about ${Math.round(spareByDay)} spare by day to charge batteries and the night needs about ${Math.round(nightGap)} more: add more solar first (it makes the spare power), or wind (it keeps turning after dark), then batteries to carry the spare into the night.`
       : 'There is spare power by day: add batteries to carry it into the night.'
     : 'Add more solar or wind.';
-  return `⚠ Without it the town would be about ${Math.round(worst * 100)}% short of power ${when} in some seasons: expect blackouts. ${fix}`;
+  let recipe = '';
+  if (fossil) {
+    try {
+      const rp = SIM.retirePlan(s, gone);
+      if (rp && !rp.safe && !rp.open) recipe = ` Roughly ${rp.roof > 0 ? `${rp.roof} more rooftop solar` : ''}${rp.roof > 0 && rp.battery > 0 ? ' and ' : ''}${rp.battery > 0 ? `${rp.battery} more batteries` : ''} (about $${rp.cost}k) would let you retire it.`;
+    } catch { recipe = ''; }
+  }
+  return `⚠ Without it the town would be about ${Math.round(worst * 100)}% short of power ${when} in some seasons: expect blackouts. ${fix}${recipe}`;
 }
 
 /**

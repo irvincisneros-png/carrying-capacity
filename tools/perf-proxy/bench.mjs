@@ -48,6 +48,10 @@ const info = await page.evaluate(async (scn) => {
 }, scn);
 await page.waitForTimeout(3000); // let deferred rebuilds settle and auto-tier sample
 if (WARM > 0) await warmup(WARM);
+// Profiling aids: LIST=1 prints the scene's named objects with triangle / instance counts; HIDE=a,b,c* takes the named
+// objects (trailing * = prefix match) out of the camera's layers (not just .visible, which layer rebuilds reset) before measuring.
+if (process.env.LIST) console.error(JSON.stringify(await page.evaluate(() => { const out = []; window.__cc.renderer.scene.traverse((o) => { if (o.isMesh || o.isInstancedMesh || o.isBatchedMesh) { const g = o.geometry; out.push([o.name || o.type, o.isInstancedMesh ? o.count : (o.isBatchedMesh ? 'batch' : 1), g && g.index ? (g.index.count / 3) | 0 : (g && g.attributes.position ? (g.attributes.position.count / 3) | 0 : 0), o.visible]); } }); return out; })));
+if (process.env.HIDE) await page.evaluate((names) => { window.__cc.renderer.scene.traverse((o) => { if (names.some((n) => o.name === n || (n.endsWith('*') && o.name.startsWith(n.slice(0, -1))))) o.layers.set(31); }); }, process.env.HIDE.split(','));
 const tierAfterSettle = await page.evaluate(() => window.__cc.renderer.stats.tier);
 const auto0 = await page.evaluate(() => window.__cc.renderer.stats.auto);
 async function warmup(secs) {

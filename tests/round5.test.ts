@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  advanceDecade, applyAction, BUILDINGS, createGame, rehabPlan, rehabWatch, startAct2, stopgapPlan, tick, TileKind,
+  advanceDecade, applyAction, BUILDINGS, createGame, bestValue, netZeroOutlook, rehabPlan, rehabWatch, retirePlan, startAct2, stopgapPlan, tick, TileKind,
 } from '../src/sim';
 import type { BuildingId, GameState } from '../src/sim';
 import { act2Sandbox, addBuilding, paint } from './helpers/fixtures';
@@ -75,5 +75,50 @@ describe('Red Dirt with no power station in Act 1', () => {
   it('does not fire for a town that built a power station', () => {
     const g = createGame('red-dirt');
     expect(stopgapPlan({ buildings: [...g.buildings, { ...g.buildings[0]!, type: 'coalpower' }] })).toBeNull();
+  });
+});
+
+describe('Net Zero City: the retire-a-plant guidance names a recipe that works', () => {
+  const start = tick(createGame('net-zero-city'), 0.25).state;
+  it('is not safe at the start, and says roughly what to build first', () => {
+    const t0 = Date.now();
+    const rp = retirePlan(start);
+    expect(Date.now() - t0).toBeLessThan(3000);
+    expect(rp?.type).toBe('coalpower');
+    expect(rp?.safe).toBe(false);
+    expect(rp?.open).toBe(false);
+    expect((rp?.roof ?? 0) + (rp?.battery ?? 0)).toBeGreaterThan(0);
+    expect(rp?.cost).toBeGreaterThan(0);
+    expect(netZeroOutlook(start)?.retire?.uid).toBe(rp?.uid);
+  });
+  it('after building what it says (solar first, batteries when asked), the grid holds and the plant is safe to retire', () => {
+    let s = { ...start, budget: 5000 };
+    for (let round = 0; round < 6; round++) {
+      const rp = retirePlan(s);
+      if (!rp || rp.safe) break;
+      for (let i = 0; i < rp.roof; i++) { const p = place(s, 'rooftopsolar', bestSpot(s, 'rooftopsolar', () => 0)); if (p.ok) s = p.state; }
+      for (let i = 0; i < rp.battery; i++) { const p = place(s, 'battery', bestSpot(s, 'battery', () => 0)); if (p.ok) s = p.state; }
+    }
+    expect(retirePlan(s)?.safe).toBe(true);
+  });
+  it('has nothing to say once there is no fossil plant left', () => {
+    const s = { ...start, buildings: start.buildings.filter((b) => b.type !== 'coalpower' && b.type !== 'gaspower') };
+    expect(retirePlan(s)).toBeNull();
+  });
+});
+
+describe('Net Zero City: the Goals panel names the best value per kt', () => {
+  const start = tick(createGame('net-zero-city'), 0.25).state;
+  it('lists the cheapest cuts first, with the cost per kt the build cards show', () => {
+    const v = bestValue(start);
+    expect(v.length).toBeGreaterThanOrEqual(3);
+    for (let i = 1; i < v.length; i++) expect(v[i - 1]!.perKt).toBeLessThanOrEqual(v[i]!.perKt);
+    expect(v.every((r) => r.kt > 0 && r.cost > 0)).toBe(true);
+    expect(netZeroOutlook(start)?.value).toEqual(v);
+  });
+  it('offers turning a factory into a recycling plant once Old sites is open', () => {
+    const open = { ...start, circular: { ...start.circular, unlocked: true } };
+    const v = bestValue(open, 8);
+    expect(v.some((r) => /recycling plant/.test(r.label))).toBe(true);
   });
 });
