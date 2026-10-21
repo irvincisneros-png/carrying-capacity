@@ -100,6 +100,9 @@ export class GameRenderer {
   /** Heavy layer rebuilds queued by setState, run one per frame (see setState). */
   private deferred = new Map<string, () => void>();
   private stateThisFrame = false;
+  /** True while the shader programs of a freshly built world / tier compile; no frame is drawn until they are ready. */
+  private warming = false;
+  private warmToken = 0;
   private last = performance.now();
   private running = false;
   readonly stats: RenderStats = { fps: 0, frameMs: 0, cpuMs: 0, calls: 0, triangles: 0, geometries: 0, textures: 0, programs: 0, tier: 'Medium', auto: true };
@@ -281,6 +284,30 @@ export class GameRenderer {
     this.resize();
     this.rebuildPipeline();
     this.setState(s, true);
+    this.warmUp();
+  }
+
+  /**
+   * Compile every material's shader program (one hidden probe per vegetation species is in the scene, so even species
+   * with no instances yet are covered) before the first frame of a world or tier is drawn. Without this the first
+   * frames meet programs that are still compiling and bushes flash black. A 4 s cap keeps a stuck driver from
+   * freezing the picture.
+   */
+  private warmUp(): void {
+    const w = this.world;
+    if (!w) return;
+    const token = ++this.warmToken;
+    this.warming = true;
+    const done = (): void => {
+      clearTimeout(timer);
+      if (token === this.warmToken) this.warming = false;
+    };
+    const timer = setTimeout(done, 4000);
+    try {
+      this.renderer.compileAsync(this.scene, w.rig.camera).then(done, done);
+    } catch {
+      done();
+    }
   }
 
   /** New state from the controller. `snap` skips easing / grow animations (new game, load). */
@@ -605,6 +632,7 @@ export class GameRenderer {
     const w = this.world;
     if (w) {
       w.veg.setTier(d.foliage, d.treeDetail);
+      w.veg.setLod(d.vegLod[0], d.vegLod[1]);
       w.bld.setDetail(d.detail, this.state, d.partCull);
       w.bld.setOutlines(d.outlines && this.pref.outlines === 'subtle');
       w.amb.setDetail(d.detail);
@@ -616,6 +644,7 @@ export class GameRenderer {
         this.lastVersion = -1;
         this.setState(this.state, false);
       }
+      this.warmUp();
     }
     this.stats.tier = d.name;
     this.stats.auto = this.pref.mode === 'auto';
@@ -661,6 +690,10 @@ export class GameRenderer {
       job();
     }
     this.stateThisFrame = false;
+    if (this.warming) {
+      this.last = now;
+      return;
+    }
     const rawDt = Math.max(0, (now - this.last) / 1000);
     const dt = Math.min(0.1, rawDt);
     this.last = now;
@@ -668,6 +701,7 @@ export class GameRenderer {
     this.shared.uTime.value += dt;
     const time = this.shared.uTime.value;
     w.rig.update(dt);
+    w.veg.setFocus(w.rig.controls.target.x, w.rig.controls.target.z);
     w.tiles.update(dt);
     w.bld.update(dt, time);
     w.fx.update(dt);
