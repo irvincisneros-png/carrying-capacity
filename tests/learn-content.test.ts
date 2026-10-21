@@ -52,6 +52,12 @@ describe('cause chains (WP8c)', () => {
     const own = ownCauses(s, 'fish-kill');
     expect(own[0]).toMatch(/2 farms/);
     expect(own[0]).toMatch(/1 sewage outfall with no treatment plant/);
+    // The line about the water must be about the water body where the event happened (never the creek for an estuary kill).
+    const kill = 'Fish kill: warm, polluted water ran short of oxygen and thousands of fish died in the estuary (12 tiles affected).';
+    const est = ownCauses(s, 'fish-kill', kill)[2] ?? '';
+    expect(est).toMatch(/Estuary water health/);
+    expect(est).not.toMatch(/Creek|schools of fish/);
+    expect(ownCauses(s, 'fish-kill', 'Creek fish fell from about 40 to 30 schools.')[2]).toMatch(/Creek health is/);
     const all = ownCauses(createGame('coal-coast'), 'erosion').concat(ownCauses(createGame('coal-coast'), 'smog'));
     expect(all.some((x) => x?.includes('percent'))).toBe(true);
   });

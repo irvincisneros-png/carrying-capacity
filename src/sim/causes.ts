@@ -7,6 +7,7 @@ import type { CauseChain, ChainKey } from '../content/causes';
 import { capacityReport } from './capacity';
 import { landSnapshot } from './ledger';
 import { mechMetric } from './mechanics';
+import { estuaryHealth } from './metrics';
 import { workingBuildings } from './roads';
 import { getScenario } from './scenarios';
 import { TileKind } from './types';
@@ -45,8 +46,28 @@ function bushLostPct(s: GameState): number {
   return Math.max(0, Math.round((1 - bush / s.initialBushTiles) * 100));
 }
 
-/** Per-box lines about the player's own town (null where the sim knows nothing to say). Same length as the chain's boxes. */
-export function ownCauses(s: GameState, key: ChainKey): (string | null)[] {
+export type WaterBody = 'creek' | 'estuary' | 'river' | 'reef';
+
+/**
+ * Which water body an event or report line is about. Read from its text ("... in the estuary"); with no text, Act 1 is the
+ * creek, and Act 2 is the estuary where the map has one (otherwise the river).
+ */
+export function waterBodyOf(s: GameState, text?: string): WaterBody {
+  if (text) {
+    if (/estuar/i.test(text)) return 'estuary';
+    if (/reef|coral/i.test(text)) return 'reef';
+    if (/river/i.test(text)) return 'river';
+    if (/creek/i.test(text)) return 'creek';
+  }
+  if (s.phase === 'act1' || s.phase === 'turning-point') return 'creek';
+  return s.grid.kind.includes(TileKind.Estuary) ? 'estuary' : 'river';
+}
+
+/**
+ * Per-box lines about the player's own town (null where the sim knows nothing to say). Same length as the chain's boxes.
+ * `about` is the event's text: it names the water body, so the lines never describe a different one than the event did.
+ */
+export function ownCauses(s: GameState, key: ChainKey, about?: string): (string | null)[] {
   const chain = CAUSE_CHAINS[key];
   const out: (string | null)[] = chain.boxes.map(() => null);
   const set = (i: number, text: string | null): void => { if (i < out.length) out[i] = text; };
@@ -72,7 +93,12 @@ export function ownCauses(s: GameState, key: ChainKey): (string | null)[] {
   switch (key) {
     case 'fish-kill':
       set(0, nutrients());
-      set(2, `Creek health is ${land.creek} percent, and about ${land.fish} schools of fish are left.`);
+      switch (waterBodyOf(s, about)) {
+        case 'creek': set(2, `Creek health is ${land.creek} percent, and about ${land.fish} schools of fish are left.`); break;
+        case 'estuary': set(2, `Estuary water health is ${Math.round(estuaryHealth(s))} percent. The dirtier it is, the less oxygen is left for fish.`); break;
+        case 'river': { const rh = mechMetric(s, 'riverHealth'); set(2, rh !== null ? `River health is ${Math.round(rh)} out of 100. The dirtier the water, the less oxygen is left for fish.` : null); break; }
+        case 'reef': break;
+      }
       set(3, s.tempC > 0.5 ? `The world is ${warm} warmer than 1850 to 1900, and warm water holds less oxygen.` : null);
       break;
     case 'algal-bloom':

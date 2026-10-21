@@ -11,9 +11,9 @@ import { openModal } from './modal';
 export { chainKeyFor };
 
 /** The chain diagram for an event kind, as an element (also used in the printable report). */
-export function chainView(s: GameState, key: ChainKey): HTMLElement {
+export function chainView(s: GameState, key: ChainKey, about?: string): HTMLElement {
   const chain = CAUSE_CHAINS[key];
-  const own = ownCauses(s, key);
+  const own = ownCauses(s, key, about);
   const boxes: HTMLElement[] = [];
   chain.boxes.forEach((text, i) => {
     boxes.push(h('div', { class: `chain-box ${i === chain.boxes.length - 1 ? 'last' : i === 0 ? 'first' : ''}`, 'data-step': i + 1 },
@@ -30,7 +30,7 @@ export function openCauseChain(s: GameState, key: ChainKey, what?: string): void
     h('div', { class: 'kicker' }, 'Why did that happen?'),
     h('h2', null, chain.title),
     what ? h('p', { class: 'muted', style: 'font-size:13px;margin:2px 0 8px' }, degC(what)) : null,
-    chainView(s, key),
+    chainView(s, key, what),
     h('p', { class: 'chain-hint' }, svg(LEARN_ICONS.house), ' Boxes with this mark show where your own town comes in.'),
     h('div', { class: 'fact', style: 'display:block' }, h('b', null, 'What could help: '), chain.fix),
     chain.fact ? h('p', { class: 'muted', style: 'font-size:12.5px' }, chain.fact) : null,
