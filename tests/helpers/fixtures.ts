@@ -20,6 +20,15 @@ function useFixtureMap(s: GameState): void {
   s.grid = generateTerrain({ ...sc, mapW: n, mapH: n }, s.seed);
 }
 
+/**
+ * Unit-test sandboxes switch the roads-matter rule off (no entrance, so every building counts as connected): they test
+ * one system at a time with buildings dropped on the map. Tests of the rule itself use createGame and real roads.
+ */
+export function legacyRoads(s: GameState): void {
+  s.buildings = s.buildings.filter((b) => (s.grid.building[b.y * s.grid.w + b.x] ?? 0) === b.uid);
+  for (const k of Object.keys(s.flags)) if (k.startsWith('road.entrance')) delete s.flags[k];
+}
+
 /** Game on the scenario's map but with all tiles replaced by `fill`, 2020 and lots of money. */
 export function sandbox(
   fill: TileKindValue = TileKind.Land,
@@ -29,6 +38,7 @@ export function sandbox(
   useFixtureMap(s);
   s.grid.kind.fill(fill);
   s.grid.building.fill(0);
+  legacyRoads(s);
   s.year = opts.year ?? 2020;
   s.budget = opts.budget ?? 1_000_000;
   s.initialBushTiles = 100;
@@ -55,6 +65,7 @@ export function act2Sandbox(
   s.grid.elevation.fill(1);
   s.grid.building.fill(0);
   s.buildings = [];
+  legacyRoads(s);
   s.phase = 'act2';
   s.status = 'playing';
   s.year = opts.year ?? sc.act2.startYear;

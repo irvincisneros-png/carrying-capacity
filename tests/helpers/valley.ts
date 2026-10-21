@@ -3,6 +3,7 @@ import { advanceDecade, applyAction, BUILDINGS, canPlace, createGame, startAct2,
 import type { BuildingId, GameState } from '../../src/sim';
 import { fieldSum } from './act2play';
 import { gridHoldsWithout } from './goodplay';
+import { connectAll } from './roads';
 import { answerPrompts, bestSpot, disposeLegacy, greenGridStep, nearTiles, place, queuePlan } from './scen';
 import type { QueueWant } from './scen';
 
@@ -22,7 +23,27 @@ export function valleyAct1Idle(): GameState {
   return s;
 }
 
-function placeBest(s: GameState, id: BuildingId, score: (x: number, y: number, w: number, h: number) => number = () => 0): GameState | null {
+function placeBest(
+  s: GameState, id: BuildingId, score: (x: number, y: number, w: number, h: number) => number = () => 0, connect = true,
+): GameState | null {
+  if (!connect) {
+    // Exactly what the step says and no more: a building with no road to it yet (the road step comes next).
+    // ...placed a little back from the road that runs in from the edge, so the next step has something to do.
+    const g = s.grid;
+    const nearRoad = (x: number, y: number, w: number, h: number): number => {
+      for (let yy = Math.max(0, y - 1); yy <= Math.min(g.h - 1, y + h); yy++) {
+        for (let xx = Math.max(0, x - 1); xx <= Math.min(g.w - 1, x + w); xx++) {
+          const u = g.building[yy * g.w + xx] ?? 0;
+          if (u !== 0 && s.buildings.find((b) => b.uid === u)?.type === 'road') return 1000;
+        }
+      }
+      return 0;
+    };
+    const spot = bestSpot(s, id, (x, y, w, h) => score(x, y, w, h) - nearRoad(x, y, w, h));
+    if (!spot) return null;
+    const r = applyAction(s, { type: 'place', building: id, x: spot.x, y: spot.y, rotation: spot.rotation });
+    return r.result.ok ? r.state : null;
+  }
   const p = place(s, id, bestSpot(s, id, score));
   return p.ok ? p.state : null;
 }
@@ -36,6 +57,11 @@ export function doStep(state: GameState): GameState | null {
   const hub = nearTiles(state, [TileKind.River]);
   // Homes and farms go a few tiles back from the creek, leaving its banks for the power station and the wetland.
   const back = (x: number, y: number): number => -Math.abs(-hub(x, y) - 5);
+  // The road step: join the homes and the farm to the road from the edge of the valley.
+  if (st.current.id === 'roads') {
+    const next = connectAll(state);
+    return next === state ? null : next;
+  }
   if (hl.startsWith('build:') || hl.startsWith('tile:@')) {
     const id = (hl.startsWith('build:') ? hl.slice(6) : hl.slice(6)) as BuildingId;
     const score = id === 'road' ? hub : id === 'coalpower' || id === 'wetland' ? hub : id === 'nursery' ? (x: number, y: number) => -Math.hypot(x - g.w / 2, y - g.h / 2) : hub;
@@ -43,7 +69,9 @@ export function doStep(state: GameState): GameState | null {
       const soil = (x: number, y: number, w: number, h: number): number => fieldSum(state, state.grid.soilContamination, x, y, w, h, 3);
       return placeBest(state, id, soil);
     }
-    return placeBest(state, id, id === 'cottage' || id === 'farm' || id === 'road' ? back : score);
+    // While the steps are only asking for homes and a farm, they go down as the step says; the roads step joins them up.
+    const early = st.current.id === 'homes' || st.current.id === 'farm';
+    return placeBest(state, id, id === 'cottage' || id === 'farm' || id === 'road' ? back : score, !early);
   }
   if (hl === 'tool:clear') {
     for (let i = 0; i < g.kind.length; i++) {

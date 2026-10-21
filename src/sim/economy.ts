@@ -1,6 +1,7 @@
 import { BUILDINGS } from './buildings';
 import { reefHealth } from './climate';
 import { mechEnvScore, mechMetric } from './mechanics';
+import { workingBuildings } from './roads';
 import { estuaryHealth, hasReef, meanHealth, meanReefHealth } from './metrics';
 import { getScenario } from './scenarios';
 import { TileKind } from './types';
@@ -69,7 +70,7 @@ export function totals(buildings: readonly PlacedBuilding[]): { jobs: number; ho
 }
 
 export function economySnapshot(state: GameState, population = state.population): EconomySnapshot {
-  const t = totals(state.buildings);
+  const t = totals(workingBuildings(state));
   const gridActive = state.year >= GRID_YEAR;
   const filled = Math.min(t.jobs, population);
   return {
@@ -122,7 +123,7 @@ export function measureTiles(state: GameState): MeterInputs {
     total += (g.airPollution[i] ?? 0) + (g.waterPollution[i] ?? 0) + (g.soilContamination[i] ?? 0);
   }
   let hAir = 0, hN = 0;
-  for (const b of state.buildings) {
+  for (const b of workingBuildings(state)) {
     if (BUILDINGS[b.type].housing <= 0) continue;
     // Sample the air within 3 tiles of the housing, not just on it.
     const x0 = Math.max(0, b.x - 3), x1 = Math.min(g.w - 1, b.x + b.w + 2);

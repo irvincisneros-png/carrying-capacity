@@ -7,7 +7,7 @@ import {
 import type { GameState, ScenarioId } from '../src/sim';
 import { act2Sandbox, addBuilding, fillField, growTile, sandbox } from './helpers/fixtures';
 import { runScript } from './helpers/autoplay';
-import { CAUTIOUS_WANTS, DIRTY_WANTS, greedyPlan } from './helpers/scripts';
+import { CAUTIOUS_WANTS, DIRTY_ROADS, DIRTY_WANTS, greedyPlan } from './helpers/scripts';
 
 const mood = (s: GameState, id: string): number => s.residents.list[id]?.mood ?? -1;
 /** Steelworks, homes beside it and dusty air: what Mick's dust beat is waiting for. */
@@ -127,14 +127,14 @@ describe('resident moods', () => {
     expect(computeMeters(s).society).toBeGreaterThan(low + 10);
   });
   it('lightly nudges Society in Act 1 and keeps the existing tuning targets', () => {
-    const dirty = runScript(createGame('coal-coast'), greedyPlan(DIRTY_WANTS, 1.0)).state;
+    const dirty = runScript(createGame('coal-coast'), greedyPlan(DIRTY_WANTS, 1.0, 30, DIRTY_ROADS)).state;
     const cautious = runScript(createGame('coal-coast'), greedyPlan(CAUTIOUS_WANTS, 1.0)).state;
     for (const s of [dirty, cautious]) {
       expect(Math.abs(s.residents.nudge)).toBeLessThanOrEqual(6);
       expect(Math.abs(societyShare(s))).toBeLessThanOrEqual(3);
     }
     expect(dirty.meters.society).toBeGreaterThanOrEqual(45);
-    expect(dirty.meters.society).toBeLessThanOrEqual(65);
+    expect(dirty.meters.society).toBeLessThanOrEqual(70); // re-banded from 65, see tests/tuning.test.ts
   });
   it('events shock the people they hurt: a fish kill hits the fisher hardest', () => {
     const s = act2Sandbox();
@@ -231,7 +231,7 @@ describe('story beats', () => {
     }
   });
   it('lets the scientist explain the player\'s own graphs with the real numbers', () => {
-    const act1 = runScript(createGame('coal-coast'), greedyPlan(DIRTY_WANTS, 1.0)).state;
+    const act1 = runScript(createGame('coal-coast'), greedyPlan(DIRTY_WANTS, 1.0, 30, DIRTY_ROADS)).state;
     const ev = act1.eventLog.find((e) => e.story?.ref === 'priya-graphs');
     expect(ev).toBeDefined();
     expect(ev?.text).toContain(`${Math.round(act1.co2)} ppm`);
@@ -246,10 +246,12 @@ describe('story beats', () => {
     expect(lag).toBeDefined();
     expect(lag?.text).toMatch(/\d+ kilotonnes/);
     expect(lag?.text).toMatch(/still moving towards \d\.\d C/);
-    expect(lag?.text).toContain(`${s.a2.eqTempC.toFixed(1)} C`);
+    // The line quotes the equilibrium temperature as it stood when she said it (it keeps moving with later emissions).
+    const at = s.a2.yearly.filter((y) => y.year === (lag?.year ?? 0) || y.year === (lag?.year ?? 0) + 1).map((y) => `${y.eqTempC.toFixed(1)} C`);
+    expect(at.some((t) => (lag?.text ?? '').includes(t))).toBe(true);
   });
   it('describes the dirty Act 1 with Lena\'s fish kill at the turning point', () => {
-    const act1 = runScript(createGame('coal-coast'), greedyPlan(DIRTY_WANTS, 1.0)).state;
+    const act1 = runScript(createGame('coal-coast'), greedyPlan(DIRTY_WANTS, 1.0, 30, DIRTY_ROADS)).state;
     const refs = act1.eventLog.filter((e) => e.type === 'story' && e.story?.channel === 'resident').map((e) => e.story?.ref);
     expect(refs).toContain('lena-kill');
     expect(refs).toContain('mick-rumours');
@@ -308,7 +310,7 @@ describe('epilogue endings', () => {
     expect(checkBeats(bare as GameState)).toEqual([]);
   });
   it('survives a save and load with its moods, fired beats and history', () => {
-    const s = runScript(createGame('coal-coast'), greedyPlan(DIRTY_WANTS, 1.0)).state;
+    const s = runScript(createGame('coal-coast'), greedyPlan(DIRTY_WANTS, 1.0, 30, DIRTY_ROADS)).state;
     expect(Object.keys(s.residents.fired).length).toBeGreaterThan(5);
     const back = deserialize(serialize(s));
     expect(back).not.toBeNull();

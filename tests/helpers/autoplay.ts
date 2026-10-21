@@ -1,5 +1,6 @@
-import { advanceDecade, applyAction, canPlace, TileKind } from '../../src/sim';
+import { advanceDecade, applyAction, BUILDINGS, canPlace, TileKind } from '../../src/sim';
 import type { BuildingId, DecadeReport, GameState, Rotation } from '../../src/sim';
+import { connectionCost, connectOutcome, roadDistance } from './roads';
 
 export interface Spot {
   x: number;
@@ -28,28 +29,60 @@ export function hubOf(state: GameState): { x: number; y: number } {
   return { x: g.w / 2, y: g.h / 2 };
 }
 
+/** How many tiles of hub distance one tile of new road is worth to the scripted players when they choose a site. */
+const ROAD_WEIGHT = 1;
+/** Road weights at or above this belong to the careful players, who also keep power-using buildings back from the beach. */
+const CAREFUL_WEIGHT = 3;
+const BEACH_PENALTY = 6;
+
 /** First valid spot ordered by distance to the hub ('near') or farthest from it ('far'). Ignores funds. */
 export function findSpot(
   state: GameState,
   id: BuildingId,
   prefer: 'near' | 'far' = 'near',
   rotations: Rotation[] = [0, 1],
+  roadWeight = ROAD_WEIGHT,
 ): Spot | null {
   const hub = hubOf(state);
-  let best: Spot | null = null;
-  let bestScore = Infinity;
+  const cands: { spot: Spot; score: number }[] = [];
   const rich: GameState = { ...state, budget: 1e9 };
+  const road = roadDistance(state);
+  // A careful player keeps lit buildings back from a nesting beach (street lights confuse hatchlings).
+  const g0 = state.grid;
+  const beachZone = new Uint8Array(g0.w * g0.h);
+  if (roadWeight >= CAREFUL_WEIGHT) {
+    for (let i = 0; i < g0.kind.length; i++) {
+      if (g0.kind[i] !== TileKind.Beach) continue;
+      const bx = i % g0.w, by = Math.floor(i / g0.w);
+      for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) {
+        const xx = bx + dx, yy = by + dy;
+        if (xx >= 0 && yy >= 0 && xx < g0.w && yy < g0.h) beachZone[yy * g0.w + xx] = 1;
+      }
+    }
+  }
   for (let y = 0; y < state.grid.h; y++) {
     for (let x = 0; x < state.grid.w; x++) {
       for (const rotation of rotations) {
         if (!canPlace(rich, id, x, y, rotation).ok) continue;
+        // A sensible player builds along existing roads instead of paying for a long new one.
         const d = Math.hypot(x - hub.x, y - hub.y);
-        const score = prefer === 'near' ? d : -d;
-        if (score < bestScore) { bestScore = score; best = { x, y, rotation }; }
+        const toRoad = road ? roadWeight * Math.max(0, (road[y * state.grid.w + x] ?? 0) - 1) : 0;
+        const lit = beachZone[y * g0.w + x] === 1 && BUILDINGS[id].power < 0 ? BEACH_PENALTY : 0;
+        cands.push({ spot: { x, y, rotation }, score: (prefer === 'near' ? d : -d) + toRoad + lit });
       }
     }
   }
-  return best;
+  // Lowest score first (scan order breaks ties); then the first spot a road can actually reach.
+  const order = cands.map((c, i) => ({ c, i })).sort((a, b) => a.c.score - b.c.score || a.i - b.i);
+  const checkRoad = road !== null && BUILDINGS[id].needsRoad !== false;
+  for (const { c } of order) {
+    if (checkRoad) {
+      const r = applyAction(rich, { type: 'place', building: id, x: c.spot.x, y: c.spot.y, rotation: c.spot.rotation });
+      if (!r.result.ok || connectionCost(r.state, r.result.uid as number) === Infinity) continue;
+    }
+    return c.spot;
+  }
+  return null;
 }
 
 /** Try to build `count` of a building; returns how many were placed (stops at funds / no spot). */
@@ -58,15 +91,18 @@ export function buildN(
   id: BuildingId,
   count: number,
   prefer: 'near' | 'far' = 'near',
-): { state: GameState; built: number } {
+  roadWeight = ROAD_WEIGHT,
+): { state: GameState; built: number; needsFunds?: boolean } {
   let s = state;
   let built = 0;
   for (let i = 0; i < count; i++) {
-    const spot = findSpot(s, id, prefer);
+    const spot = findSpot(s, id, prefer, [0, 1], roadWeight);
     if (!spot) break;
     const r = applyAction(s, { type: 'place', building: id, x: spot.x, y: spot.y, rotation: spot.rotation });
     if (!r.result.ok) break;
-    s = r.state;
+    const joined = connectOutcome(r.state, r.result.uid);
+    if (!joined.state) return { state: s, built, needsFunds: joined.why === 'funds' };
+    s = joined.state;
     built++;
   }
   return { state: s, built };

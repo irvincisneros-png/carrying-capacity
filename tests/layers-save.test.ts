@@ -5,12 +5,12 @@ import {
 import type { GameState } from '../src/sim';
 import { runScript } from './helpers/autoplay';
 import { act1Respectful, fullPlayPlan, RESPECTFUL_WANTS } from './helpers/fullplay';
-import { DIRTY_WANTS, greedyPlan } from './helpers/scripts';
+import { CAREFUL_ROADS, DIRTY_ROADS, DIRTY_WANTS, greedyPlan } from './helpers/scripts';
 
 type Raw = Record<string, unknown> & { grid: Record<string, unknown> };
 
-const act1 = runScript(createGame('coal-coast'), act1Respectful(greedyPlan(RESPECTFUL_WANTS, 1.0))).state;
-const dirtyAct1 = runScript(createGame('coal-coast'), greedyPlan(DIRTY_WANTS, 1.0)).state;
+const act1 = runScript(createGame('coal-coast'), act1Respectful(greedyPlan(RESPECTFUL_WANTS, 1.0, 30, CAREFUL_ROADS))).state;
+const dirtyAct1 = runScript(createGame('coal-coast'), greedyPlan(DIRTY_WANTS, 1.0, 30, DIRTY_ROADS)).state;
 
 function midAct2(): GameState {
   let s = startAct2(act1);
@@ -19,6 +19,8 @@ function midAct2(): GameState {
     s = plan(s);
     s = tick(s, 1).state;
   }
+  // Make sure the circular layer has some research in it, whatever the scripted town could afford along the way.
+  if (s.circular.research.length === 0 && s.circular.unlocked) s = applyAction({ ...s, budget: s.budget + 500 }, { type: 'research', id: 'ewaste' }).state;
   return s;
 }
 const mid = midAct2();

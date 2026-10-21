@@ -1,5 +1,6 @@
 /** Scripted players for Red Dirt. */
 import { applyAction, BUILDINGS, createGame, startAct2, TileKind } from '../../src/sim';
+import { CAREFUL_ROADS } from './scripts';
 import type { BuildingId, GameState } from '../../src/sim';
 import { fieldSum } from './act2play';
 import {
@@ -48,7 +49,7 @@ export function redAct1Thoughtful(): GameState {
 
 import { advanceDecade } from '../../src/sim';
 function queueRun(queue: QueueWant[], respectful: boolean): GameState {
-  const plan = queuePlan(queue, 1.0);
+  const plan = queuePlan(queue, 1.0, 30, respectful ? CAREFUL_ROADS : undefined);
   let s = createGame('red-dirt');
   while (s.status === 'playing') {
     if (respectful) s = answerPrompts(consultAll(s), {}, 25);
@@ -136,9 +137,17 @@ export function redThoughtfulPlan(): Plan {
     s = buildKeeping(s, 'bore', sc(RED_BOT.bores), res, wet);
     s = buildKeeping(s, 'reservoir', sc(RED_BOT.reservoirs), res, wet);
     const yearsIn = s.year - y0;
-    s = buildKeeping(s, 'solarfarm', Math.min(sc(RED_BOT.solar), 3 + Math.floor(yearsIn / 3)), res);
-    s = buildKeeping(s, 'battery', Math.min(sc(RED_BOT.batteries), 1 + Math.floor(yearsIn / 3)), res);
-    s = buildKeeping(s, 'windfarm', RED_BOT.wind, res);
+    // Panels and turbines go at least a few tiles from the mine site, which has to stay clear for the nurseries that heal it.
+    const siteTiles = siteComponents(s).flat();
+    const g0 = s.grid;
+    const farFromSite = (x: number, y: number): number => {
+      let d = 6;
+      for (const i of siteTiles) d = Math.min(d, Math.hypot((i % g0.w) - x, Math.floor(i / g0.w) - y));
+      return d;
+    };
+    s = buildKeeping(s, 'solarfarm', Math.min(sc(RED_BOT.solar), 3 + Math.floor(yearsIn / 3)), res, farFromSite);
+    s = buildKeeping(s, 'battery', Math.min(sc(RED_BOT.batteries), 1 + Math.floor(yearsIn / 3)), res, farFromSite);
+    s = buildKeeping(s, 'windfarm', RED_BOT.wind, res, farFromSite);
     s = retireFossil(s, { circularSafe: true });
     s = buildKeeping(s, 'coolingcentre', sc(RED_BOT.centres), res, wet);
     s = buildKeeping(s, 'parkland', sc(RED_BOT.parks), res, wet);

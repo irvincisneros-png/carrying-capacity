@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
-  advanceDecade, applyAction, buildReportCard, createGame, isKnownMetric, objectiveStatus, startAct2, suggestTile, tick, TUTORIAL_STEPS,
+  advanceDecade, applyAction, buildReportCard, canPlace, createGame, isKnownMetric, objectiveStatus, startAct2, suggestTile, tick, TUTORIAL_STEPS,
   tutorialStatus, tutorialStepsFor, wordCount,
 } from '../src/sim';
 import type { GameState } from '../src/sim';
+import { connectAll } from './helpers/roads';
 import { followTutorial } from './helpers/valley';
 
 const steps = tutorialStepsFor('green-valley');
@@ -72,10 +73,14 @@ describe('tutorialStatus', () => {
     let s = createGame('green-valley');
     s.budget = 500;
     // Get through the first steps by hand.
-    for (const id of ['cottage', 'cottage', 'cottage', 'farm', 'road', 'road'] as const) {
+    for (const id of ['cottage', 'cottage', 'cottage', 'farm'] as const) {
       const spot = suggestTile(s, id);
       s = applyAction(s, { type: 'place', building: id, x: spot?.x ?? 0, y: spot?.y ?? 0, rotation: spot?.rotation ?? 0 }).state;
     }
+    // Homes and a farm with no road to them do not count as connected: the step waits until a road joins them to the edge.
+    expect(tutorialStatus(s).current?.id).toBe('roads');
+    expect(tutorialStatus(s).highlight).toBe('build:road');
+    s = connectAll(s);
     expect(tutorialStatus(s).current?.id).toBe('clear');
     expect(tutorialStatus(s).highlight).toBe('tool:clear');
     const bush = Array.from(s.grid.kind).findIndex((k) => k === 5);
@@ -110,7 +115,7 @@ function runToTurningPoint(): GameState {
   s.budget = 5000;
   for (const id of ['cottage', 'cottage', 'cottage', 'farm', 'factory', 'coalpower', 'coalmine'] as const) {
     const spot = suggestTile(s, id);
-    s = applyAction(s, { type: 'place', building: id, x: spot?.x ?? 0, y: spot?.y ?? 0, rotation: spot?.rotation ?? 0 }).state;
+    s = connectAll(applyAction(s, { type: 'place', building: id, x: spot?.x ?? 0, y: spot?.y ?? 0, rotation: spot?.rotation ?? 0 }).state);
   }
   while (s.status === 'playing') s = advanceDecade(s).state;
   return s;
@@ -138,14 +143,26 @@ describe('following the tutorial from start to finish', () => {
     expect(run.steps).toBeLessThan(200);
     const built = Object.entries(run.end.residents.actions).filter(([k]) => k.startsWith('built.')).reduce((a, [, v]) => a + v, 0);
     expect(built).toBeGreaterThan(12);
-    expect(built).toBeLessThan(45);
+    // Re-banded from 45: every road tile laid to join the homes, farm and works to the road in counts as a build (about a dozen
+    // tiles for a tutorial town), so the same town now logs more builds.
+    expect(built).toBeLessThan(65);
   });
   it('lets a second wetland earn the bonus star (frogs thriving)', () => {
     let s = startAct2(runToTurningPoint());
     s.budget = 3000;
     for (let n = 0; n < 2; n++) {
-      const spot = suggestTile(s, 'wetland');
-      s = applyAction(s, { type: 'place', building: 'wetland', x: spot?.x ?? 0, y: spot?.y ?? 0, rotation: spot?.rotation ?? 0 }).state;
+      // Frogs keep away from traffic (road kills), so the ponds go beside the creek but a few tiles from any road.
+      const roads = s.buildings.filter((b) => b.type === 'road');
+      let best: { x: number; y: number; d: number } | null = null;
+      const near = suggestTile(s, 'wetland') ?? { x: 0, y: 0 };
+      for (let y = 0; y < s.grid.h; y++) for (let x = 0; x < s.grid.w; x++) {
+        if (!canPlace(s, 'wetland', x, y).ok) continue;
+        if (roads.some((r) => Math.max(Math.abs(r.x - x), Math.abs(r.y - y)) <= 4)) continue;
+        const d = Math.hypot(x - near.x, y - near.y);
+        if (!best || d < best.d) best = { x, y, d };
+      }
+      expect(best).not.toBeNull();
+      s = applyAction(s, { type: 'place', building: 'wetland', x: best?.x ?? 0, y: best?.y ?? 0 }).state;
     }
     for (let y = 0; y < 12; y++) s = tick(s, 1).state;
     expect(s.wildlife.species.frogs?.pop).toBeGreaterThanOrEqual(40);

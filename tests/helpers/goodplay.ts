@@ -1,6 +1,8 @@
-import { applyAction, balanceGrid, BUILDINGS, TileKind } from '../../src/sim';
+import { applyAction, balanceGrid, BUILDINGS, estuaryHealth, TileKind } from '../../src/sim';
 import type { BuildingId, GameState } from '../../src/sim';
+import { canPlace } from '../../src/sim';
 import { bestSpot, count, demolishAll, fieldSum, place, placeUpTo } from './act2play';
+import { connectedOrNull } from './roads';
 import { kScale } from './mapscale';
 
 /** Would the grid hold (<= 1.5% unmet in all four seasons) if this building were removed? */
@@ -18,6 +20,47 @@ export function gridHoldsWithout(s: GameState, uid: number): boolean {
   }
   return true;
 }
+
+/** Follows the estuary hint ("keep farms away from the water"): farms whose runoff reaches the water move inland. */
+export function moveFarmsInland(state: GameState, maxPerYear = 2): GameState {
+  let s = state;
+  const g = s.grid;
+  const water: number[] = [];
+  for (let i = 0; i < g.kind.length; i++) if (g.kind[i] === TileKind.Estuary || g.kind[i] === TileKind.River) water.push(i);
+  const distToWater = (x: number, y: number, w: number, h: number): number => {
+    let best = 99;
+    for (const i of water) {
+      const wx = i % g.w, wy = Math.floor(i / g.w);
+      const dx = Math.max(x - wx, wx - (x + w - 1), 0), dy = Math.max(y - wy, wy - (y + h - 1), 0);
+      best = Math.min(best, Math.hypot(dx, dy));
+    }
+    return best;
+  };
+  let moved = 0;
+  for (const b of s.buildings.filter((o) => o.type === 'farm')) {
+    if (moved >= maxPerYear || s.budget < BUILDINGS.farm.cost + 20) break;
+    if (distToWater(b.x, b.y, b.w, b.h) > 2.5) continue;
+    let spot: { x: number; y: number } | null = null;
+    let bestD = 3.5;
+    for (let y = 0; y < g.h - 1; y++) for (let x = 0; x < g.w - 1; x++) {
+      if (g.kind[y * g.w + x] !== TileKind.Land) continue;
+      if (!canPlace(s, 'farm', x, y).ok) continue;
+      const d = distToWater(x, y, 2, 2);
+      if (d > bestD) { bestD = d; spot = { x, y }; if (d > 6) break; }
+    }
+    if (!spot) break;
+    const d = applyAction(s, { type: 'demolish', x: b.x, y: b.y });
+    if (!d.result.ok) continue;
+    const p = applyAction(d.state, { type: 'place', building: 'farm', x: spot.x, y: spot.y });
+    if (!p.result.ok) continue;
+    const joined = connectedOrNull(p.state, p.result.uid);
+    if (!joined) continue; // the farm stays where it was unless it can be joined to the road in its new place
+    s = joined;
+    moved++;
+  }
+  return s;
+}
+
 
 function toward(hub: { x: number; y: number }) {
   return (x: number, y: number): number => -Math.hypot(x - hub.x, y - hub.y);
@@ -104,12 +147,18 @@ export function goodPlayPlan(opts: GoodPlayOpts = {}): (s: GameState) => GameSta
       if (p.ok) s = p.state;
     }
     s = placeUpTo(s, 'wetland', Math.max(0, kScale('coal-coast', 5) - count(s, 'wetland')), (x, y) => near(x, y));
+    // The estuary is slow to clear when the town's farms and tip stood close to it: the careful player adds more filtering wetlands
+    // (the Objectives panel says what the water needs) rather than waiting for it.
+    if (s.year >= 2030 && estuaryHealth(s) < 60) s = moveFarmsInland(s, 2);
+    if (s.year >= 2030 && estuaryHealth(s) < 60) s = placeUpTo(s, 'wetland', Math.max(0, kScale('coal-coast', 12) - count(s, 'wetland')), (x, y) => near(x, y));
 
     if (opts.waterFirst) s = soilStep(s);
 
     // 3. Energy: build clean capacity, then retire coal and (later) gas when the grid holds without it.
     const want: [BuildingId, number, number][] = [
       ['windfarm', 8, 0],
+      ['solarfarm', 4, 0],
+      ['battery', 3, 0],
       ['solarfarm', 6, 0],
       ['battery', 5, 0],
       ['hydro', 1, 0],
@@ -122,6 +171,13 @@ export function goodPlayPlan(opts: GoodPlayOpts = {}): (s: GameState) => GameSta
       if (s.year < from) continue;
       const score = id === 'windfarm' || id === 'offshorewind' ? () => 0 : near;
       s = placeUpTo(s, id, Math.max(0, n - count(s, id)), score);
+    }
+    // After a year with blackouts, one more battery (night) or solar farm (day) goes in: the roads to the ridge turbines
+    // and the sites the town's roads reach cost real money, so the fixed shopping list above can fall short.
+    if (s.a2.lastUnmetFrac > 0.012 && s.year > 2030) {
+      const day = (s.a2.lastGrid?.day.unmet ?? 0) > (s.a2.lastGrid?.night.unmet ?? 0);
+      const id: BuildingId = day ? 'solarfarm' : 'battery';
+      if (count(s, id) < (day ? 12 : 10)) s = placeUpTo(s, id, 2, near);
     }
     for (const b of s.buildings.filter((o) => o.type === 'coalpower')) {
       if (gridHoldsWithout(s, b.uid)) {

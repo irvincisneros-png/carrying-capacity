@@ -1,9 +1,18 @@
 import { applyAction, BUILDINGS, canPlace, TileKind, tick } from '../../src/sim';
 import type { BuildingId, GameState, Rotation } from '../../src/sim';
+import { connectAll, connectOutcome, roadDistance } from './roads';
+
+/** Value, in the callers' score units, of one tile of new road when two sites are otherwise alike. */
+const ACT2_ROAD_WEIGHT = 0.05;
+/** In Act 1 the builders score sites by distance in tiles, so a tile of new road is worth a tile of walking. */
+const ACT1_ROAD_WEIGHT = 1;
+import { roadAccess, roadRoute } from '../../src/sim';
 
 export interface Placed {
   state: GameState;
   ok: boolean;
+  /** The building could be placed but the road to it is not affordable yet. */
+  needsFunds?: boolean;
 }
 
 /** Highest-scoring valid spot for a building (ignores funds). `score` higher = better; ties break by scan order. */
@@ -18,10 +27,11 @@ export function bestSpot(
   id: BuildingId,
   score: (x: number, y: number, w: number, h: number) => number,
   rotations: Rotation[] = [0, 1],
+  roadWeight?: number,
 ): { x: number; y: number; rotation: Rotation } | null {
   const rich: GameState = { ...state, budget: 1e9 };
-  let best: { x: number; y: number; rotation: Rotation } | null = null;
-  let bestScore = -Infinity;
+  const cands: { x: number; y: number; rotation: Rotation; sc: number }[] = [];
+  const road = roadDistance(state);
   for (let y = 0; y < state.grid.h; y++) {
     for (let x = 0; x < state.grid.w; x++) {
       for (const rotation of rotations) {
@@ -29,18 +39,39 @@ export function bestSpot(
         if (!c.ok) continue;
         // These careful players keep wetlands on open ground and never dig one into standing bush.
         if (id === 'wetland' && bushIn(state, c.footprint) > 0) continue;
-        const sc = score(x, y, c.footprint.w, c.footprint.h);
-        if (sc > bestScore) { bestScore = sc; best = { x, y, rotation }; }
+        // Scores are in the callers' own units; a tile of new road is a small tie-breaker, so equal sites go to the one a road already reaches.
+        const toRoad = road && BUILDINGS[id].needsRoad !== false ? (roadWeight ?? (state.phase === 'act1' ? ACT1_ROAD_WEIGHT : ACT2_ROAD_WEIGHT)) * Math.max(0, (road[y * state.grid.w + x] ?? 0) - 1) : 0;
+        cands.push({ x, y, rotation, sc: score(x, y, c.footprint.w, c.footprint.h) - toRoad });
       }
     }
   }
-  return best;
+  // Best score first (scan order breaks ties, as before); then the first spot a road can actually reach.
+  const order = cands.map((c, i) => ({ c, i })).sort((a, b) => b.c.sc - a.c.sc || a.i - b.i);
+  const checkRoad = roadAccess(state).enforced && BUILDINGS[id].needsRoad !== false;
+  // In Act 2 a road through regrown bush costs bush (and a one-off CO2 release), so a careful player first looks for a site whose
+  // road crosses none; only if there is no such site does it accept one that does.
+  const passes = checkRoad && state.phase === 'act2' ? [false, true] : [true];
+  for (const allowBush of passes) {
+    for (const { c } of order) {
+      if (checkRoad) {
+        const r = applyAction(rich, { type: 'place', building: id, x: c.x, y: c.y, rotation: c.rotation });
+        if (!r.result.ok) continue;
+        const route = roadRoute(r.state, r.result.uid as number);
+        if (route === null) continue;
+        if (!allowBush && route.some((i) => r.state.grid.kind[i] === TileKind.Bush)) continue;
+      }
+      return { x: c.x, y: c.y, rotation: c.rotation };
+    }
+  }
+  return null;
 }
 
 export function place(state: GameState, id: BuildingId, spot: { x: number; y: number; rotation: Rotation } | null): Placed {
   if (!spot) return { state, ok: false };
   const r = applyAction(state, { type: 'place', building: id, x: spot.x, y: spot.y, rotation: spot.rotation });
-  return r.result.ok ? { state: r.state, ok: true } : { state, ok: false };
+  if (!r.result.ok) return { state, ok: false };
+  const joined = connectOutcome(r.state, r.result.uid);
+  return joined.state ? { state: joined.state, ok: true } : { state, ok: false, needsFunds: joined.why === 'funds' };
 }
 
 /** Sum of a field over a rect grown by `r` tiles. */
@@ -63,7 +94,8 @@ export function demolishAll(state: GameState, id: BuildingId, max = 999): GameSt
     const r = applyAction(s, { type: 'demolish', x: b.x, y: b.y });
     if (r.result.ok) s = r.state;
   }
-  return s;
+  // Pulling out a rail siding or a highway can leave a neighbour without a road: a careful player re-connects what still stands.
+  return connectAll(s);
 }
 
 /** Place up to n of a building at the best-scoring spots, as funds allow. */

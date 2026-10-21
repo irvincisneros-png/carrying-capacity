@@ -101,6 +101,18 @@ export interface BuildingDef {
   groundStation?: boolean;
   /** Only created by repurposing a legacy building (circular tier), never placed directly. */
   repurposeOnly?: boolean;
+  /**
+   * Needs a road beside it that is joined to the town's entrance, or it gives nothing (no housing, jobs, power or
+   * emissions). Default true. False for roads and rail, nature and restoration items, wildlife crossings, offshore and
+   * water buildings, light rail (own right-of-way) and rooftop solar (sits on homes).
+   */
+  needsRoad?: boolean;
+  /** This building is a piece of the road (traffic) or rail network that carries the connection to the entrance. */
+  network?: 'road' | 'rail';
+  /** A rail siding beside this building counts as access (mines, heavy industry, ports, coal power). */
+  railServed?: boolean;
+  /** Works only while a working home is within its `nearBuilding` distance (rooftop solar). */
+  hostedOnHomes?: boolean;
 }
 
 const { Land, Bush, Beach } = TileKind;
@@ -173,13 +185,13 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
     blurb: 'Grows food. Fertiliser and soil run off into the river.',
   },
   road: {
-    id: 'road', name: 'Road', w: 1, h: 1, cost: 2, jobs: 0, housing: 0, power: 0,
+    id: 'road', network: 'road', needsRoad: false, name: 'Road', w: 1, h: 1, cost: 1, jobs: 0, housing: 0, power: 0,
     co2: 0, localPollution: 0, pollutes: {}, unlock: 1850, category: 'transport',
     placement: { on: [Land, Bush] },
-    blurb: 'Connects the town.',
+    blurb: 'Connects buildings to the road from the edge of the map. A building with no road to the edge gives nothing: no homes, jobs or power.',
   },
   coalmine: {
-    id: 'coalmine', phases: ACT1, name: 'Coal mine', w: 2, h: 2, cost: 40, jobs: 40, housing: 0, power: -2,
+    id: 'coalmine', railServed: true, phases: ACT1, name: 'Coal mine', w: 2, h: 2, cost: 40, jobs: 40, housing: 0, power: -2,
     co2: 20, localPollution: 2, pollutes: { air: 1, soil: 1 }, unlock: 1850, category: 'industry',
     placement: {
       on: [Land, Bush],
@@ -188,13 +200,13 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
     blurb: 'Digs coal from the sandstone seam. Lots of jobs, lots of dust.',
   },
   rail: {
-    id: 'rail', phases: ACT1, name: 'Rail siding', w: 1, h: 1, cost: 5, jobs: 2, housing: 0, power: 0,
+    id: 'rail', network: 'rail', needsRoad: false, phases: ACT1, name: 'Rail siding', w: 1, h: 1, cost: 5, jobs: 2, housing: 0, power: 0,
     co2: 1, localPollution: 0, pollutes: {}, unlock: 1860, category: 'transport',
     placement: { on: [Land, Bush] },
     blurb: 'Moves coal and goods by steam locomotive.',
   },
   port: {
-    id: 'port', phases: ACT1, name: 'Port & coal loader', w: 2, h: 2, cost: 60, jobs: 30, housing: 0, power: -2,
+    id: 'port', railServed: true, phases: ACT1, name: 'Port & coal loader', w: 2, h: 2, cost: 60, jobs: 30, housing: 0, power: -2,
     co2: 10, localPollution: 2, pollutes: { air: 1, water: 1 }, unlock: 1870, category: 'transport',
     placement: {
       on: [Land, Beach, Bush],
@@ -203,7 +215,7 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
     blurb: 'Ships coal around the world.',
   },
   outfall: {
-    id: 'outfall', phases: ACT1, name: 'Sewage outfall', w: 1, h: 1, cost: 5, jobs: 0, housing: 0, power: 0,
+    id: 'outfall', needsRoad: false, phases: ACT1, name: 'Sewage outfall', w: 1, h: 1, cost: 5, jobs: 0, housing: 0, power: 0,
     co2: 0, localPollution: 3, pollutes: { water: 3 }, unlock: 1880, category: 'waste',
     placement: {
       on: [Land, Beach, Bush],
@@ -218,13 +230,13 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
     blurb: 'Rotting rubbish releases methane, a potent greenhouse gas (CO2-equivalent counted here).',
   },
   factory: {
-    id: 'factory', name: 'Factory', w: 2, h: 2, cost: 50, jobs: 60, housing: 0, power: -5,
+    id: 'factory', railServed: true, name: 'Factory', w: 2, h: 2, cost: 50, jobs: 60, housing: 0, power: -5,
     co2: 25, localPollution: 3, pollutes: { air: 2, soil: 1 }, unlock: 1900, category: 'industry',
     placement: { on: [Land, Bush] },
     blurb: 'Makes goods with sawtooth roofs and tall chimneys.',
   },
   steelworks: {
-    id: 'steelworks', phases: ACT1, name: 'Steelworks', w: 3, h: 3, cost: 120, jobs: 150, housing: 0, power: -10,
+    id: 'steelworks', railServed: true, phases: ACT1, name: 'Steelworks', w: 3, h: 3, cost: 120, jobs: 150, housing: 0, power: -10,
     co2: 120, localPollution: 5, pollutes: { air: 3, soil: 2 }, unlock: 1910, category: 'industry',
     placement: {
       on: [Land, Bush],
@@ -233,7 +245,7 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
     blurb: 'Coal and iron ore become steel. Huge employer, huge emitter.',
   },
   coalpower: {
-    id: 'coalpower', phases: ACT1, energy: { source: 'coal', capacity: 40 }, name: 'Coal power station', w: 2, h: 2, cost: 100, jobs: 40, housing: 0, power: 40,
+    id: 'coalpower', railServed: true, phases: ACT1, energy: { source: 'coal', capacity: 40 }, name: 'Coal power station', w: 2, h: 2, cost: 100, jobs: 40, housing: 0, power: 40,
     co2: 150, localPollution: 4, pollutes: { air: 4 }, unlock: 1920, category: 'power',
     placement: {
       on: [Land, Bush],
@@ -248,7 +260,7 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
     blurb: 'Rows of brick homes with backyards.',
   },
   carpark: {
-    id: 'carpark', phases: ACT1, name: 'Highway & cars', w: 1, h: 3, cost: 25, jobs: 5, housing: 0, power: 0,
+    id: 'carpark', needsRoad: false, phases: ACT1, name: 'Highway & cars', w: 1, h: 3, cost: 25, jobs: 5, housing: 0, power: 0,
     co2: 30, localPollution: 2, pollutes: { air: 2 }, unlock: 1950, category: 'transport',
     placement: { on: [Land, Bush] },
     blurb: 'A highway and car park. Rotate with R.',
@@ -263,7 +275,7 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
     blurb: 'Flexible: ramps up and down quickly, with about half the CO2 of coal per unit of electricity. Still a fossil fuel.',
   },
   rooftopsolar: {
-    id: 'rooftopsolar', name: 'Rooftop solar', w: 1, h: 1, cost: 12, jobs: 1, housing: 0, power: 5,
+    id: 'rooftopsolar', needsRoad: false, hostedOnHomes: true, name: 'Rooftop solar', w: 1, h: 1, cost: 12, jobs: 1, housing: 0, power: 5,
     co2: 0, localPollution: 0, pollutes: {}, unlock: 2025, category: 'power', phases: ACT2,
     energy: { source: 'rooftop-solar', capacity: 5 },
     placement: {
@@ -290,7 +302,7 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
     blurb: 'Turbines on a ridge or headland. Works day and night, but the wind comes and goes.',
   },
   offshorewind: {
-    id: 'offshorewind', name: 'Offshore wind', w: 2, h: 2, cost: 150, jobs: 6, housing: 0, power: 40,
+    id: 'offshorewind', needsRoad: false, name: 'Offshore wind', w: 2, h: 2, cost: 150, jobs: 6, housing: 0, power: 40,
     co2: 0, localPollution: 0, pollutes: {}, unlock: 2040, category: 'power', phases: ACT2,
     energy: { source: 'offshore-wind', capacity: 40 },
     placement: {
@@ -328,7 +340,7 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
     blurb: 'Stores spare solar and wind power for the evening peak.',
   },
   tidal: {
-    id: 'tidal', name: 'Tidal turbines', w: 2, h: 2, cost: 140, jobs: 4, housing: 0, power: 14,
+    id: 'tidal', needsRoad: false, name: 'Tidal turbines', w: 2, h: 2, cost: 140, jobs: 4, housing: 0, power: 14,
     co2: 0, localPollution: 0, pollutes: {}, unlock: 2030, category: 'power', phases: ACT2, requiresFeature: 'tidal',
     energy: { source: 'tidal', capacity: 14 },
     placement: {
@@ -340,7 +352,7 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
 
   // ---- Act 2: clean-up and restoration ----
   phytoremediation: {
-    id: 'phytoremediation', name: 'Phytoremediation garden', w: 2, h: 2, cost: 25, jobs: 1, housing: 0, power: 0,
+    id: 'phytoremediation', needsRoad: false, name: 'Phytoremediation garden', w: 2, h: 2, cost: 25, jobs: 1, housing: 0, power: 0,
     co2: 0, localPollution: 0, pollutes: {}, unlock: 2025, category: 'land', phases: ACT2,
     remediation: { method: 'phyto', radius: 3, baseYears: 8 },
     placement: { on: [Land] },
@@ -354,7 +366,7 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
     blurb: 'Dig out the contaminated soil and truck it away. Fast, but expensive and the trucks burn diesel.',
   },
   wetland: {
-    id: 'wetland', name: 'Stormwater wetland', w: 2, h: 2, cost: 40, jobs: 1, housing: 0, power: 0,
+    id: 'wetland', needsRoad: false, name: 'Stormwater wetland', w: 2, h: 2, cost: 40, jobs: 1, housing: 0, power: 0,
     co2: 0, localPollution: 0, pollutes: {}, unlock: 2025, category: 'land', phases: ACT2, wetland: true,
     placement: {
       on: [Land],
@@ -363,13 +375,13 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
     blurb: 'Reeds and ponds that filter runoff before it reaches the estuary.',
   },
   sewagetreatment: {
-    id: 'sewagetreatment', name: 'Sewage treatment plant', w: 1, h: 1, cost: 45, jobs: 3, housing: 0, power: -1,
+    id: 'sewagetreatment', needsRoad: false, name: 'Sewage treatment plant', w: 1, h: 1, cost: 45, jobs: 3, housing: 0, power: -1,
     co2: 5, localPollution: 0.6, pollutes: { water: 0.6 }, unlock: 2025, category: 'waste', phases: ACT2, replaces: 'outfall',
     placement: { on: [Land, Beach, Bush] },
     blurb: 'Build it on an existing sewage outfall to upgrade it. Treated water is far cleaner than raw sewage.',
   },
   nursery: {
-    id: 'nursery', name: 'Native plant nursery', w: 2, h: 2, cost: 30, jobs: 4, housing: 0, power: 0,
+    id: 'nursery', needsRoad: false, name: 'Native plant nursery', w: 2, h: 2, cost: 30, jobs: 4, housing: 0, power: 0,
     co2: 0, localPollution: 0, pollutes: {}, unlock: 2025, category: 'land', phases: ACT2, nursery: { radius: 5 },
     placement: { on: [Land] },
     blurb: 'Grows local seedlings and sends out bush regenerators to weed. Restoration spreads from here.',
@@ -377,7 +389,7 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
 
   // ---- Act 2: wildlife and satellites ----
   wildlifecrossing: {
-    id: 'wildlifecrossing', name: 'Wildlife crossing', w: 1, h: 1, cost: 30, jobs: 0, housing: 0, power: 0,
+    id: 'wildlifecrossing', network: 'road', needsRoad: false, name: 'Wildlife crossing', w: 1, h: 1, cost: 30, jobs: 0, housing: 0, power: 0,
     co2: 1, localPollution: 0, pollutes: {}, unlock: 2025, category: 'land', phases: ACT2, replaces: 'road', crossing: true,
     placement: { on: [Land, Bush] },
     blurb: 'An underpass or rope bridge built where a road cuts through bush, with fences that guide animals to it. Build it on an existing road.',
@@ -391,7 +403,7 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
 
   // ---- Circular tier: created by repurposing a legacy building ----
   greensteel: {
-    id: 'greensteel', name: 'Green steel plant', w: 3, h: 3, cost: 0, jobs: 90, housing: 0, power: -8,
+    id: 'greensteel', railServed: true, name: 'Green steel plant', w: 3, h: 3, cost: 0, jobs: 90, housing: 0, power: -8,
     co2: 12, localPollution: 0.5, pollutes: { air: 0.3 }, unlock: 2025, category: 'industry', phases: ACT2, repurposeOnly: true,
     placement: { on: [Land] },
     blurb: 'Makes steel with hydrogen from renewable power instead of coal. Water is the main by-product.',
@@ -403,7 +415,7 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
     blurb: 'The old works become a museum of the town\'s story and a workshop where people learn to repair, weld and build.',
   },
   windport: {
-    id: 'windport', name: 'Wind-turbine port', w: 2, h: 2, cost: 0, jobs: 30, housing: 0, power: -2,
+    id: 'windport', railServed: true, name: 'Wind-turbine port', w: 2, h: 2, cost: 0, jobs: 30, housing: 0, power: -2,
     co2: 4, localPollution: 0, pollutes: {}, unlock: 2025, category: 'transport', phases: ACT2, repurposeOnly: true,
     placement: { on: [Land] },
     blurb: 'The coal loader\'s deep berth now ships turbine blades and towers for offshore wind farms.',
@@ -429,7 +441,7 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
     blurb: 'A library, meeting rooms and a cool place in a heatwave, built inside the old power station\'s walls.',
   },
   recycler: {
-    id: 'recycler', name: 'Recycling and remanufacturing plant', w: 2, h: 2, cost: 0, jobs: 40, housing: 0, power: -3,
+    id: 'recycler', railServed: true, name: 'Recycling and remanufacturing plant', w: 2, h: 2, cost: 0, jobs: 40, housing: 0, power: -3,
     co2: 6, localPollution: 0.3, pollutes: { air: 0.2 }, unlock: 2025, category: 'waste', phases: ACT2, repurposeOnly: true,
     placement: { on: [Land] },
     blurb: 'Sorts and processes the town\'s glass, metals and plastics so they become new products instead of rubbish.',
@@ -452,7 +464,7 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
     blurb: 'Build it on an existing farm. Drip lines and soil sensors put water on the roots, using about 40% less and adding much less salt.',
   },
   fishway: {
-    id: 'fishway', name: 'Fishway', w: 1, h: 1, cost: 30, jobs: 0, housing: 0, power: 0,
+    id: 'fishway', needsRoad: false, name: 'Fishway', w: 1, h: 1, cost: 30, jobs: 0, housing: 0, power: 0,
     co2: 1, localPollution: 0, pollutes: {}, unlock: 1990, category: 'land',
     placement: {
       on: [TileKind.River],
@@ -461,7 +473,7 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
     blurb: 'A stepped channel beside a weir so fish such as Murray cod and golden perch can swim upstream to breed.',
   },
   seawall: {
-    id: 'seawall', name: 'Seawall', w: 1, h: 1, cost: 14, jobs: 0, housing: 0, power: 0,
+    id: 'seawall', needsRoad: false, name: 'Seawall', w: 1, h: 1, cost: 14, jobs: 0, housing: 0, power: 0,
     co2: 5, localPollution: 0, pollutes: {}, unlock: 1950, category: 'land',
     placement: {
       on: [Land, Beach],
@@ -479,7 +491,7 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
     blurb: 'Guests come for the reef and the beach. Income rises and falls with how healthy they are, and the lights and sewage reach the water.',
   },
   coralnursery: {
-    id: 'coralnursery', name: 'Coral nursery', w: 2, h: 2, cost: 35, jobs: 4, housing: 0, power: 0,
+    id: 'coralnursery', needsRoad: false, name: 'Coral nursery', w: 2, h: 2, cost: 35, jobs: 4, housing: 0, power: 0,
     co2: 2, localPollution: 0, pollutes: {}, unlock: 2025, category: 'land', phases: ACT2,
     placement: {
       on: [TileKind.Sea],
@@ -488,7 +500,7 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
     blurb: 'Fragments of the toughest local coral are grown on frames and planted back, speeding recovery and spreading heat-tolerant genes. Each nursery helps the reef within about 4 tiles, up to three overlapping; it costs $4k a year to run.',
   },
   bore: {
-    id: 'bore', name: 'Water bore', w: 1, h: 1, cost: 25, jobs: 1, housing: 0, power: -1,
+    id: 'bore', needsRoad: false, name: 'Water bore', w: 1, h: 1, cost: 25, jobs: 1, housing: 0, power: -1,
     co2: 2, localPollution: 0, pollutes: {}, unlock: 1880, category: 'land',
     placement: { on: [Land] },
     blurb: 'A pump on a deep bore draws water from the aquifer. It is reliable in a drought, but the aquifer refills very slowly.',
@@ -500,7 +512,7 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
     blurb: 'An air-conditioned hall where people can shelter on the hottest days. Cooling centres save lives in heatwaves.',
   },
   transitline: {
-    id: 'transitline', name: 'Light rail and bus lane', w: 1, h: 3, cost: 55, jobs: 15, housing: 0, power: -6,
+    id: 'transitline', needsRoad: false, name: 'Light rail and bus lane', w: 1, h: 3, cost: 55, jobs: 15, housing: 0, power: -6,
     co2: 3, localPollution: 0, pollutes: {}, unlock: 2025, category: 'transport', phases: ACT2,
     placement: { on: [Land] },
     blurb: 'Electric trams and buses on their own lanes. Every line moves people who would otherwise drive, cutting car emissions and traffic. Rotate with R.',
@@ -512,7 +524,7 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
     blurb: 'Build it on a brick suburb. Insulation, heat pumps, rooftop panels and cool roofs cut energy use by half and keep homes safer in a heatwave.',
   },
   parkland: {
-    id: 'parkland', name: 'Street trees and pocket park', w: 1, h: 1, cost: 8, jobs: 0, housing: 0, power: 0,
+    id: 'parkland', needsRoad: false, name: 'Street trees and pocket park', w: 1, h: 1, cost: 8, jobs: 0, housing: 0, power: 0,
     co2: 0, localPollution: 0, pollutes: {}, unlock: 2025, category: 'land', phases: ACT2,
     placement: { on: [Land] },
     blurb: 'Shade trees and a patch of green. Tree canopy cools a street by several degrees in a heatwave and soaks up some carbon.',

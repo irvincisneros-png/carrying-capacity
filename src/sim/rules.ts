@@ -182,7 +182,9 @@ export function canPlace(
         return fail('bad-terrain', terrainReason(def, k), fp, av.cost);
       }
       if (k === TileKind.Bush) {
-        if (phase === 'act2') {
+        // A road may still cut through regrown bush in Act 2 (otherwise a cleared site beyond the bush could never be joined to
+        // the town): that bush tile is lost, which is the trade-off.
+        if (phase === 'act2' && buildingId !== 'road') {
           return fail('bad-terrain', 'This bushland has grown back - protect it and build on cleared land instead', fp, av.cost);
         }
         bush++;

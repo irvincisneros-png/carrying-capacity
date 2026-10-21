@@ -19,9 +19,10 @@ const GREEN_VALLEY_STEPS: readonly TutorialStep[] = [
     done: { all: [t('acts.built.farm', '>=', 1)] },
   },
   {
-    id: 'roads', title: 'Connect the town', phase: ['act1'], highlight: 'build:road',
-    instruction: 'Lay a couple of Road tiles between your homes and the farm. Roads are cheap, and they also split up bushland, which will matter for animals later.',
-    done: { all: [t('acts.built.road', '>=', 2)] },
+    id: 'roads', title: 'Connect to the road', phase: ['act1'], highlight: 'build:road',
+    instruction: 'Connect your homes and farm to the road from the edge of the valley. A building only works when a road reaches it, so homes stay empty and farms stay idle until you do. Roads cost $2 a tile and also split up bushland, which will matter for animals later.',
+    hint: 'Find the road tile on the edge of the map. Click Road, then lay tiles from it to a tile beside each home and the farm. Buildings with no road show nothing in the town numbers.',
+    done: { all: [t('connected.cottage', '>=', 3), t('connected.farm', '>=', 1)] },
   },
   {
     id: 'clear', title: 'Clear a little bush', phase: ['act1'], highlight: 'tool:clear',

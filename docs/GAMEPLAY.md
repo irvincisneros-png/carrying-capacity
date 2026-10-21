@@ -34,6 +34,20 @@ Act 2 time: 1 in-game year = 15 s at 1× (≈19 min for 2025→2100 at 1×; play
 
 **Weather vs climate HUD.** Daily weather icon + season; separate 30-year climate trend line (4.2.1). Greenhouse "atmosphere lens" overlay (4.2.3).
 
+## 2b. Roads matter (Round 6)
+
+**The rule.** Every scenario starts with an **entrance road**: one road tile on the edge of the map, on open land and away from the shore, with a country road already running in from it to where the town will grow (the open tile nearest the creek, estuary or river; Net Zero City's finished road grid is joined to it). A river or the sea that cuts a big stretch of land off from the rest gets an entrance of its own, because there are no bridges. A building **works only if a tile edge-adjacent to it is a road that is joined, tile by tile, to an entrance.** Mines, ports, steelworks, factories and coal power stations also accept a **rail siding** that is joined to the entrance (rail carries coal and goods, not commuters). The entrance road cannot be demolished. Taking out a road, or a rail siding a building was relying on, cuts off everything that needed it until it is joined up again.
+
+**Unconnected buildings give nothing.** Homes house no one, workplaces fill no jobs, power stations supply no power and use none, and a building that is not running adds no emissions and no local pollution. Money, Society and Environment follow from that. `roadAccess(state)` lists the connected and unconnected buildings (cached by `version`, one flood fill over the road tiles) so the interface can mark them "no road" and warn about them (planned demand bars, WP4).
+
+**Exempt** (the building def says `needsRoad: false`): roads, rail sidings, highways (they come with their own ramps), wildlife crossings, light rail (it has its own right-of-way), nature and restoration items (phytoremediation gardens, stormwater wetlands, nurseries, coral nurseries, parkland), offshore wind and tidal turbines, fishways, seawalls, sewage outfalls and treatment plants (a plant replaces an outfall on the shore) and water bores. **Rooftop solar** needs no road of its own but works only while a working home is beside it. Everything else needs a road.
+
+**Roads and the land.** A road costs $1 a tile. In Act 1 it may cross bush (the bush is cleared, as for any building). In Act 2 bushland is protected, with one exception: **a road may still cut through regrown bush**, so a cleared site beyond the bush can be joined to the town; that bush is lost and releases CO2 like any clearing. Routes the interface or a script plans prefer open ground, and go round places of cultural significance and Red Dirt's mine site if they can.
+
+**Commuting.** Each decade (Act 1) and each year (Act 2, a tenth of the decade figure) the town adds a small transport emission: population x the mean road distance from working homes to the nearest workplace (a breadth-first search over the connected road network, each commute capped at 24 tiles) x 0.0012 kt per person-tile. A compact town with homes near jobs emits less; each light-rail line cuts it by 12 percent, up to 60 percent. It is part of the Transport total and is also reported on its own: `commuteKt` and `commuteTiles` in decade reports, `commuteKt` in history and year records, and a "Commuting" row in the emissions-by-source list (Net Zero City's goals panel). For the scripted players it comes to 0.1 to 0.5 percent of their cumulative emissions (Coal Coast cautious: 9 kt of 3,691; Net Zero City: 31 kt of 15,213), well inside the 5 percent allowed, so cottage and suburb CO2 were left as they were.
+
+**Old saves** have no entrance, so one is added on load (with its country road). The town's buildings then need roads like any other, and the town works again as soon as they are joined to it.
+
 ## 3. Empathy layer — people and creatures you care about
 
 **Residents (5–7 per scenario), recurring across decades as families:** each has a portrait, name, family, job, home tile, mood (0–100) and a short story arc with 3–5 beats triggered by player actions/events. Examples for Coal Coast:

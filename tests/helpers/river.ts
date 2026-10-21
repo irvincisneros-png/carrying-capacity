@@ -4,7 +4,7 @@ import { seededGame } from './seeds';
 import type { BuildingId, GameState } from '../../src/sim';
 import { runScript } from './autoplay';
 import { fieldSum } from './act2play';
-import { greedyPlan } from './scripts';
+import { CAREFUL_ROADS, greedyPlan } from './scripts';
 import {
   answerPrompts, bestSpot, buildEnergy, comanageBush, consultAll, count, nearTiles, place, placeUpTo, playAct2, retireFossil, setPolicy,
   treatSewage, burnPatches,
@@ -35,11 +35,11 @@ export const RIVER_THOUGHTFUL_WANTS: Want[] = [
 ];
 
 export function riverAct1Idle(seed: number | null = null): GameState {
-  return runScript(seededGame('river-town', seed), greedyPlan(RIVER_BOOM_WANTS, 1.0)).state;
+  return runScript(seededGame('river-town', seed), greedyPlan(RIVER_BOOM_WANTS, 1.0, 30, 2)).state;
 }
 
 export function riverAct1Thoughtful(seed: number | null = null): GameState {
-  const inner = greedyPlan(RIVER_THOUGHTFUL_WANTS, 1.0);
+  const inner = greedyPlan(RIVER_THOUGHTFUL_WANTS, 1.0, 30, CAREFUL_ROADS);
   return runScript(seededGame('river-town', seed), (s) => inner(answerPrompts(consultAll(s), {}, 25))).state;
 }
 
@@ -85,7 +85,7 @@ function riparianNurseries(s0: GameState, total: number): GameState {
 }
 
 /** How thorough the thoughtful player is (the numbers a sensible, careful person would do; scratch scripts may tweak them). */
-export const RIVER_BOT = { adapt: true, town: 0.25, env: 0.3, reservoirs: 1, wetlands: 2, drip: 4, nurseries: 3, phyto: 2, fishway: true, startDelay: 0, scale: 1, droughtPlan: true };
+export const RIVER_BOT = { adapt: true, town: 0.25, env: 0.3, reservoirs: 1, wetlands: 3, drip: 4, nurseries: 3, phyto: 2, fishway: true, startDelay: 0, scale: 1, droughtPlan: true };
 const sc = (n: number): number => Math.round(n * RIVER_BOT.scale);
 
 export function riverThoughtfulPlan(): Plan {

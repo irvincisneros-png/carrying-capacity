@@ -9,13 +9,14 @@ import { MECH_METRIC_KEYS, mechMetric } from './mechanics';
 import { realCO2, realTemp } from './realData';
 import { landSnapshot } from './ledger';
 import { co2Of } from './upgrades';
+import { roadAccess } from './roads';
 import { seasonIndexOf } from './season';
 import { TileKind } from './types';
 import type { BuildingId, GameState, Phase } from './types';
 
 export type CompareOp = '>=' | '<=' | '>' | '<' | '==';
 
-/** `pop.<species>`, `mood.<resident>`, `flag.<key>`, `count.<building>`, `acts.<key>`, `recent.<eventType>`, ... */
+/** `pop.<species>`, `mood.<resident>`, `flag.<key>`, `count.<building>`, `connected.<building>` (joined to the road in), `acts.<key>`, `recent.<eventType>`, ... */
 export type MetricKey = string;
 
 export interface MetricTest {
@@ -128,10 +129,10 @@ export const STATIC_METRICS: readonly string[] = [
   'year', 'tempC', 'co2', 'realCo2', 'realTempC', 'estuary', 'society', 'economy', 'environment', 'population', 'bushPct',
   'healthPct', 'reefPct', 'employment', 'unmetPct', 'renewablePct', 'emissionsKt', 'peakKt', 'emissionsPct', 'airQuality',
   'partnership', 'wildlifeAlive', 'legacyPct', 'drought', 'heatwave', 'heavyJobs', 'heavyJobsPct', 'cleanJobs', 'meanMood',
-  'research', 'evidence', 'decisions', 'cumulativeKt', ...MECH_METRIC_KEYS,
+  'research', 'evidence', 'decisions', 'cumulativeKt', 'noRoad', ...MECH_METRIC_KEYS,
 ];
 export const METRIC_PREFIXES: readonly string[] = [
-  'pop', 'streak', 'mood', 'flag', 'count', 'acts', 'recent', 'beat', 'chose', 'asked', 'research',
+  'pop', 'streak', 'mood', 'flag', 'count', 'connected', 'acts', 'recent', 'beat', 'chose', 'asked', 'research',
 ];
 
 /** True for a key that metric() understands (used by the content tests to catch typos). */
@@ -155,6 +156,10 @@ export function metric(state: GameState, key: MetricKey): number {
         return typeof v === 'number' ? v : v === true ? 1 : 0;
       }
       case 'count': return countBuildings(state, rest as BuildingId);
+      case 'connected': {
+        const acc = roadAccess(state);
+        return state.buildings.filter((b) => b.type === rest && acc.connected.has(b.uid)).length;
+      }
       case 'acts': return state.residents.actions[rest] ?? 0;
       case 'recent': return recentEvents(state, rest, 6);
       case 'beat': return state.residents.fired[rest] !== undefined ? 1 : 0;
@@ -210,6 +215,7 @@ export function metric(state: GameState, key: MetricKey): number {
     case 'evidence': return state.dilemmas.decisions.filter((d) => d.evidenceBacked).length;
     case 'decisions': return state.dilemmas.decisions.length;
     case 'cumulativeKt': return state.cumulativeKt;
+    case 'noRoad': return roadAccess(state).unconnected.length;
     default: return mechMetric(state, key) ?? 0;
   }
 }

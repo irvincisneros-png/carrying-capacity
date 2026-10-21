@@ -5,10 +5,10 @@ import {
 } from '../src/sim';
 import type { CircularItem, GameState } from '../src/sim';
 import { runScript } from './helpers/autoplay';
-import { DIRTY_WANTS, greedyPlan } from './helpers/scripts';
+import { DIRTY_ROADS, DIRTY_WANTS, greedyPlan } from './helpers/scripts';
 import { act2Sandbox, addBuilding } from './helpers/fixtures';
 
-const act1 = runScript(createGame('coal-coast'), greedyPlan(DIRTY_WANTS, 1.0)).state;
+const act1 = runScript(createGame('coal-coast'), greedyPlan(DIRTY_WANTS, 1.0, 30, DIRTY_ROADS)).state;
 const base = startAct2(act1);
 
 const unlocked = (): GameState => {

@@ -8,7 +8,8 @@ import {
   itemAt, RESEARCH_BY_ID, startAct2,
 } from '../../src/sim';
 import type { Action, GameState } from '../../src/sim';
-import { goodPlayPlan } from './goodplay';
+import { goodPlayPlan, moveFarmsInland } from './goodplay';
+import { connectedOrNull } from './roads';
 import type { BuildingId } from '../../src/sim';
 
 type Plan = (s: GameState) => GameState;
@@ -155,7 +156,8 @@ function satellites(state: GameState): GameState {
       if (s.buildings.some((b) => b.type === 'groundstation')) break;
       if (canPlace(s, 'groundstation', x, y).ok) {
         const r = applyAction(s, { type: 'place', building: 'groundstation', x, y });
-        if (r.result.ok) s = r.state;
+        const joined = r.result.ok ? connectedOrNull(r.state, r.result.uid) : null;
+        if (joined) s = joined;
       }
     }
   }
@@ -238,50 +240,15 @@ function moreWetlands(state: GameState, target: number): GameState {
   return s;
 }
 
-/** Follows the estuary hint ("keep farms away from the water"): farms whose runoff reaches the water move inland. */
-export function moveFarmsInland(state: GameState, maxPerYear = 2): GameState {
-  let s = state;
-  const g = s.grid;
-  const water: number[] = [];
-  for (let i = 0; i < g.kind.length; i++) if (g.kind[i] === TileKind.Estuary || g.kind[i] === TileKind.River) water.push(i);
-  const distToWater = (x: number, y: number, w: number, h: number): number => {
-    let best = 99;
-    for (const i of water) {
-      const wx = i % g.w, wy = Math.floor(i / g.w);
-      const dx = Math.max(x - wx, wx - (x + w - 1), 0), dy = Math.max(y - wy, wy - (y + h - 1), 0);
-      best = Math.min(best, Math.hypot(dx, dy));
-    }
-    return best;
-  };
-  let moved = 0;
-  for (const b of s.buildings.filter((o) => o.type === 'farm')) {
-    if (moved >= maxPerYear || s.budget < BUILDINGS.farm.cost + 20) break;
-    if (distToWater(b.x, b.y, b.w, b.h) > 2.5) continue;
-    let spot: { x: number; y: number } | null = null;
-    let bestD = 3.5;
-    for (let y = 0; y < g.h - 1; y++) for (let x = 0; x < g.w - 1; x++) {
-      if (g.kind[y * g.w + x] !== TileKind.Land) continue;
-      if (!canPlace(s, 'farm', x, y).ok) continue;
-      const d = distToWater(x, y, 2, 2);
-      if (d > bestD) { bestD = d; spot = { x, y }; if (d > 6) break; }
-    }
-    if (!spot) break;
-    const d = applyAction(s, { type: 'demolish', x: b.x, y: b.y });
-    if (!d.result.ok) continue;
-    const p = applyAction(d.state, { type: 'place', building: 'farm', x: spot.x, y: spot.y });
-    if (!p.result.ok) continue;
-    s = p.state;
-    moved++;
-  }
-  return s;
-}
-
 /** The Act 2 plan: respectful, evidence-minded, and thorough. */
 export function fullPlayPlan(): Plan {
   const base = goodPlayPlan({ holdSteel: true, circularSafe: true, waterFirst: true });
   return (state) => {
     let s = answerPrompts(state);
     s = consultAll(s);
+    // A thoughtful player keeps the lights on first: after a year with blackouts the grid gets the money before the extras.
+    const blackout = s.year > 2030 && s.a2.lastUnmetFrac > 0.012;
+    if (blackout) return base(s);
     s = research(s);
     s = satellites(s);
     s = comanageBush(s, 3);
@@ -307,16 +274,16 @@ export { BUILDINGS, LEGACY_TYPES, SPECIES_BY_ID };
 export type { Action };
 
 import { runScript } from './autoplay';
-import { DIRTY_WANTS, greedyPlan } from './scripts';
+import { CAREFUL_ROADS, DIRTY_ROADS, DIRTY_WANTS, greedyPlan } from './scripts';
 import { seededGame } from './seeds';
 
 /** Coal Coast end to end: the respectful Act 1 and the full Act 2 plan, or the dirty Act 1 left alone. */
 export function coalThoughtful(seed: number | null = null): { act1: GameState; end: GameState } {
-  const act1 = runScript(seededGame('coal-coast', seed), act1Respectful(greedyPlan(RESPECTFUL_WANTS, 1.0))).state;
+  const act1 = runScript(seededGame('coal-coast', seed), act1Respectful(greedyPlan(RESPECTFUL_WANTS, 1.0, 30, CAREFUL_ROADS))).state;
   return { act1, end: playAct2(startAct2(act1), fullPlayPlan()) };
 }
 
 export function coalIdle(seed: number | null = null): { act1: GameState; end: GameState } {
-  const act1 = runScript(seededGame('coal-coast', seed), greedyPlan(DIRTY_WANTS, 1.0)).state;
+  const act1 = runScript(seededGame('coal-coast', seed), greedyPlan(DIRTY_WANTS, 1.0, 30, DIRTY_ROADS)).state;
   return { act1, end: playAct2(startAct2(act1), null) };
 }
