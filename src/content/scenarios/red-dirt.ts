@@ -13,6 +13,7 @@ export const RED_DIRT: ScenarioDef = {
   mapW: 64,
   mapH: 64,
   pollutionRefTiles: 1024,
+  landReachTiles: 1600,
   seed: 1893,
   terrain: { kind: 'outback', seaFrac: 0, escarpmentFrac: 0.2, bushCover: 0.25, riverRowFrac: 0.4, reefRadius: 0, coastWobble: 0 },
   startYear: 1890,

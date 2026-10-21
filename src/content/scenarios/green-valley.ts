@@ -13,6 +13,7 @@ export const GREEN_VALLEY: ScenarioDef = {
   mapW: 32,
   mapH: 32,
   pollutionRefTiles: 256,
+  landReachTiles: 340, // about 0.85 of the 20x20 the meter was written on: the valley then reads over the line at the boom's peak, as it did there
   seed: 7,
   terrain: { kind: 'valley', seaFrac: 0, escarpmentFrac: 0, bushCover: 0.5, riverRowFrac: 0.4, reefRadius: 0, coastWobble: 0 },
   startYear: 1960,

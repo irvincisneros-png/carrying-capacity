@@ -13,6 +13,7 @@ export const REEF_ISLAND: ScenarioDef = {
   mapW: 64,
   mapH: 64,
   pollutionRefTiles: 1024,
+  landReachTiles: 1936,
   seed: 2007,
   terrain: { kind: 'island', seaFrac: 0.4, escarpmentFrac: 0.05, bushCover: 0.55, riverRowFrac: 0.5, reefRadius: 5, coastWobble: 0.1 },
   startYear: 1900,

@@ -13,6 +13,7 @@ export const RIVER_TOWN: ScenarioDef = {
   mapW: 64,
   mapH: 64,
   pollutionRefTiles: 1024,
+  landReachTiles: 1600,
   seed: 1901,
   terrain: { kind: 'river', seaFrac: 0, escarpmentFrac: 0.1, bushCover: 0.5, riverRowFrac: 0.4, reefRadius: 0, coastWobble: 0 },
   startYear: 1880,

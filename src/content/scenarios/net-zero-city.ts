@@ -14,6 +14,7 @@ export const NET_ZERO_CITY: ScenarioDef = {
   mapW: 72,
   mapH: 72,
   pollutionRefTiles: 48 * 48,
+  landReachTiles: 2304,
   seed: 2025,
   terrain: { kind: 'city', seaFrac: 0.16, escarpmentFrac: 0.1, bushCover: 0.2, riverRowFrac: 0.25, reefRadius: 0, coastWobble: 0.1 },
   startYear: 2025,

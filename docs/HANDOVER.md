@@ -105,6 +105,12 @@ measured as a share of the map or of the river had to be re-anchored to the orig
 - River Town: `meanRiverWaterPollution` is the river's pollution total over `RIVER_REF_TILES` (140) instead of the mean
   times the area growth (that overstated it: the river grows more slowly than the area, and floods pollute every river tile);
   the bank-clearing share in `riverHealth` is scaled by the river's length the same way.
+- **Carrying capacity meter (WP8a)**: its per-tile renewals (river, wetland, bush, open land, fish, sea) are scaled by
+  `landReachTiles / area` (`ScenarioDef.landReachTiles`, never above 1, set to the map sizes the meter was calibrated on: 40x40
+  coal, river and red, 44x44 reef, 48x48 city, 340 tiles for the valley), so a town draws on the land within its reach and a
+  64x64 map does not make overshoot impossible. **Field kit (WP8b)**: the water it samples is the river or estuary within 12
+  tiles of a building, the bush lost is measured against `landReachTiles`, and soil/health are local. Coal Coast's river
+  now runs beyond the town and reads healthy all game, so the field-kit test samples the estuary.
 - Cool burns and co-management reach `CARE_REACH` (9 tiles) round the clicked tile (`country.ts`). One click used to mean
   "the whole connected patch of bush"; on a big map that is the whole hinterland, a cool burn burns a share of its patch and
   releases 0.2 kt a tile, and Net Zero City's line is 48 kt a year. The scripted city player co-manages up to 100 tiles.
@@ -122,7 +128,11 @@ measured as a share of the map or of the river had to be re-anchored to the orig
 **Re-bands (all recorded in the test comments):** Coal Coast good play 3 -> 5 short-power years, Red Dirt 3 -> 4; idle River
 Town farm viability < 45 (was 40); idle runs need 3 (coal), 4 (river, red) bad resident endings (were 4, 5, 5);
 the idle Coal Coast ending lets Priya and Sam and Jordan read `mixed`; the idle town loses 3 animals, not 4; the city's
-forgiveness ordering allows two more passing variants than the hard scenarios; Reef Island goal text (tourism 55).
+forgiveness ordering allows two more passing variants than the hard scenarios; Reef Island goal text (tourism 55). Script
+changes (not bands): Red Dirt's thoughtful run now builds 2 reservoirs and switches town water restrictions to level 1
+(its aquifer ended at 37.8 with the data centre accepted on conditions, the goal is 40); the city run co-manages up to 100
+tiles and has 16 batteries and 6 transit lines as before; Coal Coast's field-kit test samples the estuary; the entrance and
+cut-off-pocket tests moved to the new maps' coordinates (Green Valley's pocket is at (4,30)).
 Thoughtful runs still win on every seed (River Town 61.9 to 95 river health, Reef Island 51 to 76) and idle still loses.
 
 **Play time** (`tests/helpers/playtime.ts`, thoughtful run): valley 35, coal 114, river 93, red 99, reef 89, city 97

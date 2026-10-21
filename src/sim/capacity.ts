@@ -176,15 +176,21 @@ export function capacityReport(s: GameState): CapacityReport {
   const land = BIOME_LAND[getScenario(s.scenarioId).biome ?? 'temperate'] ?? 1;
   const pop = s.population;
   const n = (id: BuildingId): number => c.n[id] ?? 0;
-  const kinds = (k: number): number => c.kind[k] ?? 0;
-  const hasBush = kinds(TileKind.Bush) > 0 || s.initialBushTiles > 0;
+  const rawKinds = (k: number): number => c.kind[k] ?? 0;
+  const hasBush = rawKinds(TileKind.Bush) > 0 || s.initialBushTiles > 0;
+  // A town draws on the land within its reach, not on a bigger map's whole hinterland (see ScenarioDef.landReachTiles).
+  const area = s.grid.w * s.grid.h;
+  const reach = clamp((getScenario(s.scenarioId).landReachTiles ?? area) / area, 0, 1);
+  const kinds = (k: number): number => rawKinds(k) * reach;
+  const openLand = c.openLand * reach;
+  const regrown = c.regrown * reach;
 
   // ---- water
   let waterUse = pop * CAP.waterPerPerson + n('farm') * CAP.waterFarm + n('dripfarm') * CAP.waterDripFarm;
   for (const [id, w] of Object.entries(CAP.waterIndustry)) waterUse += (c.n[id] ?? 0) * (w ?? 0);
   const waterRenew = prof.water * stockFactor(st.flow) * (
     kinds(TileKind.River) * CAP.waterRiver + kinds(TileKind.Wetland) * CAP.waterWetland + kinds(TileKind.Estuary) * CAP.waterEstuary
-    + kinds(TileKind.Bush) * CAP.waterBush + c.openLand * CAP.waterLand + c.regrown * CAP.waterRegrown
+    + kinds(TileKind.Bush) * CAP.waterBush + openLand * CAP.waterLand + regrown * CAP.waterRegrown
     + n('reservoir') * CAP.waterReservoir + n('wetland') * CAP.waterBuiltWetland + n('sewagetreatment') * CAP.waterRecycled);
   let waterRatio = waterRenew > 0 ? waterUse / waterRenew : 3;
   let waterNoteExtra = '';
@@ -197,7 +203,7 @@ export function capacityReport(s: GameState): CapacityReport {
 
   // ---- food
   const foodUse = pop * CAP.foodPerPerson;
-  const foodRenew = prof.food * land * stockFactor(st.soil) * (n('farm') * CAP.foodFarm + n('dripfarm') * CAP.foodDripFarm + c.openLand * CAP.foodLand + kinds(TileKind.Bush) * CAP.foodBush);
+  const foodRenew = prof.food * land * stockFactor(st.soil) * (n('farm') * CAP.foodFarm + n('dripfarm') * CAP.foodDripFarm + openLand * CAP.foodLand + kinds(TileKind.Bush) * CAP.foodBush);
 
   // ---- timber and fish: the tighter of the two is the line
   const woodUse = pop * CAP.woodPerPerson + s.buildings.length * CAP.woodPerBuilding;
@@ -227,7 +233,7 @@ export function capacityReport(s: GameState): CapacityReport {
   }
 
   // ---- carbon and waste
-  const carbonRenew = prof.carbon * (kinds(TileKind.Bush) * CAP.sinkBush + c.regrown * CAP.sinkRegrown + (kinds(TileKind.Wetland) + kinds(TileKind.Estuary)) * CAP.sinkWetland
+  const carbonRenew = prof.carbon * (kinds(TileKind.Bush) * CAP.sinkBush + regrown * CAP.sinkRegrown + (kinds(TileKind.Wetland) + kinds(TileKind.Estuary)) * CAP.sinkWetland
     + n('wetland') * CAP.sinkBuiltWetland + (kinds(TileKind.Sea) + kinds(TileKind.Reef) + kinds(TileKind.Beach)) * CAP.sinkSea);
   const carbonUse = yearlyEmissionsKt(s);
 

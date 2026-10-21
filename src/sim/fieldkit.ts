@@ -20,6 +20,7 @@ import type { Triggers } from '../content/waterkit';
 import { capStocks } from './capacity';
 import type { KitBug, KitIndicator, KitPrediction, KitReading, KitSite, LearnAction, LearnState, Trend, Verdict } from './learnTypes';
 import { emptyLearn } from './learnTypes';
+import { dilate } from './grid';
 import { meanHealth } from './metrics';
 import { mechMetric } from './mechanics';
 import { workingBuildings } from './roads';
@@ -87,12 +88,33 @@ interface Inputs {
   salt: number;
 }
 
+/** How far (tiles) from a building the kit's catchment reaches: the readings are of the water and land beside the town, not of a big map's far reaches. */
+const KIT_REACH = 12;
+
+/** 1 for every tile within KIT_REACH of a building (roads aside), or null before anything is built. */
+function townReach(s: GameState): Uint8Array | null {
+  const g = s.grid;
+  const mask = new Uint8Array(g.kind.length);
+  let any = false;
+  for (const b of s.buildings) {
+    if (b.type === 'road') continue;
+    any = true;
+    for (let y = b.y; y < b.y + b.h; y++) for (let x = b.x; x < b.x + b.w; x++) mask[y * g.w + x] = 1;
+  }
+  return any ? dilate(mask, g.w, g.h, KIT_REACH) : null;
+}
+
 function inputs(s: GameState, site: KitSite): Inputs {
   const g = s.grid;
-  const idx: number[] = [];
+  const reach = townReach(s);
+  let idx: number[] = [];
   for (let i = 0; i < g.kind.length; i++) {
     const k = g.kind[i];
     if (site === 'estuary' ? k === TileKind.Estuary : k === TileKind.River || k === TileKind.Wetland) idx.push(i);
+  }
+  if (reach) {
+    const near = idx.filter((i) => reach[i] === 1);
+    if (near.length > 0) idx = near;
   }
   let poll = 0, soilC = 0;
   for (const i of idx) {
@@ -125,10 +147,20 @@ function inputs(s: GameState, site: KitSite): Inputs {
   }
   let bush = 0;
   for (let i = 0; i < g.kind.length; i++) if (g.kind[i] === TileKind.Bush) bush++;
-  const bushLost = s.initialBushTiles > 0 ? clamp01(1 - bush / s.initialBushTiles) : 0;
+  // The share of bush lost is measured against the bush of the area the kit was calibrated on (a bigger map has far more bush for
+  // the same town to clear), like the Environment meter's.
+  const area = g.w * g.h;
+  const refShare = Math.min(1, (getScenario(s.scenarioId).landReachTiles ?? area) / area);
+  const bushLost = s.initialBushTiles > 0 ? clamp01((1 - bush / s.initialBushTiles) / refShare) : 0;
+  let hSum = 0, hN = 0;
+  for (let i = 0; i < g.kind.length; i++) {
+    const k = g.kind[i];
+    if ((k === TileKind.Land || k === TileKind.Bush || k === TileKind.Beach || k === TileKind.Estuary) && (!reach || reach[i] === 1)) { hSum += g.health[i] ?? 0; hN++; }
+  }
+  const localHealth = hN > 0 ? hSum / hN : meanHealth(s);
   const flowLow = (100 - capStocks(s).flow) / 100;
   const nutr = clamp01((poll * 0.7 + runoff * 4 + farms * 0.03 + outfalls * 0.1 - filters * 0.05) / 1.6);
-  const sed = clamp01(poll * 0.4 + bushLost * 0.5 + runoff * 3 + flowLow * 0.2 - meanHealth(s) * 0.5) ;
+  const sed = clamp01(poll * 0.4 + bushLost * 0.5 + runoff * 3 + flowLow * 0.2 - localHealth * 0.5);
   const aquifer = getScenario(s.scenarioId).mechanics?.includes('outback') ? mechMetric(s, 'aquifer') : null;
   const salt = (REGION[s.scenarioId] === 'inland' ? 700 : 320) + 700 * flowLow + farms * (REGION[s.scenarioId] === 'inland' ? 60 : 25) + nutr * 200 + (aquifer !== null ? 900 * (1 - clamp01(aquifer / 100)) : 0);
   return { tiles: idx.length, poll, runoff, nutr, sed, flowLow, soilC, salt };
