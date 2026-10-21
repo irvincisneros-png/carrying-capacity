@@ -35,7 +35,7 @@ export const RED_DIRT: ScenarioDef = {
   ],
   act1: {
     intro: 'An outback mining town in 1890: red ground, a few shafts and a bore that keeps everyone alive. Over the next 130 years you will build the town. The land and the water will show you what each choice costs.',
-    why: 'Your job for the boom:',
+    why: 'Your goals for the boom:',
     goals: [
       { id: 'people', label: 'Grow to 450 people by 2020', metric: 'population', op: '>=', target: 450 },
       { id: 'jobs', label: 'Give 400 of them jobs', metric: 'filledJobs', op: '>=', target: 400 },

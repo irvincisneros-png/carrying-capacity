@@ -254,7 +254,7 @@ export const SCENARIOS: Readonly<Record<ScenarioId, ScenarioDef>> = {
     modifiers: { ...DEFAULT_MODS },
     act1: {
       intro: 'An Illawarra-style coastal town in 1850: a few cottages on the flat between the sea and the escarpment, coal in the hills and a creek running down to the estuary. Over the next 170 years you will build the town that grows here. Every choice changes the land, the water and the air.',
-      why: 'Your job for the boom:',
+      why: 'Your goals for the boom:',
       goals: [
         { id: 'people', label: 'Grow to 900 people by 2020', metric: 'population', op: '>=', target: 900 },
         { id: 'jobs', label: 'Give 800 of them jobs', metric: 'filledJobs', op: '>=', target: 800 },

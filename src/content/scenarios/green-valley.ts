@@ -26,7 +26,7 @@ export const GREEN_VALLEY: ScenarioDef = {
   modifiers: { budgetMult: 1.5, eventSeverity: 0, climateSensitivityMult: 1, remediationYears: 12, hintLevel: 3, emissionScale: 0.15 },
   act1: {
     intro: 'A quiet valley with a creek, a few farms and a lot of bush. The state wants a town here, and families are on their way. Over the next sixty years you will build it: homes, work, power. The land will answer every choice you make.',
-    why: 'Your job for the next sixty years:',
+    why: 'Your goals, by 2020:',
     cardGap: 10,
     cardsPerTurn: 2,
     goals: [

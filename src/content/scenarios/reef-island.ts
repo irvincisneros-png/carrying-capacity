@@ -48,7 +48,7 @@ export const REEF_ISLAND: ScenarioDef = {
   ],
   act1: {
     intro: 'A tropical island in 1900, with a fringing reef and a few families who fish and farm. Over the next 120 years you will build it up: homes, work, power and visitors. The reef will show you what each choice costs.',
-    why: 'Your job for the boom:',
+    why: 'Your goals for the boom:',
     goals: [
       { id: 'people', label: 'Grow to 200 people by 2020', metric: 'population', op: '>=', target: 200 },
       { id: 'jobs', label: 'Give 180 of them jobs', metric: 'filledJobs', op: '>=', target: 180 },

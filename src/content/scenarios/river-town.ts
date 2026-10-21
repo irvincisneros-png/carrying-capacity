@@ -44,7 +44,7 @@ export const RIVER_TOWN: ScenarioDef = {
   ],
   act1: {
     intro: 'An inland river town in 1880: farms, a weir and the great river that all of it depends on. Over the next 140 years you will build the town and its farms. The river will show you what each choice costs.',
-    why: 'Your job for the boom:',
+    why: 'Your goals for the boom:',
     goals: [
       { id: 'people', label: 'Grow to 350 people by 2020', metric: 'population', op: '>=', target: 350 },
       { id: 'jobs', label: 'Give 300 of them jobs', metric: 'filledJobs', op: '>=', target: 300 },

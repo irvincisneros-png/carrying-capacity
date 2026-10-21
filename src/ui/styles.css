@@ -450,3 +450,4 @@ kbd { font: 700 11px/1 var(--font); background: var(--paper-3); border-radius: 5
 .badge-careful { display: flex; gap: 12px; align-items: center; background: #e6f1d6; border: 2px solid #8fbf6a; border-radius: 14px; padding: 10px 14px; margin: 10px 0; }
 .badge-careful .ic { width: 38px; height: 38px; flex: none; }
 @media (max-width: 700px) { .ledger-cols { grid-template-columns: 1fr; } .act1goals { top: 56px; max-height: 40vh; } }
+.act1goals { left: auto; right: 10px; top: 92px; width: 270px; }

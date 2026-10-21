@@ -11,7 +11,6 @@
  */
 import { BUILDINGS } from './buildings';
 import type { PollutionProfile } from './buildings';
-import { noteAction } from './residents';
 import { cloneState } from './state';
 import type { ActionResult, BuildingId, GameState, PlacedBuilding } from './types';
 
@@ -147,7 +146,8 @@ export function applyUpgrade(state: GameState, uid: number, id: string): { state
   const next = cloneState(state);
   next.buildings = next.buildings.map((o) => (o.uid === uid ? { ...o, upgrades: [...(o.upgrades ?? []), id] } : o));
   next.budget -= def.cost;
-  noteAction(next, `upgraded.${id}`);
+  // The same counter residents.noteAction keeps (not imported: residents depends on conditions, which depends on this file).
+  next.residents.actions[`upgraded.${id}`] = (next.residents.actions[`upgraded.${id}`] ?? 0) + 1;
   next.version = state.version + 1;
   return { state: next, result: { ok: true, spent: def.cost } };
 }
