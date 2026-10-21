@@ -33,11 +33,13 @@ export interface Act1Style {
   /** Answer cards with the evidence-backed option (default) or the cash-first option. */
   cards?: 'evidence' | 'cash';
   reserve?: number;
+  /** How strongly the builder prefers sites beside existing roads (fewer new roads, less bush paved over). */
+  roadWeight?: number;
 }
 
 /** A whole Act 1 under a style: each decade answers the cards, fits upgrades, builds, then presses Next decade. */
 export function playAct1(start: GameState, style: Act1Style): GameState {
-  const build: Plan = queuePlan(style.queue, style.housingRatio ?? 1.0);
+  const build: Plan = queuePlan(style.queue, style.housingRatio ?? 1.0, 30, style.roadWeight);
   let s = start;
   while (s.phase === 'act1' && s.status === 'playing') {
     const picks: Record<string, string> = {};

@@ -7,6 +7,7 @@ import type { BuildingId, GameState, ScenarioId } from '../src/sim';
 import { moneyLine } from '../src/ui/adapters';
 import { fitUpgrades, playAct1 } from './helpers/act1';
 import { addBuilding } from './helpers/fixtures';
+import { connectAll, connectToEntrance } from './helpers/roads';
 
 /** A Green Valley in 1980 with the given buildings, enough money, and no cards pending. */
 function valley(year: number, ...types: BuildingId[]): { s: GameState; uids: number[] } {
@@ -14,7 +15,17 @@ function valley(year: number, ...types: BuildingId[]): { s: GameState; uids: num
   s.year = year;
   s.budget = 500;
   const uids = types.map((t, i) => addBuilding(s, t, 2 + i * 3, 2).uid);
-  return { s, uids };
+  // Roads matter: a building only works once a road joins it to the entrance.
+  const c = connectAll(s);
+  c.budget = 500;
+  return { s: c, uids };
+}
+
+/** The placed building with this uid (the entrance road and other roads share the buildings list). */
+function bld(s: GameState, uid: number): GameState['buildings'][number] {
+  const b = s.buildings.find((x) => x.uid === uid);
+  if (!b) throw new Error(`no building ${uid}`);
+  return b;
 }
 
 const CAREFUL = [{ id: 'farm' as const, max: 3 }, { id: 'factory' as const, max: 1 }, { id: 'coalpower' as const, max: 1 }];
@@ -26,17 +37,17 @@ const GREEDY = [
 describe('building upgrades', () => {
   it('smoke scrubber: air down 60%, CO2 and soil untouched (local pollution is not greenhouse gas)', () => {
     const { s, uids } = valley(1980, 'factory');
-    const before = s.buildings[0]!;
+    const before = bld(s, uids[0]!);
     const r = applyAction(s, { type: 'upgrade', uid: uids[0]!, id: 'scrubber' });
     expect(r.result).toMatchObject({ ok: true, spent: 20 });
-    const b = r.state.buildings[0]!;
+    const b = bld(r.state, uids[0]!);
     expect(pollutesOf(b).air).toBeCloseTo((BUILDINGS.factory.pollutes.air ?? 0) * 0.4, 6);
     expect(pollutesOf(b).soil).toBe(BUILDINGS.factory.pollutes.soil);
     expect(co2Of(b)).toBe(BUILDINGS.factory.co2);
     expect(co2Of(before)).toBe(BUILDINGS.factory.co2);
     expect(r.state.budget).toBe(s.budget - 20);
     // The old state is not touched (pure).
-    expect(s.buildings[0]!.upgrades).toBeUndefined();
+    expect(bld(s, uids[0]!).upgrades).toBeUndefined();
     expect(projectedEmissions(r.state).industry).toBe(projectedEmissions(s).industry);
   });
 
@@ -44,18 +55,18 @@ describe('building upgrades', () => {
     const { s, uids } = valley(1980, 'coalpower', 'coalmine');
     let t = applyAction(s, { type: 'upgrade', uid: uids[0]!, id: 'filters' }).state;
     t = applyAction(t, { type: 'upgrade', uid: uids[1]!, id: 'dust' }).state;
-    const [p, m] = t.buildings;
-    expect(pollutesOf(p!).air).toBeCloseTo(4 * 0.25, 6);
-    expect(co2Of(p!)).toBe(BUILDINGS.coalpower.co2);
-    expect(pollutesOf(m!).air).toBeCloseTo(0.4, 6);
-    expect(pollutesOf(m!).soil).toBe(1);
-    expect(co2Of(m!)).toBe(BUILDINGS.coalmine.co2);
+    const p = bld(t, uids[0]!), m = bld(t, uids[1]!);
+    expect(pollutesOf(p).air).toBeCloseTo(4 * 0.25, 6);
+    expect(co2Of(p)).toBe(BUILDINGS.coalpower.co2);
+    expect(pollutesOf(m).air).toBeCloseTo(0.4, 6);
+    expect(pollutesOf(m).soil).toBe(1);
+    expect(co2Of(m)).toBe(BUILDINGS.coalmine.co2);
   });
 
   it('landfill lining cuts soil and water by 70% and CO2 by 40%', () => {
     const { s, uids } = valley(1995, 'landfill');
     const t = applyAction(s, { type: 'upgrade', uid: uids[0]!, id: 'lining' }).state;
-    const b = t.buildings[0]!;
+    const b = bld(t, uids[0]!);
     expect(pollutesOf(b).soil).toBeCloseTo(1.5 * 0.3, 6);
     expect(pollutesOf(b).water).toBeCloseTo(0.3, 6);
     expect(co2Of(b)).toBeCloseTo(15 * 0.6, 6);
@@ -66,7 +77,7 @@ describe('building upgrades', () => {
     const { s, uids } = valley(1990, 'farm');
     const plain = advanceDecade(s).report!;
     const t = applyAction(s, { type: 'upgrade', uid: uids[0]!, id: 'creekbuffer' }).state;
-    expect(pollutesOf(t.buildings[0]!).water).toBeCloseTo(0.4, 6);
+    expect(pollutesOf(bld(t, uids[0]!)).water).toBeCloseTo(0.4, 6);
     const buffered = advanceDecade(t).report!;
     expect(buffered.income).toBe(plain.income - 2);
   });
@@ -94,13 +105,13 @@ describe('building upgrades', () => {
 
   it('lists what suits each building, and what is fitted, locked or unaffordable', () => {
     const { s, uids } = valley(1980, 'farm', 'coalpower', 'cottage');
-    expect(upgradeOptions(s, s.buildings[2]!)).toEqual([]);
-    expect(upgradeOptions(s, s.buildings[0]!).map((o) => o.state)).toEqual(['available']);
+    expect(upgradeOptions(s, bld(s, uids[2]!))).toEqual([]);
+    expect(upgradeOptions(s, bld(s, uids[0]!)).map((o) => o.state)).toEqual(['available']);
     const landfill = valley(1980, 'landfill');
-    expect(upgradeOptions(landfill.s, landfill.s.buildings[0]!)[0]).toMatchObject({ state: 'locked' });
+    expect(upgradeOptions(landfill.s, bld(landfill.s, landfill.uids[0]!))[0]).toMatchObject({ state: 'locked' });
     const fitted = applyAction(s, { type: 'upgrade', uid: uids[1]!, id: 'filters' }).state;
-    expect(upgradeOptions(fitted, fitted.buildings[1]!)[0]!.state).toBe('fitted');
-    expect(upgradeOptions({ ...s, budget: 1 }, s.buildings[1]!)[0]!.state).toBe('no-funds');
+    expect(upgradeOptions(fitted, bld(fitted, uids[1]!))[0]!.state).toBe('fitted');
+    expect(upgradeOptions({ ...s, budget: 1 }, bld(s, uids[1]!))[0]!.state).toBe('no-funds');
     expect(new Set(UPGRADES.map((u) => u.id)).size).toBe(UPGRADES.length);
   });
 
@@ -109,16 +120,19 @@ describe('building upgrades', () => {
     const s = advanceDecade(advanceDecade(createGame('green-valley')).state).state;
     s.budget = 500;
     const uids = [addBuilding(s, 'factory', 2, 2).uid];
+    const road = connectToEntrance(s, uids[0]!);
+    Object.assign(s, road);
+    s.budget = 500;
     const a = applyAction(s, { type: 'upgrade', uid: uids[0]!, id: 'scrubber' }).state;
     const b = applyAction(s, { type: 'upgrade', uid: uids[0]!, id: 'scrubber' }).state;
     expect(serialize(a)).toBe(serialize(b));
     const back = deserialize(serialize(a));
     expect(back).not.toBeNull();
-    expect(back!.buildings[0]!.upgrades).toEqual(['scrubber']);
-    expect(pollutesOf(back!.buildings[0]!).air).toBeCloseTo(0.8, 6);
+    expect(bld(back!, uids[0]!).upgrades).toEqual(['scrubber']);
+    expect(pollutesOf(bld(back!, uids[0]!)).air).toBeCloseTo(0.8, 6);
     const old = deserialize(serialize(s));
     expect(old).not.toBeNull();
-    expect(old!.buildings[0]!.upgrades).toBeUndefined();
+    expect(bld(old!, uids[0]!).upgrades).toBeUndefined();
   });
 
   it('works in every scenario that has an Act 1', () => {
@@ -150,7 +164,7 @@ describe('Act 1 goals', () => {
   it('Green Valley: grow to 200 people with jobs and power by 2020, bonus Environment 60', () => {
     const goals = act1Of(createGame('green-valley'))!.goals;
     expect(goals.map((g) => [g.metric, g.target, g.bonus === true])).toEqual([
-      ['population', 200, false], ['filledJobs', 120, false], ['powerCovered', 1, false], ['environment', 60, true],
+      ['population', 200, false], ['filledJobs', 120, false], ['powerCovered', 1, false], ['environment', 55, true],
     ]);
   });
 
@@ -171,11 +185,11 @@ describe('Act 1 goals', () => {
     const greedy = act1Outcome(playAct1(createGame('green-valley'), { queue: GREEDY, cards: 'cash' }));
     expect(greedy.grew).toBe(true);
     expect(greedy.careful).toBe(false);
-    const careful = playAct1(createGame('green-valley'), { queue: CAREFUL, cards: 'evidence', upgrades: true });
+    const careful = playAct1(createGame('green-valley'), { queue: CAREFUL, cards: 'evidence', upgrades: true, roadWeight: 3 });
     const o = act1Outcome(careful);
     expect(o.grew).toBe(true);
     expect(o.careful).toBe(true);
-    expect(careful.meters.environment).toBeGreaterThanOrEqual(60);
+    expect(careful.meters.environment).toBeGreaterThanOrEqual(55);
     // The same town without upgrades or good choices is not careful.
     const lazy = act1Outcome(playAct1(createGame('green-valley'), { queue: CAREFUL, cards: 'cash' }));
     expect(lazy.careful).toBe(false);
@@ -237,8 +251,9 @@ describe('Green Valley Act 1 cards', () => {
 
   it('show their consequence: clearing the hillside costs bush and the creek, the terraces do not', () => {
     const mk = (opt: string): GameState => {
-      const t = createGame('green-valley');
-      addBuilding(t, 'farm', 10, 10);
+      let t = createGame('green-valley');
+      const farm = addBuilding(t, 'farm', 10, 10);
+      t = connectToEntrance(t, farm.uid);
       t.year = 1970;
       t.budget = 200;
       t.dilemmas.pending.push('gv-hillside');
