@@ -1,4 +1,5 @@
 /** Red Dirt hooks: the water budget, and the yearly sign-off of rehabilitated mine ground. */
+import { dcAquiferDraw } from '../datacentre';
 import { getScenario } from '../scenarios';
 import { seasonWeather } from '../season';
 import { emitStory } from '../story';
@@ -40,7 +41,7 @@ export function outbackSeason(s: GameState, idx: number): void {
   const boreCap = aq > 0 ? boreCount(s) * OUTBACK.boreSupply : 0;
   const fromBore = Math.min(need, boreCap);
   need -= fromBore;
-  aq = clamp(aq - fromBore * OUTBACK.drawPerUnit, 0, 100);
+  aq = clamp(aq - (fromBore + dcAquiferDraw(s)) * OUTBACK.drawPerUnit, 0, 100);
   setFlag(s, 'o.aq', aq);
   setFlag(s, 'o.store', store);
   setFlag(s, 'o.demand', dem);

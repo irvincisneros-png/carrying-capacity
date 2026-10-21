@@ -2307,6 +2307,60 @@ function mBore(k: Kit): void {
   k.put(buildAmbient('cow', k.d), 0.0, G, 0.32, 2.6);
 }
 
+/** Data centre: two big low windowless sheds, rooftop chillers, a substation yard and a fenced gravel pad (3x3). */
+function mDatacentre(k: Kit): void {
+  const SHED = 0xc3c9cb, SHED_D = 0xa5adb2, PANEL = 0xb4bcc0, ROOFC = 0xe4e7e6, CHILL = 0xf1f2ef, FAN = 0x5f6468, ACC = 0x3f9a96;
+  pad(k, 3, 3, 0xb7b1a2);
+  // two sheds, long axis along x, no windows: only louvres, a few doors and a painted band
+  const shed = (x: number, z: number, W: number, D: number, H: number, rows: number): void => {
+    k.group(x, G, z, 0, (q) => {
+      const w = q.sbox(0, 0, 0, W, H, D, q.hi ? 18 : 1, 1, 1, SHED, WALL);
+      if (q.hi) facets(w, (cx, _y, _z, _nx, _ny, nz) => (Math.abs(nz) > 0.5 && Math.floor((cx + W / 2) / (W / 18)) % 2 ? PANEL : undefined));
+      q.box(0, H * 0.58, 0, W + 0.006, 0.018, D + 0.006, ACC, PAINT);
+      q.box(0, H, 0, W + 0.04, 0.03, D + 0.04, ROOFC, { rough: 0.5 });
+      q.box(0, 0.0, 0, W + 0.02, 0.03, D + 0.02, SHED_D, MATTE);
+      // louvre vents low on the long wall, and a pair of doors
+      if (q.hi) for (const lx of [-0.7, -0.4, 0.4, 0.7]) q.box(W * lx * 0.5, 0.035, D / 2 + 0.003, 0.12, 0.05, 0.006, 0x7f878b, IRON);
+      q.box(-W * 0.18, 0.0, D / 2 + 0.003, 0.07, 0.11, 0.008, 0x6b7478, PAINT);
+      q.box(W * 0.18, 0.0, D / 2 + 0.003, 0.07, 0.11, 0.008, 0x6b7478, PAINT);
+      // rooftop chillers: rows of white units with fan discs
+      const nx = Math.max(3, Math.round(W / 0.22));
+      for (let r = 0; r < rows; r++) {
+        const rz = rows === 1 ? 0 : -D * 0.25 + (r / (rows - 1)) * D * 0.5;
+        for (let i = 0; i < nx; i++) {
+          const cx = -W / 2 + 0.14 + (i / (nx - 1)) * (W - 0.28);
+          q.box(cx, H + 0.03, rz, 0.15, 0.065, 0.11, CHILL, PAINT);
+          if (q.hi) q.cyl(cx, H + 0.095, rz, 0.04, 0.04, 0.008, FAN, 10, MATTE);
+        }
+      }
+      q.box(W * 0.3, H + 0.03, -D * 0.33, 0.05, 0.1, 0.05, 0x9aa1a4, IRON);
+    });
+  };
+  shed(-0.1, -0.78, 2.3, 0.78, 0.2, 2);
+  shed(-0.1, 0.12, 2.3, 0.78, 0.2, 2);
+  // a cooling-water tank and pipe run beside the sheds
+  k.cyl(1.2, G, -0.78, 0.17, 0.17, 0.26, 0xd8dcdc, 14, PAINT);
+  k.cyl(1.2, G + 0.26, -0.78, 0.17, 0.17, 0.012, 0x9aa1a4, 14, IRON);
+  k.pipe([1.05, G + 0.08, -0.55], [1.05, G + 0.08, 0.35], 0.018, 0x8a9296, 6, IRON);
+  k.stacks.push({ x: 1.2, y: G + 0.28, z: -0.78, size: 0.3, steam: 1 });
+  // substation yard in the front corner: transformers, gantry, insulators
+  k.group(-1.0, G, 1.15, 0, (q) => {
+    q.box(0, -0.01, 0, 0.9, 0.012, 0.42, 0x9a948a, MATTE);
+    for (const x of [-0.28, 0, 0.28]) {
+      q.box(x, 0, 0, 0.16, 0.12, 0.14, 0x7c8a82, IRON);
+      q.box(x, 0.12, 0, 0.18, 0.012, 0.16, 0x646f69, IRON);
+      for (const dx of [-0.05, 0, 0.05]) q.cyl(x + dx, 0.132, 0, 0.012, 0.012, 0.06, 0xcfa56a, 5, PAINT);
+    }
+    for (const gx of [-0.4, 0.4]) q.box(gx, 0, -0.17, 0.02, 0.26, 0.02, 0x8a8e90, IRON);
+    q.box(0, 0.26, -0.17, 0.82, 0.014, 0.014, 0x8a8e90, IRON);
+  });
+  // a small gatehouse
+  k.box(0.85, G, 1.2, 0.3, 0.12, 0.2, 0xe0d9c6, WALL);
+  k.box(0.85, G + 0.12, 1.2, 0.34, 0.016, 0.24, ACC, IRON);
+  k.wins('+z', 1.3, G + 0.07, 0.72, 0.98, 2, 0.06, 0.05, GLASSC);
+  fenceRect(k, -1.42, -1.42, 1.42, 1.42, 0x8a8e90, 0.1, 0.16, true);
+}
+
 function mCoolingcentre(k: Kit): void {
   pad(k, 2, 2, 0xd6cdb8);
   // hall: timber + glazing, cool white roof with deep eaves
@@ -2542,6 +2596,7 @@ const BUILDERS: Partial<Record<ModelId, (k: Kit) => void>> = {
   transitline: mTransitline,
   greensuburb: mGreensuburb,
   parkland: mParkland,
+  datacentre: mDatacentre,
 };
 
 export const MODEL_IDS = Object.keys(BUILDERS) as ModelId[];

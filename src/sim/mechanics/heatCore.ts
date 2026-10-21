@@ -2,6 +2,7 @@
  * Heat health (pure reads): tree canopy, cooling centres and power cuts decide how many people a heatwave hurts.
  * Used by Red Dirt and Net Zero City (any scenario with `act2.heat`).
  */
+import { dcHeatFactor } from '../datacentre';
 import { getScenario } from '../scenarios';
 import { TileKind } from '../types';
 import type { GameState } from '../types';
@@ -54,7 +55,7 @@ export function heatDeathsExpected(s: GameState, severity: number, blackout: boo
   const centres = 1 - HEAT.coolingBenefit * coolingCoverage(s);
   const power = blackout ? HEAT.blackoutFactor : 1;
   const warm = 1 + HEAT.warmFactor * Math.max(0, s.tempC - 1);
-  return (s.population / 1000) * spec.deathsPer1000 * severity * trees * centres * power * warm;
+  return (s.population / 1000) * spec.deathsPer1000 * severity * trees * centres * power * warm * dcHeatFactor(s);
 }
 
 /** The same heatwave with no trees and no cooling centres. */
@@ -63,7 +64,7 @@ export function heatDeathsUnprotected(s: GameState, severity: number, blackout: 
   if (!spec) return 0;
   const power = blackout ? HEAT.blackoutFactor : 1;
   const warm = 1 + HEAT.warmFactor * Math.max(0, s.tempC - 1);
-  return (s.population / 1000) * spec.deathsPer1000 * severity * power * warm;
+  return (s.population / 1000) * spec.deathsPer1000 * severity * power * warm * dcHeatFactor(s);
 }
 
 export function heatDeathsTotal(s: GameState): number {

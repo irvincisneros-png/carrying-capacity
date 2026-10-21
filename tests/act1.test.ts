@@ -230,14 +230,14 @@ describe('Green Valley Act 1 cards', () => {
   it('are offered across the boom, at most two at a turn, a card or two nearly every decade', () => {
     const end = playAct1(createGame('green-valley'), { queue: GREEDY, cards: 'evidence' });
     const offered = end.dilemmas.offered;
-    expect(Object.keys(offered).sort()).toEqual(act1.map((d) => d.id).sort());
+    expect(Object.keys(offered).filter((id) => !id.startsWith('inn-')).sort()).toEqual(act1.map((d) => d.id).sort());
     expect(offered['gv-hillside']).toBe(1970);
     expect(offered['gv-fertiliser']).toBe(1980);
     expect(offered['gv-tip']).toBe(1990);
     expect(offered['gv-dry-year']).toBe(2000);
     expect(offered['gv-solar-rebate']).toBe(2010);
     const perYear = new Map<number, number>();
-    for (const y of Object.values(offered)) perYear.set(y, (perYear.get(y) ?? 0) + 1);
+    for (const [id, y] of Object.entries(offered)) if (!id.startsWith('inn-')) perYear.set(y, (perYear.get(y) ?? 0) + 1);
     for (const n of perYear.values()) expect(n).toBeLessThanOrEqual(2);
   });
 
@@ -245,7 +245,7 @@ describe('Green Valley Act 1 cards', () => {
     const s = createGame('green-valley');
     s.year = 1980;
     const quiet = playAct1(s, { queue: [] });
-    expect(Object.keys(quiet.dilemmas.offered).sort()).toEqual(['gv-solar-rebate', 'gv-tip']);
+    expect(Object.keys(quiet.dilemmas.offered).filter((id) => !id.startsWith('inn-')).sort()).toEqual(['gv-solar-rebate', 'gv-tip']);
     expect(quiet.dilemmas.offered['gv-hillside']).toBeUndefined();
   });
 

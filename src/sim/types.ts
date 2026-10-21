@@ -88,7 +88,8 @@ export type BuildingId =
   | 'coolingcentre'
   | 'transitline'
   | 'greensuburb'
-  | 'parkland';
+  | 'parkland'
+  | 'datacentre';
 
 export type EmissionCategory = 'power' | 'industry' | 'transport' | 'land' | 'waste';
 export const EMISSION_CATEGORIES: readonly EmissionCategory[] = [

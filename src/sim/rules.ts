@@ -40,6 +40,8 @@ const HOME_SCENARIOS: Partial<Record<BuildingId, readonly GameState['scenarioId'
   transitline: ['coal-coast', 'net-zero-city'],
   greensuburb: ['coal-coast', 'net-zero-city'],
   parkland: ['coal-coast', 'red-dirt', 'net-zero-city'],
+  /** Never in the build menu: it is placed when you accept a tech company's offer (see sim/datacentre.ts). */
+  datacentre: [],
 };
 
 export function availability(scenarioId: GameState['scenarioId'], id: BuildingId): Availability {
