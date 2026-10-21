@@ -109,11 +109,12 @@ export class FieldKitPanel {
       }
       const seg = h('div', { class: 'seg', role: 'group', 'aria-label': 'Your prediction' }, ...(['better', 'same', 'worse'] as Trend[]).map((t) => h('button', { class: this.choice === t ? 'on' : '', 'data-pred': t, onclick: () => { this.choice = this.choice === t ? null : t; this.render(s); } }, TREND_LABEL[t])));
       const input = h('input', { type: 'text', class: 'kit-input', maxlength: 140, placeholder: 'One line: why do you think so? (optional)', value: this.text, 'aria-label': 'Your prediction in one line' }) as HTMLInputElement;
-      input.addEventListener('input', () => { this.text = input.value; });
+      const save = h('button', { class: 'btn small teal', 'data-qa': 'kit-predict', disabled: !this.choice && !this.text.trim(), onclick: () => { this.onPredict?.(this.choice ?? undefined, this.text); this.choice = null; this.text = ''; } }, 'Save my prediction') as HTMLButtonElement;
+      input.addEventListener('input', () => { this.text = input.value; save.disabled = !this.choice && !this.text.trim(); });
       return h('div', null,
         h('p', { style: 'margin:0 0 6px;font-size:13px' }, 'Where will the creek be in ten years? Predict first, then see.'),
         seg, input,
-        h('div', { style: 'margin-top:6px' }, h('button', { class: 'btn small teal', 'data-qa': 'kit-predict', disabled: !this.choice && !this.text.trim(), onclick: () => { this.onPredict?.(this.choice ?? undefined, this.text); this.choice = null; this.text = ''; } }, 'Save my prediction')));
+        h('div', { style: 'margin-top:6px' }, save));
     };
 
     this.body.replaceChildren(...[

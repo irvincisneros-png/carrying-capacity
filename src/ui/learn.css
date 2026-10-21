@@ -81,7 +81,7 @@
 .learn-item small { display: block; color: var(--ink-3); font-weight: 700; font-size: 11.5px; }
 
 /* ---------- water field kit */
-.kit, .guide { right: 10px; top: 86px; width: 400px; max-width: calc(100vw - 20px); padding: 12px 14px; }
+.kit, .guide { right: 10px; top: 86px; bottom: 200px; width: 400px; max-width: calc(100vw - 20px); padding: 12px 14px; }
 .kit-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 6px 0; }
 .kit-actions .btn .ic { width: 20px; height: 20px; }
 .seg { display: inline-flex; gap: 3px; background: var(--paper-2); padding: 3px; border-radius: 12px; }
