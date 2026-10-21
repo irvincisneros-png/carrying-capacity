@@ -9,7 +9,7 @@ import { MECH_METRIC_KEYS, mechMetric } from './mechanics';
 import { realCO2, realTemp } from './realData';
 import { landSnapshot } from './ledger';
 import { co2Of } from './upgrades';
-import { roadAccess } from './roads';
+import { roadAccess, workingBuildings } from './roads';
 import { seasonIndexOf } from './season';
 import { TileKind } from './types';
 import type { BuildingId, GameState, Phase } from './types';
@@ -86,7 +86,7 @@ export function currentEmissionsKt(state: GameState): number {
   const y = state.a2.yearly;
   if (state.phase !== 'act1' && state.phase !== 'turning-point' && y.length > 0) return y[y.length - 1]?.totalKt ?? 0;
   let kt = 0;
-  for (const b of state.buildings) kt += co2Of(b);
+  for (const b of workingBuildings(state)) kt += co2Of(b);
   return kt / 10;
 }
 

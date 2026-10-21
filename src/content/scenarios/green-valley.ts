@@ -33,7 +33,7 @@ export const GREEN_VALLEY: ScenarioDef = {
       { id: 'people', label: 'Grow the valley to 200 people by 2020', metric: 'population', op: '>=', target: 200 },
       { id: 'jobs', label: 'Give 120 of them jobs', metric: 'filledJobs', op: '>=', target: 120 },
       { id: 'power', label: 'Keep the lights on: power for every building', metric: 'powerCovered', op: '>=', target: 1 },
-      { id: 'careful', label: 'Grow without wrecking it: keep Environment at 60 or more', metric: 'environment', op: '>=', target: 60, bonus: true },
+      { id: 'careful', label: 'Grow without wrecking it: keep Environment at 55 or more', metric: 'environment', op: '>=', target: 55, bonus: true },
     ],
   },
   act2: {
