@@ -22,7 +22,7 @@ import { applyCapacityToMap, capacityIncomePerDecade, capSummary, stepCapacity }
 import { applyLearn, stepLearn } from './fieldkit';
 import { decadeCost, landSnapshot } from './ledger';
 import type { LandSnapshot } from './ledger';
-import { applyUpgrade, choiceIncomePerDecade, co2Of } from './upgrades';
+import { applyUpgrade, choiceIncomePerDecade, co2Of, pollutesOf } from './upgrades';
 import { getScenario, isScenarioId } from './scenarios';
 import { generateTerrain, inBounds } from './terrain';
 import { EMISSION_CATEGORIES, TileKind } from './types';
@@ -45,7 +45,10 @@ const DEC_M0E = 'dec.m0.e';
 const DEC_M0S = 'dec.m0.s';
 const DEC_M0V = 'dec.m0.v';
 const LAND_KEYS = ['bush', 'creek', 'air', 'birds', 'fish'] as const;
-const DEC_KEYS = [DEC_N, DEC_POP0, DEC_PAID, DEC_M0E, DEC_M0S, DEC_M0V, ...LAND_KEYS.map((k) => `dec.l.${k}`)];
+/** Sum of each year's whole-decade income figure (each year's pay is a tenth of its own figure, from that year's buildings). */
+const DEC_INC = 'dec.inc';
+const DEC_EM = 'dec.em.';
+const DEC_SRC = 'dec.src.';
 
 export { cloneState, emptyEmissions };
 
@@ -291,6 +294,7 @@ export function advanceYear(state: GameState): { state: GameState; report: Decad
   const n = yearInDecade(state);
   const pop0 = n === 0 ? state.population : Number(state.flags[DEC_POP0] ?? state.population);
   const paidSoFar = n === 0 ? 0 : Number(state.flags[DEC_PAID] ?? 0);
+  const incSoFar = n === 0 ? 0 : Number(state.flags[DEC_INC] ?? 0);
   const final = n === DECADE_YEARS - 1;
   const f = state.flags;
   const startMeters: Meters = f[DEC_M0E] !== undefined
@@ -306,11 +310,25 @@ export function advanceYear(state: GameState): { state: GameState; report: Decad
     next.population = final ? target : Math.round(pop0 + (target - pop0) * (n + 1) / DECADE_YEARS);
     const snap = economySnapshot(next, target);
     const decade = decadeIncome(snap, sc.modifiers.budgetMult) + Math.round(mechIncome(next) * DECADE_YEARS) + Math.round(choiceIncomePerDecade(next)) + Math.round(capacityIncomePerDecade(next));
-    const paidTotal = final ? decade : Math.round(decade * (n + 1) / DECADE_YEARS);
+    // Each year pays a tenth of the figure that year's buildings earn; earlier years are never re-priced.
+    const incSum = incSoFar + decade;
+    const paidTotal = Math.round(incSum / DECADE_YEARS);
     next.budget += paidTotal - paidSoFar;
-    next.lastIncome = decade;
+    next.lastIncome = final ? paidTotal : decade;
     next.flags[DEC_PAID] = paidTotal;
+    next.flags[DEC_INC] = incSum;
   };
+
+  // This year's emissions and polluting sources join the decade's tally (so a factory run nine years counts for nine).
+  if (n === 0) for (const k of Object.keys(next.flags)) if (k.startsWith(DEC_EM) || k.startsWith(DEC_SRC)) delete next.flags[k];
+  const yearEm = projectedEmissions(state);
+  for (const c of EMISSION_CATEGORIES) next.flags[DEC_EM + c] = Number(next.flags[DEC_EM + c] ?? 0) + yearEm[c];
+  for (const b of workingBuildings(state)) {
+    const p = pollutesOf(b);
+    if ((p.air ?? 0) <= 0 && (p.water ?? 0) <= 0 && (p.soil ?? 0) <= 0) continue;
+    const key = `${DEC_SRC}${b.uid}|${b.type}|${b.x}|${b.y}|${b.rotation}|${b.w}|${b.h}|${(b.upgrades ?? []).join('+')}`;
+    next.flags[key] = Number(next.flags[key] ?? 0) + 1;
+  }
 
   if (!final) {
     economyStep();
@@ -330,24 +348,42 @@ export function advanceYear(state: GameState): { state: GameState; report: Decad
   }
 
   // 1. Emissions over the decade just played.
-  const em = projectedEmissions(state);
+  const em = emptyEmissions();
+  for (const c of EMISSION_CATEGORIES) em[c] = Math.round(Number(next.flags[DEC_EM + c] ?? 0) / DECADE_YEARS * 1e9) / 1e9;
   em.land += state.pendingLandKt;
   next.pendingLandKt = 0;
 
   // 2. Local pollution spreads / decays (only buildings that work, i.e. connected to the road in, pollute).
-  updatePollution(next.grid, workingBuildings(state));
+  const srcs: PlacedBuilding[] = [];
+  const weights: number[] = [];
+  for (const [k, years] of Object.entries(next.flags)) {
+    if (!k.startsWith(DEC_SRC)) continue;
+    const [uid, type, x, y, rotation, w, h, ups] = k.slice(DEC_SRC.length).split('|');
+    srcs.push({
+      uid: Number(uid), type: type as PlacedBuilding['type'], x: Number(x), y: Number(y), rotation: Number(rotation) as PlacedBuilding['rotation'],
+      w: Number(w), h: Number(h), builtYear: 0, ...(ups ? { upgrades: ups.split('+') } : {}),
+    });
+    weights.push(Number(years) / DECADE_YEARS);
+  }
+  updatePollution(next.grid, srcs, weights);
   applyLingeringRunoff(next);
   applyCapacityToMap(next, DECADE_YEARS);
 
   // 3. Economy: the last year's population and income (the other nine arrived as the years went by).
   economyStep();
   stepCapacity(next);
-  for (const k of DEC_KEYS) delete next.flags[k];
+  for (const k of Object.keys(next.flags)) if (k.startsWith('dec.')) delete next.flags[k];
 
   // Commuting along the road network is part of the transport total (and reported on its own).
   const commute = commuteStats(next);
   em.transport += commute.ktPerDecade;
-  const total = EMISSION_CATEGORIES.reduce((n, c) => n + em[c], 0);
+  let total = EMISSION_CATEGORIES.reduce((n, c) => n + em[c], 0);
+  // Savings (negative pending land emissions) can only cancel emissions that exist; any excess waits for the next decade.
+  if (total < 0 && state.phase === 'act1') {
+    em.land -= total;
+    next.pendingLandKt = total;
+    total = 0;
+  }
 
   // 4. Climate for the new year.
   next.year = state.year + DECADE_YEARS;

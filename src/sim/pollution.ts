@@ -13,20 +13,23 @@ export const MAX_POLLUTION_RADIUS = 6;
  * intensity * (1 - d / (R + 1)) to tiles within radius R of its footprint (d = euclidean edge distance),
  * R = min(6, 1 + ceil(intensity)).
  */
-export function updatePollution(grid: TileGrid, buildings: readonly PlacedBuilding[]): void {
+export function updatePollution(grid: TileGrid, buildings: readonly PlacedBuilding[], weights?: readonly number[]): void {
   const { w, h } = grid;
   const fields = [grid.airPollution, grid.waterPollution, grid.soilContamination] as const;
   for (const f of fields) for (let i = 0; i < f.length; i++) f[i] = (f[i] ?? 0) * POLLUTION_PERSISTENCE;
-  for (const b of buildings) {
+  for (let bi = 0; bi < buildings.length; bi++) {
+    const b = buildings[bi]!;
+    const wt = weights?.[bi] ?? 1;
     const prof = pollutesOf(b);
     const channels: [Float32Array, number][] = [
       [grid.airPollution, prof.air ?? 0],
       [grid.waterPollution, prof.water ?? 0],
       [grid.soilContamination, prof.soil ?? 0],
     ];
-    for (const [field, intensity] of channels) {
-      if (intensity <= 0) continue;
-      const r = Math.min(MAX_POLLUTION_RADIUS, 1 + Math.ceil(intensity));
+    for (const [field, base] of channels) {
+      if (base <= 0 || wt <= 0) continue;
+      const intensity = base * wt;
+      const r = Math.min(MAX_POLLUTION_RADIUS, 1 + Math.ceil(base));
       const x0 = Math.max(0, b.x - r);
       const x1 = Math.min(w - 1, b.x + b.w - 1 + r);
       const y0 = Math.max(0, b.y - r);
