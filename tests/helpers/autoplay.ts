@@ -31,6 +31,9 @@ export function hubOf(state: GameState): { x: number; y: number } {
 
 /** How many tiles of hub distance one tile of new road is worth to the scripted players when they choose a site. */
 const ROAD_WEIGHT = 1;
+/** Road weights at or above this belong to the careful players, who also keep power-using buildings back from the beach. */
+const CAREFUL_WEIGHT = 3;
+const BEACH_PENALTY = 6;
 
 /** First valid spot ordered by distance to the hub ('near') or farthest from it ('far'). Ignores funds. */
 export function findSpot(
@@ -44,6 +47,19 @@ export function findSpot(
   const cands: { spot: Spot; score: number }[] = [];
   const rich: GameState = { ...state, budget: 1e9 };
   const road = roadDistance(state);
+  // A careful player keeps lit buildings back from a nesting beach (street lights confuse hatchlings).
+  const g0 = state.grid;
+  const beachZone = new Uint8Array(g0.w * g0.h);
+  if (roadWeight >= CAREFUL_WEIGHT) {
+    for (let i = 0; i < g0.kind.length; i++) {
+      if (g0.kind[i] !== TileKind.Beach) continue;
+      const bx = i % g0.w, by = Math.floor(i / g0.w);
+      for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) {
+        const xx = bx + dx, yy = by + dy;
+        if (xx >= 0 && yy >= 0 && xx < g0.w && yy < g0.h) beachZone[yy * g0.w + xx] = 1;
+      }
+    }
+  }
   for (let y = 0; y < state.grid.h; y++) {
     for (let x = 0; x < state.grid.w; x++) {
       for (const rotation of rotations) {
@@ -51,7 +67,8 @@ export function findSpot(
         // A sensible player builds along existing roads instead of paying for a long new one.
         const d = Math.hypot(x - hub.x, y - hub.y);
         const toRoad = road ? roadWeight * Math.max(0, (road[y * state.grid.w + x] ?? 0) - 1) : 0;
-        cands.push({ spot: { x, y, rotation }, score: (prefer === 'near' ? d : -d) + toRoad });
+        const lit = beachZone[y * g0.w + x] === 1 && BUILDINGS[id].power < 0 ? BEACH_PENALTY : 0;
+        cands.push({ spot: { x, y, rotation }, score: (prefer === 'near' ? d : -d) + toRoad + lit });
       }
     }
   }

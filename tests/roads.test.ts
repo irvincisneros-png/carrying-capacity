@@ -161,7 +161,7 @@ describe('road access', () => {
   it('exempt buildings work with no road, and the exemption lives on the building def', () => {
     const exempt = (Object.keys(BUILDINGS) as BuildingId[]).filter((id) => BUILDINGS[id].needsRoad === false);
     for (const id of ['road', 'rail', 'carpark', 'wildlifecrossing', 'transitline', 'rooftopsolar', 'parkland', 'phytoremediation',
-      'wetland', 'nursery', 'coralnursery', 'offshorewind', 'tidal', 'fishway', 'seawall', 'outfall', 'bore'] as const) {
+      'wetland', 'nursery', 'coralnursery', 'offshorewind', 'tidal', 'fishway', 'seawall', 'outfall', 'sewagetreatment', 'bore'] as const) {
       expect(exempt, id).toContain(id);
     }
     for (const id of ['cottage', 'suburb', 'farm', 'factory', 'steelworks', 'coalmine', 'coalpower', 'solarfarm', 'windfarm', 'battery', 'excavation'] as const) {

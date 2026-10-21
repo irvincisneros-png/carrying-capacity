@@ -1,12 +1,12 @@
 import { applyAction, BUILDINGS, canPlace, TileKind, tick } from '../../src/sim';
 import type { BuildingId, GameState, Rotation } from '../../src/sim';
-import { connectAll, connectionCost, connectOutcome, roadDistance } from './roads';
+import { connectAll, connectOutcome, roadDistance } from './roads';
 
 /** Value, in the callers' score units, of one tile of new road when two sites are otherwise alike. */
 const ACT2_ROAD_WEIGHT = 0.05;
 /** In Act 1 the builders score sites by distance in tiles, so a tile of new road is worth a tile of walking. */
 const ACT1_ROAD_WEIGHT = 1;
-import { roadAccess } from '../../src/sim';
+import { roadAccess, roadRoute } from '../../src/sim';
 
 export interface Placed {
   state: GameState;
@@ -27,6 +27,7 @@ export function bestSpot(
   id: BuildingId,
   score: (x: number, y: number, w: number, h: number) => number,
   rotations: Rotation[] = [0, 1],
+  roadWeight?: number,
 ): { x: number; y: number; rotation: Rotation } | null {
   const rich: GameState = { ...state, budget: 1e9 };
   const cands: { x: number; y: number; rotation: Rotation; sc: number }[] = [];
@@ -39,7 +40,7 @@ export function bestSpot(
         // These careful players keep wetlands on open ground and never dig one into standing bush.
         if (id === 'wetland' && bushIn(state, c.footprint) > 0) continue;
         // Scores are in the callers' own units; a tile of new road is a small tie-breaker, so equal sites go to the one a road already reaches.
-        const toRoad = road && BUILDINGS[id].needsRoad !== false ? (state.phase === 'act1' ? ACT1_ROAD_WEIGHT : ACT2_ROAD_WEIGHT) * Math.max(0, (road[y * state.grid.w + x] ?? 0) - 1) : 0;
+        const toRoad = road && BUILDINGS[id].needsRoad !== false ? (roadWeight ?? (state.phase === 'act1' ? ACT1_ROAD_WEIGHT : ACT2_ROAD_WEIGHT)) * Math.max(0, (road[y * state.grid.w + x] ?? 0) - 1) : 0;
         cands.push({ x, y, rotation, sc: score(x, y, c.footprint.w, c.footprint.h) - toRoad });
       }
     }
@@ -47,12 +48,20 @@ export function bestSpot(
   // Best score first (scan order breaks ties, as before); then the first spot a road can actually reach.
   const order = cands.map((c, i) => ({ c, i })).sort((a, b) => b.c.sc - a.c.sc || a.i - b.i);
   const checkRoad = roadAccess(state).enforced && BUILDINGS[id].needsRoad !== false;
-  for (const { c } of order) {
-    if (checkRoad) {
-      const r = applyAction(rich, { type: 'place', building: id, x: c.x, y: c.y, rotation: c.rotation });
-      if (!r.result.ok || connectionCost(r.state, r.result.uid as number) === Infinity) continue;
+  // In Act 2 a road through regrown bush costs bush (and a one-off CO2 release), so a careful player first looks for a site whose
+  // road crosses none; only if there is no such site does it accept one that does.
+  const passes = checkRoad && state.phase === 'act2' ? [false, true] : [true];
+  for (const allowBush of passes) {
+    for (const { c } of order) {
+      if (checkRoad) {
+        const r = applyAction(rich, { type: 'place', building: id, x: c.x, y: c.y, rotation: c.rotation });
+        if (!r.result.ok) continue;
+        const route = roadRoute(r.state, r.result.uid as number);
+        if (route === null) continue;
+        if (!allowBush && route.some((i) => r.state.grid.kind[i] === TileKind.Bush)) continue;
+      }
+      return { x: c.x, y: c.y, rotation: c.rotation };
     }
-    return { x: c.x, y: c.y, rotation: c.rotation };
   }
   return null;
 }

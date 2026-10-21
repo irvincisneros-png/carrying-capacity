@@ -27,7 +27,7 @@ export const COMMUTE_CAP = 24;
  * kt CO2 per decade for one person commuting one tile of road each way every working day. Calibrated (see
  * tests/balance-seeds.test.ts and docs/GAMEPLAY.md) so the scripted towns' cumulative emissions move by under 5 percent.
  */
-export const COMMUTE_KT = 0.0012;
+export const COMMUTE_KT = 0.0004;
 /** Each working light-rail line cuts commute emissions by this share, up to TRANSIT_MAX. */
 export const TRANSIT_CUT = 0.12;
 export const TRANSIT_MAX = 0.6;
@@ -197,14 +197,14 @@ export function roadTileCost(state: GameState, i: number): number {
   if ((g.building[i] ?? 0) !== 0) return 0;
   const k = g.kind[i];
   // Routes go round places of cultural significance if they can (building on one without asking is a harm, see country.ts).
-  const care = (g.significant?.[i] ?? 0) > 0 ? SIGNIFICANT_STEP : 0;
-  if (k === TileKind.Land) {
-    if (state.phase === 'act2') {
-      const z = g.zone?.[i] ?? 0;
-      if (z > 0 && z < 250 && (getScenario(state.scenarioId).mechanics ?? []).includes('outback')) return 0;
-    }
-    return 1 + care;
+  let care = (g.significant?.[i] ?? 0) > 0 ? SIGNIFICANT_STEP : 0;
+  // Red Dirt's mine site must stay free of roads, or it could never be fully rehabilitated.
+  const z = g.zone?.[i] ?? 0;
+  if (z > 0 && z < 250 && (getScenario(state.scenarioId).mechanics ?? []).includes('outback')) {
+    if (state.phase === 'act2') return 0;
+    care += SIGNIFICANT_STEP;
   }
+  if (k === TileKind.Land) return 1 + care;
   return k === TileKind.Bush ? BUSH_STEP + care : 0;
 }
 

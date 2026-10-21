@@ -4,6 +4,7 @@ import { seededGame } from './seeds';
 import { wouldFlood } from '../../src/sim/mechanics/reefCore';
 import type { BuildingId, GameState } from '../../src/sim';
 import { runScript } from './autoplay';
+import { CAREFUL_ROADS } from './scripts';
 import {
   answerPrompts, bestSpot, buildEnergy, comanageBush, consultAll, count, disposeLegacy, nearTiles, place, placeUpTo, playAct2, queuePlan,
   retireFossil, setPolicy, treatSewage, burnPatches,
@@ -38,7 +39,7 @@ export function reefAct1Idle(seed: number | null = null): GameState {
 }
 
 export function reefAct1Thoughtful(seed: number | null = null): GameState {
-  const inner = queuePlan(REEF_THOUGHTFUL_WANTS, 1.0);
+  const inner = queuePlan(REEF_THOUGHTFUL_WANTS, 1.0, 30, CAREFUL_ROADS);
   return runScript(seededGame('reef-island', seed), (s) => inner(answerPrompts(consultAll(s), {}, 25))).state;
 }
 

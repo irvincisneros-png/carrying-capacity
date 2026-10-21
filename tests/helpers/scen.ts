@@ -193,7 +193,7 @@ const jobsAndHousing = (s: GameState): { housing: number; jobs: number } => {
  * first wanted building that is unlocked and not yet at its maximum. If it cannot afford it, it waits for the next decade
  * (so expensive, important buildings are not starved by cheap ones).
  */
-export function queuePlan(queue: readonly QueueWant[], housingRatio = 1.0, maxPerDecade = 30): Plan {
+export function queuePlan(queue: readonly QueueWant[], housingRatio = 1.0, maxPerDecade = 30, roadWeight?: number): Plan {
   // Wants that could not find a legal spot are dropped for good, so one impossible item never blocks the rest.
   const blocked = new Set<BuildingId>();
   return (state) => {
@@ -210,7 +210,7 @@ export function queuePlan(queue: readonly QueueWant[], housingRatio = 1.0, maxPe
       }
       if (!id) break;
       if (s.budget < BUILDINGS[id].cost) break;
-      const r = buildNear(s, id, prefer);
+      const r = buildNear(s, id, prefer, roadWeight);
       if (r === 'funds') break; // the road to it costs more than is left: wait for next decade
       if (!r) {
         if (id === 'cottage' || id === 'suburb') break;
@@ -228,9 +228,9 @@ function isUnlockedHere(s: GameState, id: BuildingId): boolean {
   return c.code !== 'locked';
 }
 
-function buildNear(s: GameState, id: BuildingId, prefer: 'near' | 'far'): GameState | null | 'funds' {
+function buildNear(s: GameState, id: BuildingId, prefer: 'near' | 'far', roadWeight?: number): GameState | null | 'funds' {
   const hub = hubFor(s);
-  const spot = bestSpot(s, id, (x, y) => (prefer === 'near' ? -1 : 1) * Math.hypot(x - hub.x, y - hub.y));
+  const spot = bestSpot(s, id, (x, y) => (prefer === 'near' ? -1 : 1) * Math.hypot(x - hub.x, y - hub.y), [0, 1], roadWeight);
   const p = place(s, id, spot);
   if (!p.ok && p.needsFunds) return 'funds';
   return p.ok ? p.state : null;

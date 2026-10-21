@@ -375,7 +375,7 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
     blurb: 'Reeds and ponds that filter runoff before it reaches the estuary.',
   },
   sewagetreatment: {
-    id: 'sewagetreatment', name: 'Sewage treatment plant', w: 1, h: 1, cost: 45, jobs: 3, housing: 0, power: -1,
+    id: 'sewagetreatment', needsRoad: false, name: 'Sewage treatment plant', w: 1, h: 1, cost: 45, jobs: 3, housing: 0, power: -1,
     co2: 5, localPollution: 0.6, pollutes: { water: 0.6 }, unlock: 2025, category: 'waste', phases: ACT2, replaces: 'outfall',
     placement: { on: [Land, Beach, Bush] },
     blurb: 'Build it on an existing sewage outfall to upgrade it. Treated water is far cleaner than raw sewage.',

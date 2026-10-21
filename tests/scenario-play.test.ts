@@ -77,7 +77,9 @@ describe('River Town: a thoughtful run shares the river', () => {
   it('meets every goal: a healthy river, no failed taps after 2040, farms that still pay', () => {
     expect(status(river)).toMatchObject({ river: 'met', taps: 'met', farms: 'met' });
     expect(value(river, 'river')).toBeGreaterThanOrEqual(60);
-    expect(value(river, 'river')).toBeLessThan(80);
+    // Re-banded from 80: the thoughtful player now adds a third stormwater wetland (the road network leaves it less room to spread out,
+    // and the weak seed 47 needs it to win), which lifts the 10-year river mean from about 78 to 80.
+    expect(value(river, 'river')).toBeLessThan(85);
     expect(value(river, 'taps')).toBe(0);
     expect(value(river, 'farms')).toBeGreaterThanOrEqual(50);
     expect(river.a2.outcome?.success).toBe(true);
@@ -332,7 +334,9 @@ describe('margins of the thoughtful runs (the harder the scenario, the tighter t
     expect(cityM).toBeLessThanOrEqual(Math.min(riverM, reefM, redM) + 0.01);
   });
   it('the hard scenarios have a tight goal too (Reef Island\'s band across seeds is in balance-seeds.test.ts)', () => {
-    expect(reefM).toBeLessThan(0.35);
+    // Re-banded from 0.35: with a smaller, cheaper-to-reach Act 1 town the world ends 0.25 C cooler than before (1.4 C), so the reef
+    // mean sits at about 68 against the goal of 50 (seed 11, the tight one, is still 51; see tests/balance-seeds.test.ts).
+    expect(reefM).toBeLessThan(0.4);
     expect(margins(red).find((x) => x.id === 'water')?.margin).toBeLessThan(0.45);
   });
   it('Society, the one number that must not slip, is within reach in the city only by a few points', () => {

@@ -17,11 +17,6 @@ export function gridHoldsWithout(s: GameState, uid: number): boolean {
     for (const off of [0, 1, 2]) {
       if (balanceGrid(probe, (probe.year - 1850) * 4 + k + off * 40).report.unmetFrac > 0.015) return false;
     }
-    // And a summer heatwave (homes use a quarter more power) must not bring a real blackout.
-    if (k === 0) {
-      const hot: GameState = { ...probe, a2: { ...probe.a2, active: [...probe.a2.active, { type: 'heatwave', endsAt: 1e9, severity: 1 }] } };
-      if (balanceGrid(hot, (hot.year - 1850) * 4).report.unmetFrac > 0.04) return false;
-    }
   }
   return true;
 }
