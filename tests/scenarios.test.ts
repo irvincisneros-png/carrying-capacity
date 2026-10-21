@@ -22,18 +22,18 @@ describe('scenario definitions', () => {
       }
     }
   });
-  it('coal-coast is the 40x40 default; green-valley is the 20x20 tutorial; every scenario is finished', () => {
+  it('coal-coast is the 64x64 default; green-valley is the 32x32 tutorial; every scenario is finished', () => {
     const c = getScenario('coal-coast');
-    expect([c.mapW, c.mapH, c.startYear, c.endYear, c.startBudget, c.difficulty]).toEqual([40, 40, 1850, 2020, 100, 'easy']);
+    expect([c.mapW, c.mapH, c.startYear, c.endYear, c.startBudget, c.difficulty]).toEqual([64, 64, 1850, 2020, 100, 'easy']);
     const g = getScenario('green-valley');
-    expect([g.mapW, g.mapH, g.difficulty]).toEqual([20, 20, 'tutorial']);
+    expect([g.mapW, g.mapH, g.difficulty]).toEqual([32, 32, 'tutorial']);
     for (const id of SCENARIO_IDS) {
       expect(SCENARIOS[id].todo, id).toBeUndefined();
       expect(SCENARIOS[id].act2.todo, id).toBeUndefined();
     }
     expect(getScenario('net-zero-city').startYear).toBe(2025);
     expect(getScenario('net-zero-city').prebuilt).toBe('city');
-    expect([getScenario('net-zero-city').mapW, getScenario('net-zero-city').mapH]).toEqual([48, 48]);
+    expect([getScenario('net-zero-city').mapW, getScenario('net-zero-city').mapH]).toEqual([72, 72]);
     expect(SCENARIO_IDS.map((id) => SCENARIOS[id].difficulty)).toEqual(['easy', 'tutorial', 'medium', 'hard', 'hard', 'expert']);
   });
   it('isScenarioId guards', () => {
@@ -79,12 +79,12 @@ describe('scenario definitions', () => {
     const rt = { ...createGame('river-town'), year: 2020, budget: 1e6 };
     expect(canPlace(rt, 'port', 5, 5).code).toBe('locked');
   });
-  it('green-valley (20x20) supports normal play', () => {
+  it('green-valley (32x32) supports normal play', () => {
     let s = createGame('green-valley');
     const r = buildN(s, 'cottage', 3);
     expect(r.built).toBe(3);
     s = r.state;
     expect(applyAction(s, { type: 'place', building: 'farm', x: 14, y: 14 }).result.code).not.toBe('out-of-bounds');
-    expect(canPlace(s, 'cottage', 20, 0).code).toBe('out-of-bounds');
+    expect(canPlace(s, 'cottage', 32, 0).code).toBe('out-of-bounds');
   });
 });

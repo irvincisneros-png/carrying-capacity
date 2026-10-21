@@ -209,7 +209,11 @@ export function computeMeters(state: GameState): Meters {
   const clean = 1 - clamp01(m.housingAir / T.housingAirBad);
   const society = 100 * (T.socHoused * housed + T.socEmployed * employed + T.socAir * clean) + state.residents.nudge;
 
-  const bushFrac = state.initialBushTiles > 0 ? m.bushTiles / state.initialBushTiles : 1;
+  // The town a player builds is limited by money, not by the size of the map, so a bigger map must not make the same clearing
+  // look smaller: the share of bush lost is measured against the bush on the reference (original) area, like pollution is.
+  const rawFrac = state.initialBushTiles > 0 ? m.bushTiles / state.initialBushTiles : 1;
+  const refShare = Math.min(1, (getScenario(state.scenarioId).pollutionRefTiles ?? state.grid.kind.length) / state.grid.kind.length);
+  const bushFrac = 1 - (1 - rawFrac) / refShare;
   const pollutionScore = 1 - clamp01(m.meanPollution / T.pollutionBad);
   const reef = reefHealth(state.tempC, m.reefWater);
   const bushScore = clamp01((bushFrac - T.bushFloor) / (1 - T.bushFloor));

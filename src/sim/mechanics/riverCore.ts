@@ -147,14 +147,23 @@ export function ripFraction(s: GameState): number {
   return n > 0 ? veg / n : 1;
 }
 
+/** Reference river length (tiles) the town's pollution and bank clearing are measured against (the original map had about 100; calibrated at 140 for the 64x64 river). */
+export const RIVER_REF_TILES = 140;
+
+function riverTiles(s: GameState): number {
+  let n = 0;
+  for (let i = 0; i < s.grid.kind.length; i++) if (s.grid.kind[i] === TileKind.River) n++;
+  return n;
+}
+
 export function meanRiverWaterPollution(s: GameState): number {
   const g = s.grid;
   let t = 0, n = 0;
   for (let i = 0; i < g.kind.length; i++) if (g.kind[i] === TileKind.River) { t += g.waterPollution[i] ?? 0; n++; }
-  // A bigger map has a longer river, so the town's reach is a smaller share of it: the mean is scaled back by the area
-  // growth (same normalisation as the Environment meter) so "polluted river" means what it did on the original map.
-  const ref = getScenario(s.scenarioId)?.pollutionRefTiles ?? g.kind.length;
-  return n > 0 ? (t / n) * (g.kind.length / ref) : 0;
+  // A longer river dilutes what the town puts into it, so the total is measured against the length of river the original map
+  // had (the mean scaled by the river's growth): "polluted river" then means what it did on the original map, however big the
+  // map is. (Scaling by map area instead overstates it: the river grows more slowly than the area.)
+  return n > 0 ? (t / n) * (n / RIVER_REF_TILES) : 0;
 }
 
 /** Mean salt (soil contamination) on unbuilt land within `r` tiles of a building of the given types, or of water if none given. */
@@ -193,7 +202,10 @@ export function riverHealth(s: GameState): number {
   const flowScore = clamp01(flag(s, 'w.envAvg', 0.9));
   const quality = 1 - clamp01(meanRiverWaterPollution(s) / 1.5);
   const salt = 1 - clamp01(meanSaltNear(s, 3, []) / 1.5);
-  const rip = clamp01(ripFraction(s) / 0.7);
+  // Like the pollution above, the bank cleared by the town's farms is a smaller share of a longer river's banks: measure the
+  // cleared share against the original map's river length so the same clearing costs the river the same on any map.
+  const cleared = (1 - ripFraction(s)) * Math.max(1, riverTiles(s) / RIVER_REF_TILES);
+  const rip = clamp01((1 - cleared) / 0.7);
   const weir = weirTileIdx(s).length > 0;
   const passage = weir ? (hasFishway(s) ? 1 : 0.45) : 1;
   const damage = clamp01(flag(s, 'w.damage'));

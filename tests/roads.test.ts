@@ -47,10 +47,10 @@ describe('the entrance road', () => {
         expect(b?.type, id).toBe('road');
         expect(g.kind[i], id).toBe(TileKind.Land);
       }
-      // The main entrance is on the map edge (the island's is on its own shore).
+      // The main entrance is on the map edge (the island's is on its own shore, which on the 64x64 map is up to 16 tiles in from the edge of the sea).
       const m = list[0] as number;
       const edge = Math.min(m % g.w, Math.floor(m / g.w), g.w - 1 - (m % g.w), g.h - 1 - Math.floor(m / g.w));
-      expect(edge, id).toBeLessThanOrEqual(id === 'reef-island' ? 8 : 0);
+      expect(edge, id).toBeLessThanOrEqual(id === 'reef-island' ? 16 : 0);
       expect(s.buildings.filter((b) => b.type === 'road').length, id).toBeGreaterThan(3);
       expect(roadAccess(s).enforced).toBe(true);
     }

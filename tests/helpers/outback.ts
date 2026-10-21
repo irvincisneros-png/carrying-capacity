@@ -60,7 +60,7 @@ function queueRun(queue: QueueWant[], respectful: boolean): GameState {
 }
 
 export const RED_BOT = {
-  startDelay: 0, scale: 1, closeMineYear: 2038, solar: 8, batteries: 5, wind: 1, bores: 2, reservoirs: 1, nurseries: 3, parks: 6, centres: 1, restrict: 0, reserve: 120,
+  startDelay: 0, scale: 1, closeMineYear: 2038, solar: 8, batteries: 5, wind: 1, bores: 2, reservoirs: 2, nurseries: 3, parks: 6, centres: 1, restrict: 0, reserve: 120,
 };
 
 /** Connected parts of the mine site (any tile with a zone value, 4-connected). */

@@ -10,15 +10,15 @@ describe('terrain generation', () => {
     expect(Array.from(a.elevation)).toEqual(Array.from(b.elevation));
     expect(Array.from(a.kind)).not.toEqual(Array.from(c.kind));
   });
-  it('is 40x40 with typed-array storage', () => {
+  it('is 64x64 with typed-array storage', () => {
     const g = generateTerrain(scenario, 1850);
-    expect(g.w).toBe(40);
-    expect(g.h).toBe(40);
+    expect(g.w).toBe(64);
+    expect(g.h).toBe(64);
     expect(g.kind).toBeInstanceOf(Uint8Array);
     expect(g.elevation).toBeInstanceOf(Uint8Array);
     expect(g.building).toBeInstanceOf(Uint16Array);
     expect(g.airPollution).toBeInstanceOf(Float32Array);
-    expect(g.kind).toHaveLength(1600);
+    expect(g.kind).toHaveLength(4096);
   });
   it.each([1850, 1, 2, 3, 123456])('has every required feature for seed %i', (seed) => {
     const g = generateTerrain(scenario, seed);

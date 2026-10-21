@@ -15,7 +15,7 @@ export function generateRiver(sc: ScenarioDef, seed: number): TileGrid {
   /** Linear scale against the original 32x32 map: reaches, floodplain, ranges and billabongs grow with it. */
   const s = Math.min(w, h) / 32;
 
-  const cy = meander(k, h * 0.26, h * 0.7, h * 0.15, 1.6 * s, 1.2 * s).map((v) => clampi(Math.round(v), 5, h - 6));
+  const cy = meander(k, h * 0.26, h * 0.7, h * 0.15, 2.2, 1.2 * s).map((v) => clampi(Math.round(v), 5, h - 6));
   for (let i = 0; i < w * h; i++) grid.kind[i] = TileKind.Land;
   carveRiver(k, cy, (x) => (x > 3 && x < w - 3 ? 1 : 1), TileKind.River, 0);
 

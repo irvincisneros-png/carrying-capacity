@@ -33,7 +33,9 @@ describe('a thoughtful run reaches three stars', () => {
     expect(thoughtful.a2.outcome?.success).toBe(true);
     expect(thoughtful.a2.outcome?.pendingRequired).toEqual([]);
     expect(thoughtful.tempC).toBeLessThanOrEqual(1.8);
-    expect(thoughtful.a2.yearly.filter((y) => y.year > 2025 && y.unmetFrac > 0.02).length).toBeLessThanOrEqual(3);
+    // Re-banded from 3 (round 6, 64x64 map): turbines and batteries sit further from the town and their roads cost more, so a few more
+    // summers are short of power in the 2030s and 2040s.
+    expect(thoughtful.a2.yearly.filter((y) => y.year > 2025 && y.unmetFrac > 0.02).length).toBeLessThanOrEqual(5);
   });
   it('earns the bonus star: koalas and turtles thriving', () => {
     const c = census(thoughtful);
@@ -149,7 +151,10 @@ describe('doing nothing leaves every arc unresolved or bad', () => {
     // fewer homes), so the two residents whose lives depend on the town staying employed, Mick and Dot, can end 'mixed'. The four whose
     // stories depend on the estuary, the Country and the climate still end badly, and nobody ends well.
     const q = Object.fromEntries(rc.residents.map((r) => [r.id, r.quality]));
-    expect(['lena-tran', 'aunty-june', 'priya-shah', 'sam-jordan'].map((id) => q[id])).toEqual(['bad', 'bad', 'bad', 'bad']);
+    // Round 6 (64x64 map): the dirty town is a little smaller against the bigger map, so the idle world ends at about 2.1 C and Priya's
+    // reading (2.2 C or less) can read 'mixed'. Sam and Jordan's beach and bush have more room to survive on the bigger map. The two whose stories depend on the estuary and the Country still end badly.
+    expect(['lena-tran', 'aunty-june'].map((id) => q[id])).toEqual(['bad', 'bad']);
+    expect(['priya-shah', 'sam-jordan'].every((id) => q[id] === 'bad' || q[id] === 'mixed')).toBe(true);
     expect(['mick-kowalski', 'dot-harris'].every((id) => q[id] === 'bad' || q[id] === 'mixed')).toBe(true);
     expect(rc.residentsGood).toBe(false);
     for (const r of rc.residents) expect(r.mood).toBeLessThan(50);
@@ -173,7 +178,8 @@ describe('doing nothing leaves every arc unresolved or bad', () => {
   });
   it('loses most of the animals and lets the problems pile up unanswered', () => {
     const gone = census(idle).filter((c) => c.status === 'gone').length;
-    expect(gone).toBeGreaterThanOrEqual(4);
+    // Re-banded from 4 (round 6): on the 64x64 map there is more bush and river left than the idle town can foul, so one more animal holds on.
+    expect(gone).toBeGreaterThanOrEqual(3);
     expect(idle.wildlife.species['green-turtle']?.pop).toBe(0);
     expect(idle.dilemmas.decisions.length).toBeGreaterThan(10);
     expect(idle.dilemmas.decisions.every((d) => d.optionId === 'ignored' || d.dilemmaId.startsWith('a1-') === false)).toBe(true);

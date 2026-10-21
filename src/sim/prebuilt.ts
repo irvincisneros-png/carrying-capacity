@@ -84,10 +84,12 @@ export interface CityMix {
   rails: number;
   /** Radius (tiles) of the built-up area. */
   radius: number;
+  /** People the starting homes house (suburbs and cottages stop once they do). The map is bigger than the city, so ground does not limit it. */
+  homes: number;
 }
 
 export const DEFAULT_CITY_MIX: CityMix = {
-  coal: 5, gas: 4, factories: 18, steelworks: 1, ports: 2, highways: 7, landfills: 1, outfalls: 1, farms: 3, rails: 8, radius: 17.5,
+  coal: 5, gas: 4, factories: 18, steelworks: 1, ports: 2, highways: 7, landfills: 1, outfalls: 1, farms: 3, rails: 8, radius: 17.5, homes: 4240,
 };
 
 export function buildCity(s: GameState, mix: CityMix = DEFAULT_CITY_MIX): void {
@@ -147,6 +149,7 @@ export function buildCity(s: GameState, mix: CityMix = DEFAULT_CITY_MIX): void {
     for (let bx = x0; bx < g.w; bx += ROAD_SPACING) blocks.push({ x: bx + 1, y: by + 1 });
   }
   let factories = 0;
+  let housed = 0;
   blocks.sort((a, b) => dist(a.x + 3, a.y + 3) - dist(b.x + 3, b.y + 3));
   for (const b of blocks) {
     const mid = { x: b.x + 3, y: b.y + 3 };
@@ -157,10 +160,12 @@ export function buildCity(s: GameState, mix: CityMix = DEFAULT_CITY_MIX): void {
       const px = b.x + (q % 2) * 3, py = b.y + Math.floor(q / 2) * 3;
       if ((ind || (cbd && q % 2 === 0)) && factories < mix.factories && tryPlace(s, 'factory', px, py)) { factories++; continue; }
       if (ind) continue;
-      if (!tryPlace(s, 'suburb', px, py)) {
+      if (housed >= mix.homes) continue;
+      if (tryPlace(s, 'suburb', px, py)) housed += BUILDINGS.suburb.housing;
+      else {
         // Leftover ground: terraces.
-        tryPlace(s, 'cottage', px, py);
-        tryPlace(s, 'cottage', px + 1, py);
+        if (tryPlace(s, 'cottage', px, py)) housed += BUILDINGS.cottage.housing;
+        if (tryPlace(s, 'cottage', px + 1, py)) housed += BUILDINGS.cottage.housing;
       }
     }
   }

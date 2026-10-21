@@ -85,7 +85,7 @@ describe('Green Valley (16x16 valley)', () => {
   });
 });
 
-describe('River Town (32x32 inland river)', () => {
+describe('River Town (64x64 inland river)', () => {
   const sc = getScenario('river-town');
   const g = generateTerrain(sc, sc.seed);
   it('has one wide river from the west edge to the east edge', () => {
@@ -115,7 +115,7 @@ describe('River Town (32x32 inland river)', () => {
   });
 });
 
-describe('Reef Island (32x32 tropical island)', () => {
+describe('Reef Island (64x64 tropical island)', () => {
   const sc = getScenario('reef-island');
   const g = generateTerrain(sc, sc.seed);
   it('is a single island surrounded by sea, with a broad fringing reef', () => {
@@ -152,7 +152,7 @@ describe('Reef Island (32x32 tropical island)', () => {
   });
 });
 
-describe('Red Dirt (32x32 outback)', () => {
+describe('Red Dirt (64x64 outback)', () => {
   const sc = getScenario('red-dirt');
   const g = generateTerrain(sc, sc.seed);
   it('has a dry creek, a permanent waterhole, ranges and open red plains', () => {
@@ -174,11 +174,11 @@ describe('Red Dirt (32x32 outback)', () => {
   });
 });
 
-describe('Net Zero City (48x48 coastal city)', () => {
+describe('Net Zero City (72x72 coastal city)', () => {
   const sc = getScenario('net-zero-city');
   const g = generateTerrain(sc, sc.seed);
   it('has a harbour inlet, beaches, an estuary where a river meets it, headlands and hills', () => {
-    expect(g.w * g.h).toBe(2304);
+    expect(g.w * g.h).toBe(5184);
     expect(countKind(g, TileKind.Sea)).toBeGreaterThan(350);
     expect(countKind(g, TileKind.Beach)).toBeGreaterThan(30);
     expect(countKind(g, TileKind.Estuary)).toBeGreaterThan(15);
