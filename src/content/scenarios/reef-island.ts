@@ -46,6 +46,16 @@ export const REEF_ISLAND: ScenarioDef = {
       blurb: 'Hatchlings head for the brightest horizon. Level 1 swaps beachfront lights for shielded, low amber ones, so only buildings right on the sand still glow. Level 2 also turns beachfront lights out on nesting nights. Lights further inland do not reach the beach either way.',
     },
   ],
+  act1: {
+    intro: 'A tropical island in 1900, with a fringing reef and a few families who fish and farm. Over the next 120 years you will build it up: homes, work, power and visitors. The reef will show you what each choice costs.',
+    why: 'Your goals for the boom:',
+    goals: [
+      { id: 'people', label: 'Grow to 200 people by 2020', metric: 'population', op: '>=', target: 200 },
+      { id: 'jobs', label: 'Give 180 of them jobs', metric: 'filledJobs', op: '>=', target: 180 },
+      { id: 'power', label: 'Keep the lights on: power for every building', metric: 'powerCovered', op: '>=', target: 1 },
+      { id: 'careful', label: 'Grow without wrecking it: keep Environment at 55 or more', metric: 'environment', op: '>=', target: 55, bonus: true },
+    ],
+  },
   act2: {
     carryOverCap: 700,
     fundShare: 0.6,

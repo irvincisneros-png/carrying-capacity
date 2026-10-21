@@ -169,6 +169,8 @@ export interface PlacedBuilding {
   w: number;
   h: number;
   builtYear: number;
+  /** Upgrade ids fitted to this building (see sim/upgrades.ts). Optional, so older saves load unchanged. */
+  upgrades?: string[];
 }
 
 export interface HistoryRecord {
@@ -446,7 +448,9 @@ export type Action =
   /** Set a scenario policy lever (water allocation, reef culling, water restrictions). See ScenarioDef.policies. */
   | { type: 'policy'; id: string; value: number }
   /** Red Dirt: take the next rehabilitation step on the connected mine-site patch containing this tile. */
-  | { type: 'rehab'; x: number; y: number };
+  | { type: 'rehab'; x: number; y: number }
+  /** Act 1: fit an upgrade (smoke scrubber, creek buffer, ...) to a building. See sim/upgrades.ts. */
+  | { type: 'upgrade'; uid: number; id: string };
 
 export type ActionFailCode =
   | 'game-over'
@@ -506,4 +510,26 @@ export interface DecadeReport {
   demandItems: string[];
   fact: Fact | null;
   actComplete: boolean;
+  /** What the decade cost the land: the trade behind the income (filled in by advanceDecade). */
+  cost?: DecadeCost;
+}
+
+/** The environmental side of one decade, shown beside the money earned (see sim/ledger.ts). */
+export interface DecadeCost {
+  /** Bush tiles lost this decade (cleared or built on), and how many tiles of bush remain. */
+  bushLost: number;
+  bushLeft: number;
+  /** Creek health 0..100 (from the dirt and nutrients in the river and estuary water), before and after. */
+  creekBefore: number;
+  creekAfter: number;
+  /** Air quality 0..100 around homes (100 = clean), before and after. */
+  airBefore: number;
+  airAfter: number;
+  /** Emitted this decade (kt CO2-e). */
+  co2Kt: number;
+  /** A rough guide to bush birds (pairs) and creek fish (schools), before and after. Not a real census. */
+  birdsBefore: number;
+  birdsAfter: number;
+  fishBefore: number;
+  fishAfter: number;
 }

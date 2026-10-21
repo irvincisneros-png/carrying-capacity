@@ -429,3 +429,25 @@ kbd { font: 700 11px/1 var(--font); background: var(--paper-3); border-radius: 5
   .act2btns { bottom: 214px; right: 6px; flex-direction: column; }
   .act2btns .btn { padding: 7px 10px; }
 }
+
+/* Round 6 (WP5): Act 1 goals, upgrades in the Inspect panel, the decade ledger and the careful-builder badge. */
+.act1goals.collapsed .obj, .act1goals.collapsed p { display: none; }
+.act1goals .obj.missed .lab, .act1goals .obj.at-risk .lab { color: #9a4a22; }
+.upg { display: flex; gap: 8px; align-items: flex-start; padding: 7px 0; border-top: 1px dashed var(--line); font-size: 13px; }
+.upg .ic { width: 22px; height: 22px; flex: none; margin-top: 1px; }
+.upg.done { opacity: .85; }
+.upg-teach summary { cursor: pointer; font-size: 12px; font-weight: 800; color: var(--ink-3); }
+.ledger { margin-top: 12px; }
+.ledger-cols { display: grid; grid-template-columns: 120px 1fr; gap: 12px; background: var(--paper-2, #f4ecdc); border-radius: 12px; padding: 10px 12px; }
+.ledger small { display: block; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); margin-bottom: 4px; }
+.ledger-earn b { display: block; font-size: 26px; font-family: var(--font-display, inherit); color: #4f8a3e; }
+.ledger-row { display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; font-size: 13px; padding: 3px 0; border-bottom: 1px dashed var(--line); }
+.ledger-row:last-child { border-bottom: 0; }
+.ledger-row span { flex: 1 1 110px; font-weight: 700; }
+.ledger-row em { flex-basis: 100%; font-style: normal; font-size: 11.5px; color: var(--ink-3); }
+.ledger-row.worse b { color: #b5452e; }
+.ledger-row.better b { color: #4f8a3e; }
+.badge-careful { display: flex; gap: 12px; align-items: center; background: #e6f1d6; border: 2px solid #8fbf6a; border-radius: 14px; padding: 10px 14px; margin: 10px 0; }
+.badge-careful .ic { width: 38px; height: 38px; flex: none; }
+@media (max-width: 700px) { .ledger-cols { grid-template-columns: 1fr; } .act1goals { top: 56px; max-height: 40vh; } }
+.act1goals { left: auto; right: 10px; top: 92px; width: 270px; }

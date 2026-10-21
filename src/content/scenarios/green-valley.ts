@@ -9,7 +9,7 @@ export const GREEN_VALLEY: ScenarioDef = {
   blurb: 'A small valley to learn the ropes: build a town, switch it to clean power, heal the land and welcome an animal home.',
   biome: 'valley',
   mechanics: ['tutorial'],
-  playMinutes: [25, 35],
+  playMinutes: [28, 38],
   mapW: 20,
   mapH: 20,
   pollutionRefTiles: 256,
@@ -24,6 +24,18 @@ export const GREEN_VALLEY: ScenarioDef = {
     outfall: { disabled: true },
   },
   modifiers: { budgetMult: 1.5, eventSeverity: 0, climateSensitivityMult: 1, remediationYears: 12, hintLevel: 3, emissionScale: 0.15 },
+  act1: {
+    intro: 'A quiet valley with a creek, a few farms and a lot of bush. The state wants a town here, and families are on their way. Over the next sixty years you will build it: homes, work, power. The land will answer every choice you make.',
+    why: 'Your goals, by 2020:',
+    cardGap: 10,
+    cardsPerTurn: 2,
+    goals: [
+      { id: 'people', label: 'Grow the valley to 200 people by 2020', metric: 'population', op: '>=', target: 200 },
+      { id: 'jobs', label: 'Give 120 of them jobs', metric: 'filledJobs', op: '>=', target: 120 },
+      { id: 'power', label: 'Keep the lights on: power for every building', metric: 'powerCovered', op: '>=', target: 1 },
+      { id: 'careful', label: 'Grow without wrecking it: keep Environment at 60 or more', metric: 'environment', op: '>=', target: 60, bonus: true },
+    ],
+  },
   act2: {
     startYear: 2025,
     endYear: 2040,

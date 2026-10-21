@@ -15,6 +15,10 @@ import { cloneState, emptyAct2, emptyEmissions } from './state';
 import { realCO2, realTemp } from './realData';
 import { buildingAt, canPlace, CLEAR_COST, CLEAR_KT_PER_TILE, DEMOLISH_REFUND, availability, isPlayable } from './rules';
 import { mulberry32 } from './rng';
+import { applyLingeringRunoff } from './effects';
+import { recordAct1 } from './act1goals';
+import { decadeCost } from './ledger';
+import { applyUpgrade, choiceIncomePerDecade, co2Of } from './upgrades';
 import { getScenario, isScenarioId } from './scenarios';
 import { generateTerrain, inBounds } from './terrain';
 import { EMISSION_CATEGORIES, TileKind } from './types';
@@ -213,6 +217,8 @@ export function applyAction(state: GameState, action: Action): { state: GameStat
       next.version = state.version + 1;
       return { state: next, result: { ok: true, spent: CLEAR_COST } };
     }
+    case 'upgrade':
+      return applyUpgrade(state, action.uid, action.id);
     default:
       return applyLayerAction(state, action);
   }
@@ -221,7 +227,7 @@ export function applyAction(state: GameState, action: Action): { state: GameStat
 /** Emissions the current set of buildings will produce over one decade (excludes one-off clearing). */
 export function projectedEmissions(state: GameState): EmissionsBySource {
   const e = emptyEmissions();
-  for (const b of state.buildings) e[BUILDINGS[b.type].category] += BUILDINGS[b.type].co2;
+  for (const b of state.buildings) e[BUILDINGS[b.type].category] += co2Of(b);
   return e;
 }
 
@@ -239,11 +245,12 @@ export function advanceDecade(state: GameState): { state: GameState; report: Dec
 
   // 2. Local pollution spreads / decays.
   updatePollution(next.grid, next.buildings);
+  applyLingeringRunoff(next);
 
   // 3. Economy: population then income.
   next.population = growPopulation(state.population, economySnapshot(state).housing);
   const snap = economySnapshot(next);
-  next.lastIncome = decadeIncome(snap, sc.modifiers.budgetMult) + Math.round(mechIncome(next) * DECADE_YEARS);
+  next.lastIncome = decadeIncome(snap, sc.modifiers.budgetMult) + Math.round(mechIncome(next) * DECADE_YEARS) + Math.round(choiceIncomePerDecade(next));
   next.budget += next.lastIncome;
 
   // 4. Climate for the new year.
@@ -265,6 +272,7 @@ export function advanceDecade(state: GameState): { state: GameState; report: Dec
   next.history.push(record(next, em, total));
   if (next.year >= sc.endYear) {
     next.status = 'act1-complete';
+    recordAct1(next);
     enterTurningPoint(next);
   }
   layersDecadeStory(next);
@@ -297,6 +305,7 @@ export function advanceDecade(state: GameState): { state: GameState; report: Dec
     demandItems: demand.items,
     fact: getFactForDecade(state.year),
     actComplete: next.status === 'act1-complete',
+    cost: decadeCost(state, next, total),
   };
   return { state: next, report };
 }

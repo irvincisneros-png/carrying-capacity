@@ -1,5 +1,6 @@
 import { BUILDINGS } from './buildings';
 import { getScenario } from './scenarios';
+import { pollutesOf } from './upgrades';
 import { TileKind } from './types';
 import type { GameState, PlacedBuilding, TileGrid } from './types';
 
@@ -17,7 +18,7 @@ export function updatePollution(grid: TileGrid, buildings: readonly PlacedBuildi
   const fields = [grid.airPollution, grid.waterPollution, grid.soilContamination] as const;
   for (const f of fields) for (let i = 0; i < f.length; i++) f[i] = (f[i] ?? 0) * POLLUTION_PERSISTENCE;
   for (const b of buildings) {
-    const prof = BUILDINGS[b.type].pollutes;
+    const prof = pollutesOf(b);
     const channels: [Float32Array, number][] = [
       [grid.airPollution, prof.air ?? 0],
       [grid.waterPollution, prof.water ?? 0],
@@ -101,7 +102,7 @@ export function updatePollutionSeason(
   for (const b of buildings) {
     const k = scale(b);
     if (k <= 0) continue;
-    const prof = BUILDINGS[b.type].pollutes;
+    const prof = pollutesOf(b);
     const channels: [Float32Array, number, number][] = [
       [grid.airPollution, prof.air ?? 0, addAir],
       [grid.waterPollution, prof.water ?? 0, addAW],

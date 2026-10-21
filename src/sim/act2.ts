@@ -17,6 +17,7 @@ import { MICRO, seasonIndexOf } from './season';
 import { getScenario } from './scenarios';
 import { beginAct2, layersSeason, layersYearEnd } from './layers';
 import { wasteEmissionsMult } from './circular';
+import { choiceIncomePerDecade, co2Of } from './upgrades';
 import { cloneState, emptyAct2, emptyEmissions } from './state';
 import { emitStory } from './story';
 import { EMISSION_CATEGORIES, TileKind } from './types';
@@ -201,7 +202,7 @@ export function processSeason(s: GameState, rctx: RestoreCtx, quiet: boolean, di
     const def = BUILDINGS[b.type];
     if (def.category === 'power' || def.co2 <= 0) continue;
     if (def.remediation?.method === 'excavate' && !a2.activeRemediation.includes(b.uid)) continue;
-    a2.yearEm[def.category] += (def.co2 / 40) * mechEmissionFactor(s, b);
+    a2.yearEm[def.category] += (co2Of(b) / 40) * mechEmissionFactor(s, b);
   }
 
   if (!quiet) emitted.push(...rollEvents(makeCtx(s, idx, gr.report, rctx), 'post'));
@@ -243,7 +244,7 @@ function yearEnd(s: GameState, quiet: boolean): void {
   const snap = economySnapshot(s);
   const income = ((snap.filledJobs * INCOME_PER_JOB + BASE_GRANT) * sc.modifiers.budgetMult / 10) * ACT2_INCOME_MULT * (1 - 0.8 * unmet);
   const incomeAdj = typeof s.flags['income.adj'] === 'number' ? s.flags['income.adj'] : 0;
-  s.lastIncome = Math.round(income + incomeAdj + mechIncome(s));
+  s.lastIncome = Math.round(income + incomeAdj + mechIncome(s) + choiceIncomePerDecade(s) / 10);
   s.budget += s.lastIncome;
   payFund(s);
 

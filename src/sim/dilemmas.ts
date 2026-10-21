@@ -149,13 +149,17 @@ function expire(s: GameState): void {
   }
 }
 
-/** Act 1: called once per decade turn. Offers at most one card, at least ACT1_MIN_GAP years apart. */
+/**
+ * Act 1: called once per decade turn. Offers at most `cardsPerTurn` cards (default 1), at least `cardGap` years
+ * (default ACT1_MIN_GAP) after the last offer. Green Valley asks for a card nearly every decade.
+ */
 export function offerAct1(s: GameState): void {
   expire(s);
+  const a1 = getScenario(s.scenarioId).act1;
   const last = Math.max(-1e9, ...Object.values(s.dilemmas.offered).map((y) => y));
-  if (s.dilemmas.pending.length > 0 || s.year - last < ACT1_MIN_GAP) return;
-  const pick = eligible(s, 'act1')[0];
-  if (pick) fire(s, pick);
+  if (s.dilemmas.pending.length > 0 || s.year - last < (a1?.cardGap ?? ACT1_MIN_GAP)) return;
+  const picks = eligible(s, 'act1').slice(0, a1?.cardsPerTurn ?? 1);
+  for (const pick of picks) fire(s, pick);
 }
 
 /** Act 2: called at each year end. Up to three cards per decade, spread through it, at most two waiting at once. */

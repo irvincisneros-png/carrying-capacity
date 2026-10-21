@@ -9,6 +9,7 @@ import { REPURPOSE } from '../content/circular';
 import { balanceGrid } from './energy';
 import { mechEmissionFactor } from './mechanics';
 import { availability } from './rules';
+import { co2Of } from './upgrades';
 import { getScenario } from './scenarios';
 import { seasonIndexOf } from './season';
 import type { BuildingId, GameState, Season } from './types';
@@ -157,7 +158,7 @@ export function emissionSources(s: GameState): SourceRow[] {
     if (b.type === 'gaspower') { sum.gas.n++; continue; }
     if (def.category === 'power' || def.co2 <= 0) continue;
     const key = GROUP[b.type] ?? 'other';
-    const kt = (def.co2 / 10) * mechEmissionFactor(s, b) * (def.category === 'waste' ? wasteK : 1);
+    const kt = (co2Of(b) / 10) * mechEmissionFactor(s, b) * (def.category === 'waste' ? wasteK : 1);
     sum[key].kt += kt;
     if (b.type === 'suburb') oldHomes++;
     if (key !== 'homes') sum[key].n++;
