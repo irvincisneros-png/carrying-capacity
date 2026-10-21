@@ -14,6 +14,7 @@ import { meanMood } from './conditions';
 import { mechBegin, mechPlaced, mechSeason, mechYear } from './mechanics';
 import { applyPolicy, policyCostPerYear, rehabStep } from './scenarioActions';
 import { fundProject } from './projects';
+import { latchTutorial } from './tutorial';
 import type { Action, ActionResult, GameState, PlacedBuilding, ScenarioId, SimEvent } from './types';
 
 /** The fresh layer state for a new game. */
@@ -64,6 +65,7 @@ export function layersDecadeMoods(s: GameState): void {
 export function layersDecadeStory(s: GameState): SimEvent[] {
   const out = checkBeats(s);
   if (s.phase === 'act1') { offerAct1(s); offerInnovations(s); }
+  latchTutorial(s);
   return out;
 }
 
@@ -108,6 +110,7 @@ export function layersYearEnd(s: GameState): void {
   checkBeats(s);
   offerAct2(s);
   offerDataCentre(s);
+  latchTutorial(s);
 }
 
 // ---------------------------------------------------------------------------------------------------------
@@ -120,12 +123,14 @@ export function onPlaced(s: GameState, b: PlacedBuilding, replaced: PlacedBuildi
   mechPlaced(s, b);
   notePlacement(s, b);
   if (replaced) onReplaced(s, replaced, b.type);
+  latchTutorial(s);
 }
 
 /** After a successful plain 'demolish'. */
 export function onDemolishedBuilding(s: GameState, b: PlacedBuilding): void {
   noteAction(s, `demolished.${b.type}`);
   onDemolished(s, b);
+  latchTutorial(s);
 }
 
 export function applyLayerAction(
