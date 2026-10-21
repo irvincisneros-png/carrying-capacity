@@ -149,7 +149,8 @@ export function makeWater(shared: Record<string, IUniform>, wu: Record<string, I
         vec3 V = normalize(cameraPosition - vW);
         float fres = pow(1.0 - max(V.y, 0.0), 5.0);
         vec3 col = base * 0.94 + uSkyHorizon * fres * 0.5 * uRefl * mix(0.25, 1.0, m);
-        float fn = ccNoise(xz * 6.0 + vec2(t * 0.35, -t * 0.2));
+        // the foam wobble is two sines, not a noise lookup: this branch runs on every sea pixel of the cheapest tiers
+        float fn = 0.5 + 0.28 * sin(xz.x * 5.3 + t * 0.35) + 0.22 * sin(xz.y * 6.1 - t * 0.2 + xz.x * 1.7);
         float shore = 1.0 - smoothstep(0.0, 0.08, depth);
         float foam = step(0.45, shore * smoothstep(0.25, 0.55, fn + shore * 0.45));
         col = mix(col, mix(vec3(0.62, 0.56, 0.44), vec3(1.0), m) * uFoam, foam * mix(0.6, 1.0, m));

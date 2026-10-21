@@ -473,3 +473,76 @@ goals, 2 stars.
 
 `npx vitest run` 672 tests, `npx tsc --noEmit -p .` clean, `npx vite build` clean. No console errors or uncaught exceptions in the
 driver logs.
+
+## Round 5: guidance fixes and the Net Zero City replay (2026-10-21)
+
+Round 4 found four places where a careful student could play well and still lose, and one performance outlier. This round fixed
+each one, then replayed the one that mattered most (Net Zero City) from the title screen with real clicks, reading only the text on
+screen: the Goals panel, the Power grid panel, the build-card tooltips and the demolish / Old sites tooltips.
+
+### Result table
+
+| Scenario | Map | Stars | Decisions (cards + story questions) | Estimated student minutes | What changed this round |
+|---|---|---|---|---|---|
+| Net Zero City (replayed, 5 attempts in the UI) | 48x48 | early attempts on the old guidance: net zero missed (0 stars); last two attempts on the new guidance: 3 of 3 goals + the budget bonus, three stars on the report card | 27 | about 73 (estimator on the saved game: 129 placements in 45 sittings, 18 other actions, 27 decisions) | retire-a-plant guidance, best-value line, tooltip bug fix (below) |
+| Red Dirt (rehab and opening turn) | 40x40 | not replayed in full; the two guidance fixes were exercised in the UI against a built town | | | nursery warning and highlight; no-power opening |
+| Coal Coast (old-sites goal) | 40x40 | not replayed in full; "Show me" exercised in the UI against a 15-site town | | | remaining count and Show me |
+
+Screenshots: `docs/screens/qa2-net-zero-city-end.png` and `docs/screens/qa2-green-valley-end.png` were re-captured with the report card
+fully faded in (the earlier shots caught it mid-fade).
+
+### What was wrong and what changed
+
+1. **Red Dirt rehabilitation: seeded patches far from a nursery never get signed off.** Seeded ground only grows from a nursery's
+   seed (5 tiles) or from a healthy neighbour, so a patch 6+ tiles from every nursery sits at seedling health for ever and the goal
+   quietly stalls at 80 percent or so. Rather than make rehab work without a nursery (the nursery is the thing the goal is teaching),
+   the game now says so in three places:
+   - the Rehab tool's tooltip on the seeding step says how many of the patch's tiles are beyond a nursery's reach, before the
+     student pays for the step;
+   - while the Rehab tool is active the mine ground that still needs work, and every seeded patch no nursery reaches, is lit amber on the
+     map (the Show where button on the goal row does the same and flies the camera to the biggest stuck patch, then the next);
+   - the goal row reads "N seeded patches need a native plant nursery within 5 tiles (M tiles with no seed source, so they will not grow)".
+   `rehabWatch` in `src/sim/mechanics/outbackCore.ts` is the pure read behind all three (a tile is "stuck" when it is seeded, unsigned, bare,
+   outside every nursery's radius and has no 4-neighbour at seed health: exactly the sim's own seeding rule).
+2. **Red Dirt opens Act 2 in a total blackout if Act 1 built no power station** (Society 71 to 0 in the first year, town lost in 3).
+   The turning-point card now warns ("Warning: your town has no power station ... First job: build 2 gas stations"), Act 2 opens paused
+   instead of at 1x, and the opening budget is topped up (and a Town Voices line says so) to at least the cost of the gas stations that
+   cover today's demand (`stopgapPlan` in `src/sim/act2.ts`). Checked: with the stations placed first the same town holds Society above
+   40 through the first years and has no blackout; without them it still loses, as it should.
+3. **Coal Coast "repurpose every old building" is easy to under-read** (the closed mines, rail and tips that are left as rubble count
+   as unsorted). The goal row now shows "N old sites left to sort (X still standing, Y closed and left as rubble)" and a Show me button.
+   Show me highlights the old sites on the map (the one the camera is on brightest), flies the camera to the next one on every press and
+   names it in a toast ("Rail siding (still standing): use the Old sites tool", "Old site 2 of 15"). Rubble comes first.
+4. **Net Zero City: the on-screen guidance did not reliably lead to net zero.** Played through the UI on the guidance as it was, the
+   student had all nine fossil stations standing and 130 kt a year at 2040 (the line is 48), and was nowhere near net zero by 2050; with the
+   tooltip bug fixed but nothing else the same kind of student still got to net zero only around 2052 to 2053, having over-built batteries
+   for want of a number to build to. Causes found, all in the guidance and none in the balance:
+   - **A bug in the demolish / Old sites tooltip.** It decided between "add batteries" and "add wind or more solar" using
+     `day.supply - day.demand`, but the grid caps supply at demand, so the "spare by day" figure was always 0 and the tooltip never
+     said "add batteries", however much solar there was. The student (correctly) kept adding solar and never built a battery, so the
+     night never closed. Spare daytime power is now `charged + curtailed`.
+   - **No positive cue.** When the grid held without a plant the tooltip was simply empty, and an empty tooltip looks like "nothing
+     known". It now says "The grid holds without it, by day and night in every season: safe to retire now."
+   - **No quantities.** Nothing said how much to build. `retirePlan` (`src/sim/outlook.ts`) probes the same grid the game runs and
+     answers "build about 125 rooftop solar and 3 batteries (about $1.1M) first, then retire it"; it appears on the tooltip and as a "Next
+     to retire" line in the Goals panel (green and "Retire a coal station now" once it is safe). It chooses solar or a battery at each
+     step by which closes more of the gap, so it never asks for batteries with no daytime surplus to charge them.
+   - **No ranking.** The build cards already showed $ per kt, but a student had to open each card. The Goals panel now lists the best value
+     right now ("Light rail $22k · Retrofit homes $25k · Rooftop solar $27k"), including turning a factory into a recycling plant once Old sites
+     is open, and it re-ranks as the grid cleans.
+5. Perf: see `docs/reviews/perf-chromebook-proxy.md` (Coal Coast).
+
+### The final Net Zero City replay (what the "student" did)
+
+A careful student reading the panels: street trees and cooling centres first (the heat card and the readout), then each year:
+retire any plant the tooltip says is safe (coal before gas), build batteries when the tooltip says there is spare daytime power, then spend what is
+left down the "Best value now" list, and research food-waste compost when the Waste row passed 4 kt. Result: net zero reached in 2045 (48 kt a year or less and
+held), Society never below 68.8, 9 heat deaths, $2,184k spent on construction by 2050 (bonus met), three stars. Fossil stations were retired from 2032, once the
+factories had gone and the grid held; the last ones stood idle (the grid ran 100 percent renewable most seasons). The driver is deliberately single-minded
+(it has no sense of the camera and rotates the map when a spot is hidden behind a panel), so a human will be slower and messier, but the panel now gives them the
+same three cues the driver used.
+
+### Checks
+
+`npx vitest run` 681 tests (9 new in `tests/round5.test.ts`: rehab nursery reach and stuck patches, the no-power opening, the retire recipe really
+makes the plant safe, best value ordering), `npx tsc --noEmit -p .` clean, `npx vite build` clean.
