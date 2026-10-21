@@ -14,7 +14,7 @@ import {
 } from './ambient';
 import { mulgaGeo, palmGeo, saltbushGeo, spinifexGeo, streetTreeGeo } from './biomeveg';
 
-export interface Rotor { x: number; y: number; z: number; /** facing yaw (rad) about +Y; rotor disc normal = (sin yaw, 0, cos yaw) */ yaw: number; /** blade length scale (1 = 1.3 units blade) */ scale: number }
+export interface Rotor { x: number; y: number; z: number; /** facing yaw (rad) about +Y; rotor disc normal = (sin yaw, 0, cos yaw) */ yaw: number; /** blade length scale (1 = 1.3 units blade; for a wheel, 1 = the 0.15 radius pump wheel) */ scale: number; /** 'wheel' = windmill pump wheel (see wheelGeo); default is the 3-blade turbine rotor */ kind?: 'wheel' }
 export interface Stack { x: number; y: number; z: number; /** relative plume size 0.3..2 */ size: number; /** 0 = dark coal smoke, 1 = white steam */ steam: number }
 export interface BuildingModel { geo: BufferGeometry; stacks: Stack[]; rotors: Rotor[]; /** world height of tallest point, for label/tooltip anchoring */ height: number }
 
@@ -359,8 +359,7 @@ function mFarm(k: Kit): void {
       q.box(r, yy, 0, 0.006, 0.006, r * 2, 0xb8b8b0, IRON);
     }
     q.box(0, H, 0, 0.05, 0.03, 0.08, 0x9a9a92, IRON);
-    const wheel = q.add(T(new CylinderGeometry(0.15, 0.15, 0.012, q.seg(16)), 0, H + 0.02, 0.06, Math.PI / 2, 0, 0), 0xe8e6de, IRON);
-    facets(wheel, (cx, cy) => (Math.floor(((Math.atan2(cy - H - 0.02, cx) + Math.PI) / (Math.PI * 2)) * 16) % 2 ? 0x9aa0a0 : undefined));
+    pumpWheel(q, H + 0.02, 0.06);
     q.cyl(0, H + 0.02, 0.07, 0.03, 0.03, 0.012, 0x6f7575, 8);
     q.rbox(0, H + 0.03, -0.14, 0.006, 0.08, 0.14, 0xd8d4c8, 0, 0, 0, IRON);
   });
@@ -2015,6 +2014,19 @@ function veg(k: Kit, g: BufferGeometry, x: number, y: number, z: number, s = 1, 
   k.put(g, x, y, z, ry, 0xffffff, s);
 }
 
+/**
+ * Windmill pump wheel at (0, y, z) in the group, disc facing +Z. Most tiers register it as a rotor so BuildingLayer
+ * spins it; Very low (partCull > 0) keeps the old static disc baked into the model so it stays cheap.
+ */
+function pumpWheel(q: Kit, y: number, z: number): void {
+  if (q.cull > 0) {
+    const wheel = q.add(T(new CylinderGeometry(0.15, 0.15, 0.012, q.seg(16)), 0, y, z, Math.PI / 2, 0, 0), 0xe8e6de, IRON);
+    facets(wheel, (cx, cy) => (Math.floor(((Math.atan2(cy - y, cx) + Math.PI) / (Math.PI * 2)) * 16) % 2 ? 0x9aa0a0 : undefined));
+    return;
+  }
+  q.rotors.push({ x: 0, y, z, yaw: 0, scale: 1, kind: 'wheel' });
+}
+
 /** Aussie windmill water pump (Southern Cross style), local origin at ground. */
 function windmill(q: Kit, H: number): void {
   for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) q.beam([sx * 0.07, 0, sz * 0.07], [sx * 0.018, H, sz * 0.018], 0.01, 0.01, 0xb8b8b0, IRON);
@@ -2024,8 +2036,7 @@ function windmill(q: Kit, H: number): void {
     q.box(r, yy, 0, 0.006, 0.006, r * 2, 0xb8b8b0, IRON);
   }
   q.box(0, H, 0, 0.05, 0.03, 0.08, 0x9a9a92, IRON);
-  const wheel = q.add(T(new CylinderGeometry(0.15, 0.15, 0.012, q.seg(16)), 0, H + 0.02, 0.06, Math.PI / 2, 0, 0), 0xe8e6de, IRON);
-  facets(wheel, (cx, cy) => (Math.floor(((Math.atan2(cy - H - 0.02, cx) + Math.PI) / (Math.PI * 2)) * 16) % 2 ? 0x9aa0a0 : undefined));
+  pumpWheel(q, H + 0.02, 0.06);
   q.cyl(0, H + 0.02, 0.07, 0.03, 0.03, 0.012, 0x6f7575, 8);
   q.rbox(0, H + 0.03, -0.14, 0.006, 0.08, 0.14, 0xd8d4c8, 0, 0, 0, IRON);
 }
@@ -2401,59 +2412,61 @@ function mTransitline(k: Kit): void {
   for (const z of [-1.2, 0.2, 1.25]) veg(k, streetTreeGeo(k.d), 0.42, G + 0.035, z, 0.42);
 }
 
-/** Shared brick-suburb layout; `green` = retrofitted (cool roofs, PV, heat pumps, more trees). */
+/** Street surface height in model units (the road mesh pins its edge to this where a player road meets the street). */
+export const SUBURB_STREET_TOP = G + 0.0085;
+/** Model-space street: along local x at z = +0.5 (the centre of the footprint's second tile row), 1/1.08 long and wide so it is exactly a road wide once drawn at the building scale. */
+const STREET_Z = 0.5;
+
+/**
+ * Shared brick-suburb layout; `green` = retrofitted (cool roofs, PV, heat pumps, more trees).
+ * The street is flat and straight along local x through tile-row centres, so it meets the tile edge at a road's
+ * width and height; the renderer turns the model so the street faces an adjacent player road (see BuildingLayer).
+ */
 function suburbScene(k: Kit, green: boolean): void {
   pad(k, 2, 2, green ? LAWN : LAWN2);
-  const road: [number, number][] = [];
-  const N = k.hi ? 12 : 7;
-  const rz = (x: number) => 0.06 * Math.sin(x * 2.4);
-  for (let i = 0; i <= N; i++) {
-    const x = -0.98 + (i / N) * 1.96;
-    road.push([x, rz(x)]);
-  }
-  k.add(ribbon(road, 0.34, G + 0.003), 0xd6cdb8, MATTE);
-  k.add(ribbon(road, 0.24, G + 0.006), ASPHALT, MATTE);
-  if (k.hi) k.add(ribbon(road, 0.25, G + 0.0055), 0xb8b0a0, MATTE);
+  const BS = 1.08; // BSCALE_XZ: drawn 8% wider than modelled
+  const L = 2 / BS;
+  k.box(0, G, STREET_Z, L, 0.004, 0.52 / BS, 0xc4bdb0, MATTE);
+  k.box(0, G + 0.0005, STREET_Z, L, 0.008, 0.42 / BS, ASPHALT, MATTE);
+  if (k.hi) for (let i = 0; i < 6; i++) k.box(-0.74 + i * 0.3, G + 0.0085, STREET_Z, 0.14, 0.0015, 0.012, 0xece4c6, MATTE);
   const walls = [0xc98a5a, 0xa65a3c, 0xd9c4a0, 0x8a5a44, 0xc4a27a];
   const roofs = green ? [0xe4e1da, 0xcfd6d4, 0xdcd8cc] : [0xb5583a, 0x6e4a3e, 0x8b8e8f];
-  const sites: [number, number, number][] = [
-    [-0.7, -0.45, 0], [-0.22, -0.48, 0], [0.26, -0.5, 0], [0.72, -0.47, 0],
-    [-0.62, 0.5, Math.PI], [0.0, 0.52, Math.PI], [0.6, 0.48, Math.PI],
+  // front row faces the street (+z); a second, set-back row behind it
+  const sites: [number, number, boolean][] = [
+    [-0.72, -0.04, false], [-0.25, -0.04, false], [0.22, -0.04, false], [0.68, -0.04, false],
+    [-0.5, -0.64, true], [0.02, -0.64, true], [0.52, -0.64, true],
   ];
-  sites.forEach(([x, z, ry], i) => {
-    const zz = z + rz(x);
-    k.group(x, G, zz, ry, (q) => {
+  sites.forEach(([x, z, back], i) => {
+    k.group(x, G, z, 0, (q) => {
       brickHome(q, walls[i % walls.length], roofs[i % roofs.length], i);
       const gx = i % 2 ? 0.205 : -0.205;
       q.flat(gx, 0.004, 0.2, 0.08, 0.18, 0xc8c0b0, MATTE);
       if (green) {
-        // PV on both main roof slopes (front + back) so it reads from any side, heat pump by the wall
+        // PV on the front roof slope, heat pump by the wall
         const slope = Math.atan2(0.085, 0.13);
-        for (const s of [1]) {
-          const pv = q.add(T(new BoxGeometry(0.2, 0.008, 0.08, q.hi ? 2 : 1, 1, 1), 0, 0.13 + 0.042 + 0.006, s * 0.062, s * slope, 0, 0), PV, { rough: 0.2, metal: 0.4 });
-          facets(pv, (cx, _y, _z, _nx, ny) => (Math.abs(ny) > 0.5 && Math.floor((cx + 0.1) / 0.1) % 2 ? PV2 : undefined));
-        }
+        const pv = q.add(T(new BoxGeometry(0.2, 0.008, 0.08, q.hi ? 2 : 1, 1, 1), 0, 0.13 + 0.042 + 0.006, 0.062, slope, 0, 0), PV, { rough: 0.2, metal: 0.4 });
+        facets(pv, (cx, _y, _z, _nx, ny) => (Math.abs(ny) > 0.5 && Math.floor((cx + 0.1) / 0.1) % 2 ? PV2 : undefined));
         q.box(-gx * 0.85, 0, -0.06, 0.05, 0.045, 0.03, WHITE, PAINT);
         if (q.hi) q.quad(-gx * 0.85, 0.022, -0.0445, 0.026, 0.026, '-z', 0x5a5e60, IRON);
       }
-      if (q.hi) {
-        q.box(0, 0, -0.36, 0.46, 0.05, 0.012, 0x9a9488, MATTE);
-        for (const sx of [-1, 1]) q.box(sx * 0.23, 0, -0.24, 0.012, 0.05, 0.24, 0x9a9488, MATTE);
+      if (q.hi && back) {
+        q.box(0, 0, -0.34, 0.46, 0.05, 0.012, 0x9a9488, MATTE);
+        for (const sx of [-1, 1]) q.box(sx * 0.23, 0, -0.22, 0.012, 0.05, 0.24, 0x9a9488, MATTE);
       }
     });
-    if (i % 3 !== 2) k.put(buildAmbient('car', k.d), x + (i % 2 ? 0.205 : -0.205) * Math.cos(ry), G + 0.004, zz + (ry ? -0.22 : 0.22), Math.PI / 2, green ? [TEAL, 0xe8e4da, 0x3d6fa5][i % 3] : [0xb3392b, 0x3d6fa5, 0xe8e4da, 0x4a7a5a, 0xd9a43a][i % 5], 0.85);
+    if (i % 3 !== 2) k.put(buildAmbient('car', k.d), x + (i % 2 ? 0.205 : -0.205), G + 0.004, z + 0.2, Math.PI / 2, green ? [TEAL, 0xe8e4da, 0x3d6fa5][i % 3] : [0xb3392b, 0x3d6fa5, 0xe8e4da, 0x4a7a5a, 0xd9a43a][i % 5], 0.85);
   });
-  k.put(buildAmbient('clothesline', k.d), -0.62, G, 0.82, 0.4);
-  k.put(buildAmbient('clothesline', k.d), 0.26, G, -0.82, 0.2);
-  k.box(0.05, G - 0.005, 0.8, 0.18, 0.012, 0.1, 0xe8e4da, MATTE);
-  k.flat(0.05, G + 0.008, 0.8, 0.15, 0.075, 0x5ac0d0, GLASS);
-  if (k.hi) k.put(buildAmbient('shed', 1), 0.68, G, 0.84, 0);
-  for (const [x, z, s] of [[-0.92, -0.85, 0.9], [-0.45, -0.88, 0.75], [0.62, -0.86, 0.8], [0.92, 0.82, 0.9], [-0.3, 0.86, 0.7]] as [number, number, number][]) k.tree(x, z, green ? Math.min(s, 0.85) : s, Math.round(x * 10 + z * 7 + 50));
+  k.put(buildAmbient('clothesline', k.d), -0.6, G, -0.3, 0.4);
+  k.box(0.05, G - 0.005, -0.3, 0.18, 0.012, 0.1, 0xe8e4da, MATTE);
+  k.flat(0.05, G + 0.008, -0.3, 0.15, 0.075, 0x5ac0d0, GLASS);
+  if (k.hi) k.put(buildAmbient('shed', 1), 0.7, G, -0.3, 0);
+  const trees: [number, number, number][] = [[-0.92, -0.9, 0.9], [-0.3, -0.92, 0.75], [0.25, -0.92, 0.8], [0.88, -0.9, 0.85], [-0.9, 0.9, 0.6], [-0.3, 0.9, 0.55], [0.3, 0.9, 0.6], [0.88, 0.9, 0.55]];
+  for (const [x, z, s] of trees) k.tree(x, z, green ? Math.min(s, 0.85) : s, Math.round(x * 10 + z * 7 + 50));
   if (green) {
-    // street trees all along both verges
+    // street trees along the south verge
     const xs = k.hi ? [-0.85, -0.45, -0.05, 0.38, 0.8] : [-0.6, 0.0, 0.6];
-    for (const x of xs) for (const s of [-1, 1]) veg(k, streetTreeGeo(0), x + s * 0.05, G, rz(x) + s * 0.185, 0.38, x * 3);
-  } else if (k.hi) for (const x of [-0.45, 0.48]) k.tree(x, rz(x) - 0.2, 0.55, 60 + Math.round(x * 10), G, [0x6f8a4a, 0x7f9a56]);
+    for (const x of xs) veg(k, streetTreeGeo(0), x, G, 0.8, 0.38, x * 3);
+  } else if (k.hi) for (const x of [-0.45, 0.48]) k.tree(x, 0.8, 0.5, 60 + Math.round(x * 10), G, [0x6f8a4a, 0x7f9a56]);
 }
 
 function mGreensuburb(k: Kit): void {
@@ -2573,5 +2586,22 @@ export function rotorGeo(detail: 0 | 1): BufferGeometry {
     // red tip marking
     if (detail) facets(g, (cx, cy) => (Math.hypot(cx, cy) > 1.2 ? 0xc9483a : undefined));
   }
+  return k.merge();
+}
+
+/** Windmill pump wheel: a ring of curved sheet-steel vanes in the local XY plane (disc normal +Z), radius 0.15, hub at the origin. */
+export function wheelGeo(detail: 0 | 1): BufferGeometry {
+  const k = new Kit(detail);
+  const n = detail ? 18 : 12;
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    const vane = new BoxGeometry(0.118, 0.032, 0.005);
+    T(vane, 0.09, 0, 0, 0.5, 0, 0);
+    T(vane, 0, 0, 0, 0, 0, a);
+    k.add(vane, i % 2 ? 0xe8e6de : 0xa9afaf, { rough: 0.5, metal: 0.3 });
+  }
+  const rim = new CylinderGeometry(0.15, 0.15, 0.006, k.seg(24), 1, true);
+  T(rim, 0, 0, 0, Math.PI / 2, 0, 0);
+  k.add(rim, 0x8d9494, { rough: 0.5, metal: 0.3 });
   return k.merge();
 }

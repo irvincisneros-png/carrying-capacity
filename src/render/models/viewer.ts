@@ -7,7 +7,7 @@ import {
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { BUILDINGS } from '../../sim/buildings';
-import { MODEL_IDS, buildBuildingModel, rotorGeo, type ModelId } from './buildings';
+import { MODEL_IDS, buildBuildingModel, rotorGeo, wheelGeo, type ModelId } from './buildings';
 import { AMBIENT_IDS, buildAmbient, type AmbientId } from './ambient';
 import { mulgaGeo, palmGeo, redGumGeo, reedsGeo, saltbushGeo, spinifexGeo, streetTreeGeo } from './biomeveg';
 
@@ -110,6 +110,7 @@ scene.add(ground);
 const labels: { el: HTMLDivElement; pos: Vector3 }[] = [];
 const stats: string[] = [];
 const rotor = rotorGeo(detail);
+const wheel = wheelGeo(detail);
 const triCount = (g: BufferGeometry) => (g.index ? g.index.count : g.attributes.position.count) / 3;
 const outlineMat = new LineBasicMaterial({ color: 0x7a3a2a });
 
@@ -146,7 +147,7 @@ for (const { it, x, z } of placed) {
     scene.add(wb);
   }
   for (const r of m.rotors) {
-    const rm = new Mesh(rotor, mat);
+    const rm = new Mesh(r.kind === 'wheel' ? wheel : rotor, mat);
     rm.position.set(x + r.x, r.y, z + r.z);
     rm.rotation.set(0, r.yaw, 0.4 + r.x, 'YXZ');
     rm.scale.setScalar(r.scale);

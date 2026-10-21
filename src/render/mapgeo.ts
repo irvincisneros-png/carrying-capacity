@@ -29,6 +29,9 @@ function tileHeight(k: number, elev: number, seaDist: number, x: number, y: numb
   }
 }
 
+/** One graded road centreline segment: target heights at both ends, flat corridor half-width `hw`. */
+export interface RoadSeg { x0: number; z0: number; y0: number; x1: number; z1: number; y1: number; hw: number }
+
 export class MapGeo {
   readonly w: number;
   readonly h: number;
@@ -47,6 +50,9 @@ export class MapGeo {
   readonly stages: Uint8Array;
   readonly zones: Uint8Array;
   private th: Float32Array;
+  /** Terrain heights before any road grading; `heights` = base with the graded road corridors blended in. */
+  private base: Float32Array;
+  private segs: RoadSeg[] = [];
 
   constructor(grid: TileGrid, readonly look: BiomeLook, res = 0) {
     this.w = grid.w;
@@ -104,6 +110,7 @@ export class MapGeo {
         this.heights[j * this.vx + i] = this.sampleTiles(x, z);
       }
     }
+    this.base = Float32Array.from(this.heights);
   }
 
   /** Recompute everything from a changed grid (same size), in place so layers holding this map stay valid. */
@@ -115,8 +122,79 @@ export class MapGeo {
     this.seaDist.set(fresh.seaDist);
     this.th.set(fresh.th);
     this.tileTop.set(fresh.tileTop);
-    this.heights.set(fresh.heights);
+    this.base.set(fresh.base);
+    this.heights.set(fresh.base);
+    this.carve(this.segs);
   }
+
+  /** Bilinear height of the ungraded terrain (what roads are graded from). */
+  baseHeightAt(x: number, z: number): number {
+    const fx = Math.max(0, Math.min(this.segX - 1e-4, (x + this.w / 2) * this.res));
+    const fz = Math.max(0, Math.min(this.segZ - 1e-4, (z + this.h / 2) * this.res));
+    const i = Math.floor(fx);
+    const j = Math.floor(fz);
+    const tx = fx - i;
+    const tz = fz - j;
+    const k = j * this.vx + i;
+    const hs = this.base;
+    return (hs[k]! + (hs[k + 1]! - hs[k]!) * tx) * (1 - tz) + (hs[k + this.vx]! + (hs[k + this.vx + 1]! - hs[k + this.vx]!) * tx) * tz;
+  }
+
+  /**
+   * Grade the terrain under roads: every vertex near a road centreline segment is pulled toward the segment's
+   * (linearly interpolated) target height, fully inside `hw` and fading to the surrounding terrain over `blend`.
+   * Water edges and the map's outer ring (the slab wall) are left alone. Returns true when any height changed.
+   */
+  carve(segs: RoadSeg[], blend = 0.5): boolean {
+    this.segs = segs;
+    const hs = this.heights;
+    const before = segs.length || this.carved ? Float32Array.from(hs) : null;
+    hs.set(this.base);
+    this.carved = segs.length > 0;
+    if (segs.length) {
+      const n = hs.length;
+      const best = new Float32Array(n);
+      const tgt = new Float32Array(n);
+      const res = this.res;
+      for (const sg of segs) {
+        const R = sg.hw + blend;
+        const i0 = Math.max(1, Math.floor((Math.min(sg.x0, sg.x1) - R + this.w / 2) * res));
+        const i1 = Math.min(this.segX - 1, Math.ceil((Math.max(sg.x0, sg.x1) + R + this.w / 2) * res));
+        const j0 = Math.max(1, Math.floor((Math.min(sg.z0, sg.z1) - R + this.h / 2) * res));
+        const j1 = Math.min(this.segZ - 1, Math.ceil((Math.max(sg.z0, sg.z1) + R + this.h / 2) * res));
+        const dx = sg.x1 - sg.x0;
+        const dz = sg.z1 - sg.z0;
+        const l2 = dx * dx + dz * dz;
+        for (let j = j0; j <= j1; j++) {
+          for (let i = i0; i <= i1; i++) {
+            const px = -this.w / 2 + i / res;
+            const pz = -this.h / 2 + j / res;
+            const t = l2 > 0 ? Math.max(0, Math.min(1, ((px - sg.x0) * dx + (pz - sg.z0) * dz) / l2)) : 0;
+            const d = Math.hypot(px - (sg.x0 + dx * t), pz - (sg.z0 + dz * t));
+            if (d >= R) continue;
+            const wgt = 1 - smoothstep(sg.hw, R, d);
+            const k = j * this.vx + i;
+            if (wgt > best[k]!) {
+              best[k] = wgt;
+              tgt[k] = sg.y0 + (sg.y1 - sg.y0) * t;
+            }
+          }
+        }
+      }
+      for (let k = 0; k < n; k++) {
+        const wgt = best[k]!;
+        if (wgt <= 0) continue;
+        const h0 = this.base[k]!;
+        if (h0 < 0.05) continue; // shoreline and water: never dig a road into the sea
+        hs[k] = h0 + (Math.max(0.06, tgt[k]!) - h0) * wgt;
+      }
+    }
+    if (!before) return false;
+    for (let k = 0; k < hs.length; k++) if (Math.abs(hs[k]! - before[k]!) > 1e-5) return true;
+    return false;
+  }
+
+  private carved = false;
 
   /** Domain warp so coastlines and river banks are organic rather than square. */
   warp(x: number, z: number, out: { x: number; z: number }): void {

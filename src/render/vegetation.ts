@@ -2,7 +2,7 @@
 import { Color, DoubleSide, type Group, type BufferGeometry } from 'three';
 import { reefHealth } from '../sim/climate';
 import { TileKind, type GameState } from '../sim/types';
-import { InstSet } from './instset';
+import { ChunkedSet, InstSet } from './instset';
 import type { MapGeo } from './mapgeo';
 import type { MatLib, MatSpec } from './materials';
 import { hash2 } from './noise';
@@ -41,8 +41,13 @@ const _c2 = new Color();
 const SLOT4: [number, number][] = [[-0.22, -0.2], [0.24, -0.1], [-0.08, 0.25], [0.22, 0.28]];
 const SLOT6: [number, number][] = [[-0.3, -0.28], [0.05, -0.32], [0.32, -0.05], [-0.28, 0.12], [0.02, 0.3], [0.3, 0.32]];
 
+/** Chunk edge in tiles: at most 3x3 chunks whatever the map size, so a whole-map view costs a few extra draws, while a zoomed-in view culls the rest. */
+export const chunkFor = (w: number, h: number): number => Math.max(10, Math.ceil(Math.max(w, h) / 3));
+
 export class Vegetation {
-  private sets: Record<string, InstSet> = {};
+  private sets: Record<string, ChunkedSet> = {};
+  /** One hidden instance per species so the shader programs can be compiled before any chunk exists (see warm-up). */
+  private probes: InstSet[] = [];
   private frac = 1;
   private detail: -1 | 0 | 1 = 1;
   /** Understorey (shrubs, wattle, grass trees) thins faster than the trees on the cheapest tier. */
@@ -53,14 +58,20 @@ export class Vegetation {
     this.group = group;
     const n = map.w * map.h;
     const add = (name: string, geo: BufferGeometry, spec: MatSpec, cap: number, slots: number, color: boolean, cast: boolean): void => {
-      const s = new InstSet(geo, lib.get(spec), cap, n * slots, color);
-      s.mesh.castShadow = cast;
-      s.mesh.receiveShadow = true;
+      const mat = lib.get(spec);
       const dm = lib.depth(spec);
-      if (dm) s.mesh.customDepthMaterial = dm;
-      s.mesh.name = `veg:${name}`;
-      group.add(s.mesh);
+      const s = new ChunkedSet(geo, mat, group, {
+        w: map.w, h: map.h, chunk: chunkFor(map.w, map.h), capacity: cap, keySpace: n * slots, withColor: color, cast, receive: true, depth: dm, name: `veg:${name}`,
+      });
       this.sets[name] = s;
+      const probe = new InstSet(geo, mat, 1, 1, color);
+      probe.mesh.castShadow = cast;
+      probe.mesh.receiveShadow = true;
+      if (dm) probe.mesh.customDepthMaterial = dm;
+      probe.mesh.visible = false;
+      probe.mesh.name = `veg:probe:${name}`;
+      group.add(probe.mesh);
+      this.probes.push(probe);
     };
     add('eucA', eucalyptGeo(1, 0, 3), SPEC.tree!, 1200, 4, true, true);
     add('eucB', eucalyptGeo(1, 1, 8), SPEC.tree!, 800, 4, true, true);
@@ -106,6 +117,24 @@ export class Vegetation {
 
   snapNext(): void {
     for (const s of Object.values(this.sets)) s.snapNext();
+  }
+
+  /**
+   * Distance LOD for the lower tiers: chunks further than `near` tiles from the camera target draw half of their
+   * instances, beyond `far` a third. Infinity (High and Ultra) draws everything.
+   */
+  setLod(near: number, far: number): void {
+    for (const s of Object.values(this.sets)) s.setLod(near, far);
+  }
+
+  /** Per-frame: camera target in world xz (the LOD focus). Cheap: a handful of chunk checks, only when it moved. */
+  private fx = NaN;
+  private fz = NaN;
+  setFocus(x: number, z: number): void {
+    if (Math.abs(x - this.fx) < 0.4 && Math.abs(z - this.fz) < 0.4) return;
+    this.fx = x;
+    this.fz = z;
+    for (const s of Object.values(this.sets)) s.setFocus(x, z);
   }
 
   rebuild(s: GameState, now: number): void {

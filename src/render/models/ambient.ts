@@ -107,7 +107,7 @@ export function blobShape(rx: number, rz: number, seed: number, n: number, amt =
 }
 
 export interface KitStack { x: number; y: number; z: number; size: number; steam: number }
-export interface KitRotor { x: number; y: number; z: number; yaw: number; scale: number }
+export interface KitRotor { x: number; y: number; z: number; yaw: number; scale: number; /** 'wheel' = windmill pump wheel (spins about its axis, like a turbine rotor but a different model) */ kind?: 'wheel' }
 
 const CANOPY = [0x7b956a, 0x687f4c, 0x8ea08e, 0x5b7448, 0x78905c, 0x93a580];
 
