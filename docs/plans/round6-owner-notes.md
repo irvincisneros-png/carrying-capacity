@@ -86,3 +86,17 @@ Files: `src/content/**`, `src/sim/**` (upgrade effects, Act 1 goal evaluation), 
 - **Next decade button.** It becomes "Skip to the end of the decade", which fast-forwards the remaining years.
 - **Determinism.** `advanceDecade` must equal ten `advanceYear` calls, so the scripted players and balance tests are unchanged in result. Add a test for this.
 - **Ordering.** Do this after WP3 and WP5 merge, because it touches `game.ts`, `economy.ts`, the controller and the screens.
+
+## Next round: learning layer (queued after WP7)
+
+- **WP8a Carrying capacity meter.** A HUD gauge compares what the town uses each year (water, farmland, timber and fish, energy, CO2 and waste added) with what the land can renew. When use exceeds supply (overshoot), the bar goes red and stocks run down.
+- **WP8b Water-quality field kit.** Students test the water like Waterwatch groups: dissolved oxygen, nitrates, turbidity, and a survey of water bugs. Before each decade they write a one-line prediction and afterwards compare it with the result. The data goes into the CSV export.
+- **WP8c "Why did that happen?" chains.** Clicking an alert (dead fish, smog, a lost species) shows the cause chain behind it.
+- **WP8d.** Hidden costs of clean tech (mining, end-of-life recycling), a "who wins, who loses" line on cards, a field-guide glossary, a "My household" section at the end, and a printable report with reflections.
+
+## WP9 Technology and data centres (owner request 2026-10-21)
+
+- **Act 1 innovation timeline.** Historical inventions are offered as decade options, each with a cost and a benefit: unleaded petrol and catalytic converters (1980s), the CFC phase-out under the Montreal Protocol (a success story), sewage treatment upgrades, kerbside recycling (1990s) and early rooftop solar (2000s).
+- **Data centre (Act 2, 2025 onward).** A tech company offers to build a large data centre. It pays a big lease and rates but adds few jobs. It draws a lot of electricity, around the clock (it pulls renewable share down or forces gas peakers). It uses cooling water, which in River Town competes with the farms and the river's environmental flow. It also gives off heat.
+  - The card's options are: decline; accept it as offered; or accept with conditions (its own new solar, wind and batteries, recycled-water or air cooling, and waste heat piped to a pool or homes).
+  - It is a building and card in Net Zero City and River Town, and a lighter card elsewhere. The evidence text must use sourced Australian figures (AEMO, state planning documents and similar), with the honest framing that AI and cloud services have real benefits too.
