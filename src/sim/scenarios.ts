@@ -3,6 +3,7 @@ import { NET_ZERO_CITY } from '../content/scenarios/net-zero-city';
 import { RED_DIRT } from '../content/scenarios/red-dirt';
 import { REEF_ISLAND } from '../content/scenarios/reef-island';
 import { RIVER_TOWN } from '../content/scenarios/river-town';
+import type { Act1Def } from './act1goals';
 import type { ObjectiveDef } from './objectives';
 import type { BuildingId, EventType, ScenarioId, TileKindValue } from './types';
 
@@ -168,6 +169,8 @@ export interface ScenarioDef {
   availability: Partial<Record<BuildingId, BuildingOverride>>;
   modifiers: ScenarioModifiers;
   act2: Act2Def;
+  /** Act 1 goals, intro and card pacing (absent where there is no Act 1). */
+  act1?: Act1Def;
   /** Set when the data is a placeholder awaiting its own terrain generator / balance pass. */
   todo?: string;
   biome?: Biome;
@@ -249,6 +252,15 @@ export const SCENARIOS: Readonly<Record<ScenarioId, ScenarioDef>> = {
     startBudget: 100,
     availability: {},
     modifiers: { ...DEFAULT_MODS },
+    act1: {
+      intro: 'An Illawarra-style coastal town in 1850: a few cottages on the flat between the sea and the escarpment, coal in the hills and a creek running down to the estuary. Over the next 170 years you will build the town that grows here. Every choice changes the land, the water and the air.',
+      why: 'Your job for the boom:',
+      goals: [
+        { id: 'people', label: 'Grow to 900 people by 2020', metric: 'population', op: '>=', target: 900 },
+        { id: 'jobs', label: 'Give 800 of them jobs', metric: 'filledJobs', op: '>=', target: 800 },
+        { id: 'careful', label: 'Grow without wrecking it: keep Environment at 33 or more', metric: 'environment', op: '>=', target: 33, bonus: true },
+      ],
+    },
     act2: act2Defaults({
       carryOverCap: 900,
       fundShare: 0.6,

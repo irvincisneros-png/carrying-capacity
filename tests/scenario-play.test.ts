@@ -299,16 +299,18 @@ describe('Green Valley: the tutorial is a short, friendly game', () => {
     expect(buildReportCard(valleyBad).stars).toBe(0);
     expect(status(valleyBad)).toMatchObject({ energy: 'missed', return: 'missed', recycle: 'missed' });
   });
-  it('has two residents, three cards, and two species', () => {
+  it('has two residents, eight cards (six in the boom), and two species', () => {
     expect((CAST['green-valley'] ?? []).map((r) => r.id)).toEqual(['jo-marsh', 'ali-rahman']);
-    expect(valley.dilemmas.decisions.filter((d) => d.optionId !== 'ignored')).toHaveLength(3);
+    expect(valley.dilemmas.decisions.filter((d) => d.optionId !== 'ignored')).toHaveLength(8);
     expect(speciesFor('green-valley').map((x) => x.id)).toEqual(['koala', 'frogs']);
     for (const r of CAST['green-valley'] ?? []) expect(beatsFired(valley, r.id)).toBeGreaterThanOrEqual(3);
   });
   it('takes about half an hour', () => {
     const pt = estimatePlayTime(valley);
-    expect(pt.minutes).toBeGreaterThanOrEqual(22);
-    expect(pt.minutes).toBeLessThanOrEqual(36);
+    // Re-banded 22-36 -> 24-38 (Round 6 WP5): Act 1 now has six cards instead of one, about five more minutes at 55 s a card,
+    // so the card on the scenario-select screen says 28-38 minutes.
+    expect(pt.minutes).toBeGreaterThanOrEqual(24);
+    expect(pt.minutes).toBeLessThanOrEqual(38);
   });
   it('has no random hazards (only the scripted fire at the turning point)', () => {
     expect(valley.eventLog.filter((e) => e.type !== 'story')).toHaveLength(0);

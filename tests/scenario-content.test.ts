@@ -11,7 +11,7 @@ import { act2Sandbox } from './helpers/fixtures';
  * consultation, dilemma cards with previews and evidence blurbs.
  */
 const SCENARIOS: { id: ScenarioId; residents: [number, number]; cards: [number, number]; act1Cards: [number, number] }[] = [
-  { id: 'green-valley', residents: [2, 2], cards: [3, 3], act1Cards: [1, 1] },
+  { id: 'green-valley', residents: [2, 2], cards: [8, 8], act1Cards: [6, 6] },
   { id: 'river-town', residents: [5, 6], cards: [8, 15], act1Cards: [2, 4] },
   { id: 'reef-island', residents: [5, 6], cards: [8, 15], act1Cards: [2, 4] },
   { id: 'red-dirt', residents: [5, 6], cards: [8, 15], act1Cards: [2, 4] },

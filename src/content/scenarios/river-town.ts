@@ -42,6 +42,16 @@ export const RIVER_TOWN: ScenarioDef = {
       blurb: 'In normal seasons, half of any water flowing past above the river\'s own share is banked in storage for the farms. When a drought is declared, town water restrictions start (20% less), farmers irrigate only their best paddocks (30% less), and the banked water carries the farms through. Switch it on before the dry years: the bank only fills in wet ones.',
     },
   ],
+  act1: {
+    intro: 'An inland river town in 1880: farms, a weir and the great river that all of it depends on. Over the next 140 years you will build the town and its farms. The river will show you what each choice costs.',
+    why: 'Your job for the boom:',
+    goals: [
+      { id: 'people', label: 'Grow to 350 people by 2020', metric: 'population', op: '>=', target: 350 },
+      { id: 'jobs', label: 'Give 300 of them jobs', metric: 'filledJobs', op: '>=', target: 300 },
+      { id: 'power', label: 'Keep the lights on: power for every building', metric: 'powerCovered', op: '>=', target: 1 },
+      { id: 'careful', label: 'Grow without wrecking it: keep Environment at 55 or more', metric: 'environment', op: '>=', target: 55, bonus: true },
+    ],
+  },
   act2: {
     carryOverCap: 500,
     fundShare: 0.5,

@@ -127,7 +127,7 @@ export function onDemolishedBuilding(s: GameState, b: PlacedBuilding): void {
 }
 
 export function applyLayerAction(
-  state: GameState, action: Exclude<Action, { type: 'place' | 'demolish' | 'clear' }>,
+  state: GameState, action: Exclude<Action, { type: 'place' | 'demolish' | 'clear' | 'upgrade' }>,
 ): { state: GameState; result: ActionResult } {
   switch (action.type) {
     case 'respond': return respond(state, action.beatId, action.optionId);

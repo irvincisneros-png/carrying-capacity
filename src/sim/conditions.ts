@@ -7,6 +7,8 @@ import { estuaryHealth, meanHealth, meanReefHealth } from './metrics';
 import { measureTiles, economySnapshot } from './economy';
 import { MECH_METRIC_KEYS, mechMetric } from './mechanics';
 import { realCO2, realTemp } from './realData';
+import { landSnapshot } from './ledger';
+import { co2Of } from './upgrades';
 import { seasonIndexOf } from './season';
 import { TileKind } from './types';
 import type { BuildingId, GameState, Phase } from './types';
@@ -83,7 +85,7 @@ export function currentEmissionsKt(state: GameState): number {
   const y = state.a2.yearly;
   if (state.phase !== 'act1' && state.phase !== 'turning-point' && y.length > 0) return y[y.length - 1]?.totalKt ?? 0;
   let kt = 0;
-  for (const b of state.buildings) kt += BUILDINGS[b.type].co2;
+  for (const b of state.buildings) kt += co2Of(b);
   return kt / 10;
 }
 
@@ -243,7 +245,13 @@ const i0 = (n: number): string => String(Math.round(n));
 export function storyVars(state: GameState): Record<string, string> {
   const sp = (id: string): string => i0(state.wildlife.species[id]?.pop ?? 0);
   const tp = state.turningPoint?.stats;
+  let land: ReturnType<typeof landSnapshot> | null = null;
+  const lazy = (): ReturnType<typeof landSnapshot> => (land ??= landSnapshot(state));
   return {
+    // Act 1 land guide (see sim/ledger.ts): creek health 0..100, bush birds (pairs) and creek fish (schools). Read lazily.
+    get creek() { return i0(lazy().creek); },
+    get birds() { return i0(lazy().birds); },
+    get fish() { return i0(lazy().fish); },
     year: i0(state.year),
     temp: f1(state.tempC),
     co2: i0(state.co2),

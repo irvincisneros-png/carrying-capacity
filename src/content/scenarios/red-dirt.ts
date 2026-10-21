@@ -33,6 +33,16 @@ export const RED_DIRT: ScenarioDef = {
       blurb: 'Level 1 bans sprinklers and washing down. Level 2 limits showers and gardens. Demand falls, and patience wears thin.',
     },
   ],
+  act1: {
+    intro: 'An outback mining town in 1890: red ground, a few shafts and a bore that keeps everyone alive. Over the next 130 years you will build the town. The land and the water will show you what each choice costs.',
+    why: 'Your job for the boom:',
+    goals: [
+      { id: 'people', label: 'Grow to 450 people by 2020', metric: 'population', op: '>=', target: 450 },
+      { id: 'jobs', label: 'Give 400 of them jobs', metric: 'filledJobs', op: '>=', target: 400 },
+      { id: 'power', label: 'Keep the lights on: power for every building', metric: 'powerCovered', op: '>=', target: 1 },
+      { id: 'careful', label: 'Grow without wrecking it: keep Environment at 52 or more', metric: 'environment', op: '>=', target: 52, bonus: true },
+    ],
+  },
   act2: {
     carryOverCap: 350,
     carryOverNote: 'The mining company banked most of the boom\'s profits. The shire starts the transition with at most $350k.',
