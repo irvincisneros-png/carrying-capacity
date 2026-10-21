@@ -7,6 +7,8 @@ import type { GameState } from '../src/sim';
 import { runScript } from './helpers/autoplay';
 import { DIRTY_ROADS, DIRTY_WANTS, greedyPlan } from './helpers/scripts';
 import { act2Sandbox, growTile, paint } from './helpers/fixtures';
+import { advanceDecade } from '../src/sim';
+import { buildN } from './helpers/autoplay';
 
 const ctxOf = (s: GameState) => makeCtx(s, 700, null, { shallow: new Uint8Array(0), nearWater: new Uint8Array(0), nursery: new Uint8Array(0) });
 
@@ -124,5 +126,26 @@ describe('helpers for the interface', () => {
     for (let i = 1; i < voices.length; i++) expect(voices[i - 1]?.id).toBeGreaterThan(voices[i]?.id ?? 0);
     expect(townVoices(act1, 1000).length).toBeGreaterThan(15);
     expect(townVoices(createGame('coal-coast'))).toEqual([]);
+  });
+});
+
+describe('negative emission effects (innovation savings)', () => {
+  const base = () => buildN(buildN(createGame('coal-coast'), 'cottage', 4).state, 'coalmine', 1).state;
+  const run = (kt: number) => {
+    const s = cloneState(base());
+    applyEffects(s, { emissionsKt: kt });
+    return advanceDecade(s).state;
+  };
+  it('a saving comes off the decade\'s real emissions in full', () => {
+    const plain = run(0).history.at(-1)!.totalKt;
+    expect(plain).toBeGreaterThan(10);
+    expect(run(-6).history.at(-1)!.totalKt).toBeCloseTo(plain - 6, 6);
+  });
+  it('a saving bigger than the decade\'s emissions carries into the next', () => {
+    const s0 = cloneState(createGame('coal-coast'));
+    applyEffects(s0, { emissionsKt: -50 });
+    const d1 = advanceDecade(s0).state;
+    expect(d1.history.at(-1)!.totalKt).toBeGreaterThanOrEqual(0);
+    expect(d1.pendingLandKt).toBeLessThan(0);
   });
 });

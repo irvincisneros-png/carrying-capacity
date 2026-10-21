@@ -138,7 +138,7 @@ describe('the innovations change the town a little, deterministically', () => {
   it('the CFC phase-out cuts CO2 (CFCs are greenhouse gases) and sets up the ozone note', () => {
     const a = adopt('inn-ozone', 'phase-out', 1990);
     expect(a.after.flags['innov.ozone']).toBe(1);
-    expect(a.after.pendingLandKt).toBe(Math.max(0, a.before.pendingLandKt - 6));
+    expect(a.after.pendingLandKt).toBe(a.before.pendingLandKt - 6);
     expect(a.after.dilemmas.decisions[0]?.evidenceBacked).toBe(true);
     expect(innovationsAdopted(a.after)).toEqual(['inn-ozone']);
     const none = adopt('inn-ozone', 'delay', 1990);

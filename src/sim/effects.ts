@@ -126,8 +126,9 @@ export function applyEffects(s: GameState, fx: Effects | undefined): void {
   if (fx.partnership) addPartnership(s, fx.partnership);
   if (fx.tiles) for (const t of fx.tiles) applyTileEffect(s, t);
   if (fx.build === 'datacentre') placeDataCentre(s);
-  // Act 1 has no negative land emissions to offset, so a saving there cannot dip below zero.
-  if (fx.emissionsKt) s.pendingLandKt = s.phase === 'act1' ? Math.max(0, s.pendingLandKt + fx.emissionsKt) : s.pendingLandKt + fx.emissionsKt;
+  // A saving is kept (pendingLandKt may go negative) and comes off the next decade's real emissions; if that decade has
+  // less than the saving, the rest carries on (see advanceYear), so the advertised kt are the kt that are saved.
+  if (fx.emissionsKt) s.pendingLandKt += fx.emissionsKt;
 }
 
 /**
