@@ -1,7 +1,7 @@
 // Full-screen flows: title + scenario select, intro (Acknowledgement of Country), decade report, present-day
 // summary + turning point story, epilogue / failure, settings.
 import { metricValue, objectiveStatus } from '../sim/objectives';
-import { carryOverPlan } from '../sim/act2';
+import { carryOverPlan, stopgapPlan } from '../sim/act2';
 import { netZeroOutlook } from '../sim/outlook';
 import { SCENARIOS, SCENARIO_IDS, getScenario } from '../sim/scenarios';
 import { MAX_STARS, isScenarioUnlocked, loadProgress, lockedReason, starsOf, totalStars, type Progress } from '../sim/progress';
@@ -222,6 +222,15 @@ export function showTurningPoint(s: GameState, onBegin: () => void, storyOnly = 
           h('b', null, `The boom left ${money(s.budget)} in the bank. `),
           `${a2.carryOverNote ? `${a2.carryOverNote} ` : ''}The council starts the transition with ${money(plan.keep)}.`,
           plan.drip > 0 ? ` The rest of the town's share, ${money(plan.fund)}, goes into a Transition Fund that pays ${money(plan.drip)} a year for ${plan.years} years. You can't spend it all at once, so plan what comes first.` : ''));
+      })(),
+      (() => {
+        const sg = stopgapPlan(s);
+        if (!sg) return null;
+        return h('div', { class: 'fact warn', 'data-qa': 'no-power-warning', style: 'display:block;background:#ffe3d6' },
+          h('b', null, 'Warning: your town has no power station. '),
+          `Homes and factories need about ${sg.short} units of power and nothing is generating any. If the lights go out, Society falls fast and the town can be lost in a year or two. `,
+          h('b', null, `First job: build ${sg.stations} gas ${sg.stations === 1 ? 'station' : 'stations'} (about $${sg.cost - 10}k). `),
+          'The transition budget is topped up to cover it, and time will start paused so you can place them. You can retire gas later, once solar and batteries are in.');
       })(),
       h('div', { class: 'modal-actions' }, h('button', { class: 'btn green', 'data-tut': 'start-transition', onclick: () => { m.close(); onBegin(); } }, svg(UI_ICONS.sprout), storyOnly ? 'Get to work' : 'Begin the transition')),
     ], { closable: false });

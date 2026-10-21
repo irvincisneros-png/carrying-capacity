@@ -1,5 +1,5 @@
 /** Actions that belong to scenario mechanics: policy levers and Red Dirt's staged mine rehabilitation. */
-import { OUTBACK, minesOpen, seedZone } from './mechanics/outbackCore';
+import { OUTBACK, minesOpen, nurseryCover, NURSERY_REACH, seedZone } from './mechanics/outbackCore';
 import { bumpChangedChunks, fingerprint, stageFromHealth } from './restoration';
 import { noteAction } from './residents';
 import { policyCostPerYear, policyDef, POLICY_FLAG } from './policyCore';
@@ -64,7 +64,7 @@ function pitPatch(s: GameState, start: number): number[] {
 export const REHAB_STEP_NAMES = ['Reshape the pit', 'Spread topsoil', 'Seed with local plants'] as const;
 
 /** What the next rehab step on the patch at (x, y) would be and cost, or null if there is none. */
-export function rehabPlan(s: GameState, x: number, y: number): { stage: number; name: string; tiles: number; cost: number; reason?: string } | null {
+export function rehabPlan(s: GameState, x: number, y: number): { stage: number; name: string; tiles: number; cost: number; reason?: string; nurseryTiles?: number; reach?: number } | null {
   const g = s.grid;
   if (x < 0 || y < 0 || x >= g.w || y >= g.h) return null;
   const i = y * g.w + x;
@@ -77,7 +77,9 @@ export function rehabPlan(s: GameState, x: number, y: number): { stage: number; 
   else if (stage === 2 && s.country.partnership < OUTBACK.seedPartnership) {
     reason = `Seeding is planned with the Traditional Owners. Build the partnership first (it needs ${OUTBACK.seedPartnership}, it is ${Math.round(s.country.partnership)})`;
   }
-  return { stage, name: REHAB_STEP_NAMES[stage] ?? 'Rehabilitate', tiles: patch.length, cost, ...(reason ? { reason } : {}) };
+  let nurseryTiles: number | undefined;
+  if (stage === 2) { const cover = nurseryCover(s); nurseryTiles = patch.filter((j) => cover[j] === 1).length; }
+  return { stage, name: REHAB_STEP_NAMES[stage] ?? 'Rehabilitate', tiles: patch.length, cost, ...(reason ? { reason } : {}), ...(nurseryTiles !== undefined ? { nurseryTiles, reach: NURSERY_REACH } : {}) };
 }
 
 export function rehabStep(state: GameState, x: number, y: number): R {

@@ -148,6 +148,7 @@ export function mechMetric(s: GameState, key: string): number | null {
 export { allocation, farmCount, farmViability, hasFishway, riverHealth, weirTileIdx, RIVER } from './riverCore';
 export type { Allocation } from './riverCore';
 export { homeLevelM, resortCount, seaLevelCm, seaRiseM, surgeHeightM, tourismIncome, tourismIndex, wouldFlood } from './reefCore';
-export { aquifer, boreCount, minesOpen, OUTBACK, rehabPct, siteTiles } from './outbackCore';
+export { aquifer, boreCount, minesOpen, nurseryCover, NURSERY_REACH, OUTBACK, rehabPct, rehabWatch, siteTiles } from './outbackCore';
+export type { RehabWatch } from './outbackCore';
 export { canopyShare, coolingCoverage, heatDeathsExpected, HEAT } from './heatCore';
 export { transitCoverage } from './cityCore';

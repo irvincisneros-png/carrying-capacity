@@ -2,8 +2,8 @@
 // with a colour ramp, drawn on a copy of the terrain surface lifted slightly (and clamped to water level).
 import { ClampToEdgeWrapping, DataTexture, LinearFilter, Mesh, RedFormat, ShaderMaterial, UnsignedByteType, type BufferGeometry, type IUniform } from 'three';
 
-export type Ramp = 'heat' | 'forest' | 'flood' | 'fire' | 'habitat';
-const RAMP_ID: Record<Ramp, number> = { heat: 0, forest: 1, flood: 2, fire: 3, habitat: 4 };
+export type Ramp = 'heat' | 'forest' | 'flood' | 'fire' | 'habitat' | 'attention';
+const RAMP_ID: Record<Ramp, number> = { heat: 0, forest: 1, flood: 2, fire: 3, habitat: 4, attention: 5 };
 
 export class Overlay {
   mesh: Mesh;
@@ -40,10 +40,11 @@ export class Overlay {
           else if (uRamp < 1.5) c = mix(vec3(0.85,0.7,0.35), vec3(0.1,0.6,0.25), v);
           else if (uRamp < 2.5) c = vec3(0.15,0.35,0.95);
           else if (uRamp < 3.5) c = mix(vec3(1.0,0.85,0.3), vec3(0.85,0.15,0.05), v);
-          else c = vec3(0.2,0.9,0.75);
+          else if (uRamp < 4.5) c = vec3(0.2,0.9,0.75);
+          else c = vec3(1.0,0.62,0.08);
           float stripe = 0.85 + 0.15 * step(0.5, fract((vW.x + vW.z) * 2.0));
           float a = (uRamp > 1.5 && uRamp < 2.5 ? v : 0.45 + 0.4 * v) * stripe * uAlpha;
-          if (uRamp > 3.5) a = 0.45 * uAlpha * (0.8 + 0.2 * sin(uTime * 3.0));
+          if (uRamp > 3.5) a = (uRamp > 4.5 ? 0.35 + 0.35 * v : 0.45) * uAlpha * (0.75 + 0.25 * sin(uTime * 4.0));
           gl_FragColor = vec4(c, a);
 #include <tonemapping_fragment>
 #include <colorspace_fragment>

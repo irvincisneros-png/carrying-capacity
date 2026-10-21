@@ -4,6 +4,8 @@
  * and being monitored, 250 = signed off by the Traditional Owners. While a tile is a Pit, grid.stage is its rehab stage:
  * 0 open void, 1 reshaped, 2 topsoiled.
  */
+import { BUILDINGS } from '../buildings';
+import { GROWTH, SEED_HEALTH } from '../restoration';
 import { TileKind } from '../types';
 import type { GameState } from '../types';
 import { clamp, clamp01, flag } from './flags';
@@ -92,4 +94,82 @@ export function townWaterDemand(s: GameState, season: number, restrictLevel: num
   const saving = 1 - 0.2 * clamp01(flag(s, 'o.saving'));
   const rehab = siteTiles(s).seeded * OUTBACK.rehabUse;
   return (s.population * OUTBACK.townPerPop * (OUTBACK.townSeason[season] ?? 1) + minesOpen(s) * OUTBACK.mineUse + rehab) * (1 - cut) * saving;
+}
+
+/** How far (in tiles) a native plant nursery's seed and weeding crew reach. */
+export const NURSERY_REACH = BUILDINGS.nursery.nursery?.radius ?? 5;
+
+/** 1 for every tile a nursery's crew reaches (same shape the succession step uses). */
+export function nurseryCover(s: GameState): Uint8Array {
+  const g = s.grid;
+  const out = new Uint8Array(g.w * g.h);
+  for (const b of s.buildings) {
+    const r = BUILDINGS[b.type].nursery?.radius;
+    if (r === undefined) continue;
+    for (let y = Math.max(0, b.y - r); y <= Math.min(g.h - 1, b.y + b.h - 1 + r); y++) {
+      const dy = Math.max(b.y - y, y - (b.y + b.h - 1), 0);
+      for (let x = Math.max(0, b.x - r); x <= Math.min(g.w - 1, b.x + b.w - 1 + r); x++) {
+        const dx = Math.max(b.x - x, x - (b.x + b.w - 1), 0);
+        if (Math.hypot(dx, dy) <= r) out[y * g.w + x] = 1;
+      }
+    }
+  }
+  return out;
+}
+
+export interface RehabWatch {
+  /** Seeded, unsigned tiles that cannot grow: bare, outside every nursery's reach and with no healthy neighbour to shed seed. */
+  stuck: number[];
+  /** The stuck tiles grouped into touching patches (one entry per patch: a tile in it, and its size), biggest first. */
+  patches: { x: number; y: number; n: number }[];
+  /** Mine-site tiles still waiting for reshaping, topsoil or seeding. */
+  pit: number[];
+  reach: number;
+}
+
+/** Where the Red Dirt rehabilitation is stuck: seeded patches too far from a nursery to ever grow. */
+export function rehabWatch(s: GameState): RehabWatch {
+  const g = s.grid;
+  const cover = nurseryCover(s);
+  const stuck: number[] = [];
+  const pit: number[] = [];
+  const isStuck = new Uint8Array(g.w * g.h);
+  for (let i = 0; i < g.zone.length; i++) {
+    const z = g.zone[i] ?? 0;
+    if (z === 0 || z === OUTBACK.signedZone) continue;
+    if (g.kind[i] === TileKind.Pit) { pit.push(i); continue; }
+    if (z < 100 || (g.health[i] ?? 0) >= SEED_HEALTH || cover[i] === 1) continue;
+    const x = i % g.w, y = Math.floor(i / g.w);
+    let seeded = false;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      const xx = x + dx, yy = y + dy;
+      if (xx < 0 || yy < 0 || xx >= g.w || yy >= g.h) continue;
+      const j = yy * g.w + xx;
+      if ((g.building[j] ?? 0) === 0 && (g.health[j] ?? 0) >= GROWTH.seedHealth) { seeded = true; break; }
+    }
+    if (seeded) continue;
+    stuck.push(i);
+    isStuck[i] = 1;
+  }
+  const seen = new Set<number>();
+  const patches: RehabWatch['patches'] = [];
+  for (const i0 of stuck) {
+    if (seen.has(i0)) continue;
+    seen.add(i0);
+    const q = [i0];
+    for (let qi = 0; qi < q.length; qi++) {
+      const i = q[qi] as number;
+      const x = i % g.w, y = Math.floor(i / g.w);
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+        const xx = x + dx, yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= g.w || yy >= g.h) continue;
+        const j = yy * g.w + xx;
+        if (isStuck[j] === 1 && !seen.has(j)) { seen.add(j); q.push(j); }
+      }
+    }
+    const mid = q[Math.floor(q.length / 2)] as number;
+    patches.push({ x: mid % g.w, y: Math.floor(mid / g.w), n: q.length });
+  }
+  patches.sort((a, b) => b.n - a.n);
+  return { stuck, patches, pit, reach: NURSERY_REACH };
 }

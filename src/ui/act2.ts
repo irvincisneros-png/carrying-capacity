@@ -5,7 +5,7 @@ import { EVENT_NAMES } from '../content/act2';
 import { eventChances } from '../sim/events';
 import { objectiveStatus } from '../sim/objectives';
 import { netZeroOutlook, type NetZeroOutlook } from '../sim/outlook';
-import { mechMetric } from '../sim/mechanics';
+import { mechMetric, rehabWatch } from '../sim/mechanics';
 import { readoutTrend } from './scenario';
 import { hash32, seasonWeather } from '../sim/season';
 import { getScenario } from '../sim/scenarios';
@@ -207,6 +207,8 @@ export class ObjectivesPanel {
   private list: HTMLElement;
   private sig = '';
   private titleEl = h('span', null, 'Goals for 2100');
+  /** Set by the app: point the camera (and a highlight) at the next place a goal still needs work. */
+  onShowMe: ((kind: ShowMeKind) => void) | null = null;
 
   constructor() {
     this.list = h('div');
@@ -231,14 +233,20 @@ export class ObjectivesPanel {
     }
     const nz = this.nz;
     const nzSig = nz ? `${Math.round(nz.nowKt)}|${nz.projected}|${nz.pace}|${nz.rows.map((r) => `${r.key}${Math.round(r.kt)}${r.waitsFor ? 'w' : ''}`).join()}|${nz.order.map((o) => (o.done ? 1 : 0)).join('')}` : '';
-    const sig = `${end}|${s.year}|${risk}|${s.phase}|${s.circular?.unlocked}|${nzSig}|` + objs.map((o) => `${o.id}:${o.status}:${o.current === null ? 'n' : Math.round(o.current * 10)}`).join('|');
+    let left = '';
+    try {
+      const l = legacyLeft(s);
+      const w = objs.some((o) => o.metric === 'rehabPct') && s.phase === 'act2' ? rehabWatch(s) : null;
+      left = `${l.standing}/${l.rubble}/${w ? `${w.patches.length}.${w.stuck.length}.${w.pit.length}` : ''}`;
+    } catch { left = ''; }
+    const sig = `${end}|${s.year}|${risk}|${left}|${s.phase}|${s.circular?.unlocked}|${nzSig}|` + objs.map((o) => `${o.id}:${o.status}:${o.current === null ? 'n' : Math.round(o.current * 10)}`).join('|');
     if (sig === this.sig) return;
     this.titleEl.textContent = `Goals for ${end}`;
     this.sig = sig;
     clear(this.list);
     for (const o of objs) {
       const showNz = o.metric === 'netZeroYear' && nz !== null && o.status !== 'met' && o.status !== 'missed';
-      this.list.appendChild(objectiveRow(o, s, showNz));
+      this.list.appendChild(objectiveRow(o, s, showNz, (k) => this.onShowMe?.(k)));
       if (showNz && nz) this.list.appendChild(outlookView(nz, s));
     }
   }
@@ -315,7 +323,7 @@ const HOW_TO: Partial<Record<string, string>> = {
   homesLost: 'Watch "Homes at risk" (top right): inspect homes by the shore and rebuild them on raised ground before a big cyclone. Mangroves soften surges.',
   tourism: 'Visitors come for a healthy reef and beaches. Resorts earn more when the reef is well.',
   netZeroYear: 'Emissions must fall to the net-zero line and stay there: clean power first, then close or clean up the biggest emitters (mines, factories, cars). The Graphs (G) show where emissions come from.',
-  rehabPct: 'Close the mine, then use Rehab mine on the pit: reshape, topsoil, then seed the pit. Seeded ground grows from a native plant nursery right beside it (its crews also pull weeds); each patch is signed off after 5 years of good growth.',
+  rehabPct: 'Close the mine, then use Rehab mine on the pit: reshape, topsoil, then seed the pit. Seeded ground only grows within 5 tiles of a native plant nursery (its crews also pull weeds), so put nurseries beside the pit before you seed it; each patch is signed off after 5 years of good growth.',
   aquifer: 'Open-cut mines drink the most groundwater: close them as early as you can. Water restrictions (Town policies) trim town use, and a town water storage catches the wet.',
   waterFailures: 'Keep the town supplied in dry years: bores, storage and water policies.',
   heatDeaths: 'Cooling centres, street trees, retrofitted homes and a reliable grid protect people in heatwaves.',
@@ -330,7 +338,40 @@ const PENDING_TEXT: Record<string, string> = {
   wildlife: 'Counted once animals start coming back',
 };
 
-export function objectiveRow(o: ObjectiveResult, s?: GameState, noHow = false): HTMLElement {
+export type ShowMeKind = 'legacy' | 'rehab';
+
+/** What is still outstanding on the old-sites goal: standing sites and the rubble of closed ones. */
+export function legacyLeft(s: GameState): { standing: number; rubble: number; total: number } {
+  let standing = 0, rubble = 0;
+  for (const it of s.circular?.items ?? []) { if (it.status === 'standing') standing++; else if (it.status === 'rubble') rubble++; }
+  return { standing, rubble, total: standing + rubble };
+}
+
+/** The extra line under a goal that says exactly what is left, with a button that shows where. */
+function showMeLine(o: ObjectiveResult, s: GameState | undefined, onShowMe: ((k: ShowMeKind) => void) | undefined): HTMLElement | null {
+  if (!s || s.phase !== 'act2' || o.status === 'met') return null;
+  const btn = (kind: ShowMeKind, label = 'Show me'): HTMLElement => h('button', { class: 'btn small teal', 'data-qa': `showme-${kind}`, onclick: () => onShowMe?.(kind) }, label);
+  if (o.metric === 'act1Repurposed' && s.circular?.unlocked) {
+    const l = legacyLeft(s);
+    if (l.total === 0) return null;
+    const parts = [l.standing ? `${l.standing} still standing` : '', l.rubble ? `${l.rubble} closed and left as rubble` : ''].filter(Boolean).join(', ');
+    return h('div', { class: 'left', 'data-qa': 'legacy-left' }, h('b', null, `${l.total} old ${l.total === 1 ? 'site' : 'sites'} left to sort`), ` (${parts}). Rubble counts too: use the Old sites tool on it. `, btn('legacy'));
+  }
+  if (o.metric === 'rehabPct') {
+    let w: ReturnType<typeof rehabWatch> | null = null;
+    try { w = rehabWatch(s); } catch { w = null; }
+    if (!w) return null;
+    if (w.patches.length > 0) {
+      const n = w.patches.length;
+      return h('div', { class: 'left', 'data-qa': 'rehab-left' }, h('b', null, `${n} seeded ${n === 1 ? 'patch needs' : 'patches need'} a native plant nursery within ${w.reach} tiles`),
+        ` (${w.stuck.length} tiles with no seed source, so they will not grow). `, btn('rehab', 'Show where'));
+    }
+    if (w.pit.length > 0) return h('div', { class: 'left', 'data-qa': 'rehab-left' }, `${w.pit.length} tiles of the pit are still waiting for reshaping, topsoil or seeding. `, btn('rehab', 'Show where'));
+  }
+  return null;
+}
+
+export function objectiveRow(o: ObjectiveResult, s?: GameState, noHow = false, onShowMe?: (k: ShowMeKind) => void): HTMLElement {
   const icon = o.status === 'met' || o.status === 'on-track' ? UI_ICONS.check : o.status === 'missed' ? UI_ICONS.cross : o.status === 'at-risk' ? UI_ICONS.warn : UI_ICONS.clock;
   let pct = 0;
   if (o.current !== null) {
@@ -369,9 +410,10 @@ export function objectiveRow(o: ObjectiveResult, s?: GameState, noHow = false): 
   }
   const how = s && !noHow && (o.status === 'at-risk' || o.status === 'missed' || atRiskHomes > 0 || sliding) && s.phase === 'act2' ? HOW_TO[`${s.scenarioId}:${o.metric}`] ?? HOW_TO[o.metric] : undefined;
   // Goals that are fine for now are drawn compact (no progress bar) so the ones that need attention stand out.
-  const compact = !how && (o.status === 'on-track' || o.status === 'met' || o.status === 'pending');
+  const left = showMeLine(o, s, onShowMe);
+  const compact = !how && !left && (o.status === 'on-track' || o.status === 'met' || o.status === 'pending');
   return h('div', { class: `obj ${o.status} ${o.bonus ? 'bonus' : ''}${compact ? ' compact' : ''}` }, svg(icon),
-    h('div', { style: 'flex:1;min-width:0' }, h('div', { class: 'lab' }, degC(o.label)), h('div', { class: 'val' }, `${label} · ${detail}`), h('div', { class: 'bar' }, h('i', { style: `width:${pct * 100}%` })), how ? h('div', { class: 'how' }, degC(how)) : null));
+    h('div', { style: 'flex:1;min-width:0' }, h('div', { class: 'lab' }, degC(o.label)), h('div', { class: 'val' }, `${label} · ${detail}`), h('div', { class: 'bar' }, h('i', { style: `width:${pct * 100}%` })), how ? h('div', { class: 'how' }, degC(how)) : null, left));
 }
 
 /** Mobile: close the bottom sheet. Desktop: fold the panel down to its title. */

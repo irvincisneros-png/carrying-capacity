@@ -1,7 +1,7 @@
 import { BUILDINGS } from './buildings';
 import { climateAt } from './climate';
 import { ACT2_INCOME_MULT, ACT2_POP_GROWTH, computeMeters, economySnapshot, INCOME_PER_JOB, BASE_GRANT } from './economy';
-import { balanceGrid } from './energy';
+import { balanceGrid, baseDemand, GAS_AVAILABILITY } from './energy';
 import { emit, makeCtx, rollEvents } from './events';
 import { estuaryHealth, meanHealth, meanReefHealth } from './metrics';
 import { mechEmissionFactor, mechIncome, mechMetric } from './mechanics';
@@ -18,6 +18,7 @@ import { getScenario } from './scenarios';
 import { beginAct2, layersSeason, layersYearEnd } from './layers';
 import { wasteEmissionsMult } from './circular';
 import { cloneState, emptyAct2, emptyEmissions } from './state';
+import { emitStory } from './story';
 import { EMISSION_CATEGORIES, TileKind } from './types';
 import type { Season, SimEvent, GameState, Outcome, YearRecord } from './types';
 
@@ -69,13 +70,38 @@ export function carryOverPlan(state: Pick<GameState, 'scenarioId' | 'budget'>): 
   return { keep: cap, fund: drip * years, drip, years, lost: Math.round(surplus - drip * years) };
 }
 
+/**
+ * A town whose Act 1 built no power station at all would open Act 2 in a total blackout (Society falls to zero within a year).
+ * The stopgap is a pair of gas stations' worth of power: how many are needed to cover today's demand, and what they cost.
+ * Null when something already generates power.
+ */
+export function stopgapPlan(state: Pick<GameState, 'buildings'>): { short: number; stations: number; cost: number } | null {
+  if (state.buildings.some((b) => BUILDINGS[b.type].power > 0)) return null;
+  const d = baseDemand(state as GameState);
+  const short = Math.ceil(d.homes + d.industry + d.transport);
+  if (short < 5) return null;
+  const stations = Math.max(1, Math.ceil(short / (BUILDINGS.gaspower.power * GAS_AVAILABILITY)));
+  return { short, stations, cost: stations * BUILDINGS.gaspower.cost + 10 };
+}
+
 function applyCarryOver(s: GameState): void {
   const p = carryOverPlan(s);
-  if (!p) return;
-  s.budget = p.keep;
-  if (p.drip > 0) {
-    s.flags['fund.left'] = p.fund;
-    s.flags['fund.drip'] = p.drip;
+  if (p) {
+    s.budget = p.keep;
+    if (p.drip > 0) {
+      s.flags['fund.left'] = p.fund;
+      s.flags['fund.drip'] = p.drip;
+    }
+  }
+  // No power station built in Act 1: make sure the opening budget covers the gas stations that keep the lights on.
+  const sg = stopgapPlan(s);
+  if (sg) {
+    s.flags['a2.stopgap'] = sg.stations;
+    if (s.budget < sg.cost) {
+      const grant = Math.ceil(sg.cost - s.budget);
+      s.budget += grant;
+      emitStory(s, `The town has no power station. The state energy agency tops up the council with $${grant}k so it can switch on ${sg.stations} gas ${sg.stations === 1 ? 'station' : 'stations'} straight away: gas is quick to build and cuts emissions per unit by about half compared with coal, and you can retire it once solar and batteries are ready.`, { channel: 'town', tone: 'concern' }, 0.7);
+    }
   }
 }
 

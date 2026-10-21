@@ -173,7 +173,8 @@ export class GameController {
     if (this.state.phase !== 'turning-point') return;
     const s = startAct2(this.state);
     this.undoState = null;
-    this.speed = 1;
+    // A town with no power station opens paused: the first job is to build the gas stations that keep the lights on.
+    this.speed = s.flags['a2.stopgap'] ? 0 : 1;
     this.set(s);
     this.flushEvents();
     this.emit('speed', this.speed);

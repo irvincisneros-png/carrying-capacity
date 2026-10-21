@@ -11,7 +11,7 @@ import { TILE_KIND_NAMES, TileKind, type BuildingId, type GameState, type Rotati
 import { GameController, type Speed } from '../game/controller';
 import { GameRenderer } from '../render/renderer';
 import { ambientTick, sfx, unlockAudio } from '../audio/sfx';
-import { Clock, EnergyPanel, ObjectivesPanel, hazIcon } from './act2';
+import { Clock, EnergyPanel, ObjectivesPanel, hazIcon, type ShowMeKind } from './act2';
 import { clear, degC, fmt1, h, svg } from './dom';
 import { showDilemma, SpeciesPanel, Voices } from './empathy';
 import { beatChoice, dilemmaCard, reportCard, speciesList, storyLine } from './adapters';
@@ -111,6 +111,7 @@ export class App {
     this.clock = new Clock((s) => { sfx('click'); this.game.setSpeed(s); });
     this.energy = new EnergyPanel();
     this.objectives = new ObjectivesPanel();
+    this.objectives.onShowMe = (k) => this.showMe(k);
     this.voices = new Voices();
     this.voices.project = (tx, ty) => {
       const p = this.renderer.tileWorld(tx, ty);
@@ -268,7 +269,8 @@ export class App {
       showTurningPoint(s, () => {
         this.game.beginAct2();
         sfx('good');
-        toast('Act 2 begins', 'Time now flows. Use the speed buttons or Space to pause and plan.', 'good', UI_ICONS.sprout);
+        if (this.game.state.flags['a2.stopgap']) toast('Act 2 begins, paused', 'The town has no power. Build gas stations first (Energy), then press play.', 'warn', UI_ICONS.warn, 9000);
+        else toast('Act 2 begins', 'Time now flows. Use the speed buttons or Space to pause and plan.', 'good', UI_ICONS.sprout);
       });
     } else if (s.phase === 'epilogue' || s.phase === 'failed') {
       this.game.setSpeed(0);
@@ -495,9 +497,74 @@ export class App {
   }
 
   private setOverlay(fn: ((s: GameState) => ArrayLike<number>) | null, ramp: import('../render/overlay').Ramp): void {
+    if (ramp !== 'attention') this.attn = null;
     this.overlayFn = fn;
     this.overlayRamp = ramp;
     this.renderer.setOverlay(fn ? fn(this.game.state) : null, ramp);
+  }
+
+  /** Amber pulsing highlight on the tiles a goal still needs (rehab: while the tool is active; legacy / rehab: after Show me). */
+  private attn: { kind: 'rehab' | 'legacy'; mode: 'tool' | 'timed' } | null = null;
+  private attnTimer = 0;
+  private showMeIdx: Record<string, number> = {};
+
+  private attentionMask(kind: 'rehab' | 'legacy', all: boolean): (s: GameState) => ArrayLike<number> {
+    return (s) => {
+      const g = s.grid;
+      const out = new Float32Array(g.w * g.h);
+      if (kind === 'legacy') {
+        for (const it of s.circular?.items ?? []) {
+          if (it.status !== 'standing' && it.status !== 'rubble') continue;
+          for (let y = it.y; y < it.y + it.h; y++) for (let x = it.x; x < it.x + it.w; x++) if (x >= 0 && y >= 0 && x < g.w && y < g.h) out[y * g.w + x] = 1;
+        }
+        return out;
+      }
+      const w = SIM.rehabWatch(s);
+      for (const i of w.stuck) out[i] = 1;
+      if (all || w.stuck.length === 0) for (const i of w.pit) out[i] = all ? 0.45 : 0.8;
+      return out;
+    };
+  }
+
+  private setAttention(kind: 'rehab' | 'legacy' | null, mode: 'tool' | 'timed' = 'timed', all = mode === 'tool'): void {
+    window.clearTimeout(this.attnTimer);
+    if (!kind) {
+      if (this.attn) this.setOverlay(null, 'heat');
+      this.attn = null;
+      return;
+    }
+    this.attn = { kind, mode };
+    this.setOverlay(this.attentionMask(kind, all), 'attention');
+    if (mode === 'timed') {
+      this.attnTimer = window.setTimeout(() => { if (this.attn?.mode === 'timed') this.setAttention(null); }, 12000);
+    }
+  }
+
+  /** Goal row "Show me": highlight what is left and fly the camera to the next place, cycling on each press. */
+  private showMe(kind: ShowMeKind): void {
+    const s = this.game.state;
+    let spots: { x: number; y: number; label: string }[] = [];
+    try {
+      if (kind === 'legacy') {
+        spots = (s.circular?.items ?? []).filter((it) => it.status === 'standing' || it.status === 'rubble')
+          .sort((a, b) => (a.status === b.status ? 0 : a.status === 'rubble' ? -1 : 1))
+          .map((it) => ({ x: it.x + Math.floor(it.w / 2), y: it.y + Math.floor(it.h / 2), label: `${BUILDINGS[it.type].name} (${it.status === 'rubble' ? 'closed, rubble' : 'still standing'}): use the Old sites tool` }));
+      } else {
+        const w = SIM.rehabWatch(s);
+        spots = w.patches.length
+          ? w.patches.map((p) => ({ x: p.x, y: p.y, label: `A seeded patch of ${p.n} tiles with no seed source: build a native plant nursery within ${w.reach} tiles` }))
+          : w.pit.slice(0, 1).map((i) => ({ x: i % s.grid.w, y: Math.floor(i / s.grid.w), label: 'Open mine ground: use Rehab mine' }));
+      }
+    } catch { spots = []; }
+    if (!spots.length) { toast('Nothing left here', 'Every one of these is already dealt with.', 'good', UI_ICONS.check, 3500); return; }
+    const n = (this.showMeIdx[kind] ?? -1) + 1;
+    const idx = n % spots.length;
+    this.showMeIdx[kind] = idx;
+    const sp = spots[idx] as { x: number; y: number; label: string };
+    this.setAttention(kind, 'timed', false);
+    const p = this.renderer.tileWorld(sp.x, sp.y);
+    this.renderer.rig?.focus(p.x, p.z, 26);
+    toast(`${kind === 'legacy' ? 'Old site' : 'Rehab'} ${idx + 1} of ${spots.length}`, sp.label, 'info', UI_ICONS.target, 6000);
   }
 
   private demandText(s: GameState): string {
@@ -510,6 +577,9 @@ export class App {
 
   // ---------------------------------------------------------------- input
   private onTool(t: Tool): void {
+    // Rehab tool: light up the mine-site tiles that still need work, and the seeded patches no nursery reaches.
+    if (t === 'rehab') this.setAttention('rehab', 'tool');
+    else if (this.attn?.mode === 'tool') this.setAttention(null);
     const rig = this.renderer.rig;
     rig?.setLeftPans(t === null || t === 'inspect');
     this.renderer.setGrid(t !== null && t !== 'inspect');
@@ -657,7 +727,12 @@ export class App {
       try { plan = SIM.rehabPlan(s, hv.tx, hv.ty); } catch { plan = null; }
       this.renderer.showCursor('inspect', hv.tx, hv.ty, 0, !!plan && !plan.reason, { x: hv.tx, y: hv.ty, w: 1, h: 1 });
       if (!plan) this.tip.show(px, py, 'Point at the open mine pit (orange-red ground)', 'bad');
-      else this.tip.show(px, py, `<b>${plan.name}</b> · ${plan.tiles} tiles · $${plan.cost}k${plan.reason ? `<br>${degC(plan.reason)}` : '<br>Click to start this step'}`, plan.reason ? 'bad' : 'ok');
+      else {
+        const near = plan.stage === 2 && plan.nurseryTiles !== undefined
+          ? (plan.nurseryTiles >= plan.tiles ? '<br>A nursery reaches all of this patch: good.' : `<br><b>${plan.tiles - plan.nurseryTiles} of ${plan.tiles} tiles are more than ${plan.reach} tiles from a native plant nursery.</b> Seed will not grow there: build a nursery beside them first.`)
+          : '';
+        this.tip.show(px, py, `<b>${plan.name}</b> · ${plan.tiles} tiles · $${plan.cost}k${plan.reason ? `<br>${degC(plan.reason)}` : '<br>Click to start this step'}${plan.reason ? '' : near}`, plan.reason || near.includes('<b>') ? 'bad' : 'ok');
+      }
       return;
     }
     if (t === 'comanage' || t === 'burn') {
