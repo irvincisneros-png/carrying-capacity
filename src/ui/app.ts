@@ -1207,6 +1207,7 @@ export class App {
       game: this.game,
       renderer: this.renderer,
       stats: () => this.renderer.debugInfo(),
+      tris: () => this.renderer.debugTris(),
       setTier: (t: 0 | 1 | 2 | 3 | 4) => this.renderer.applyTier(t),
       render: () => this.renderer.frame(),
       start: (id: string) => { if (isScenarioId(id)) this.newGame(id); },

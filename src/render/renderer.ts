@@ -2,7 +2,7 @@
 // Owns the WebGL renderer, scene, lights, layers, post-processing, graphics tiers and the frame loop.
 import {
   ConeGeometry, DoubleSide, MeshBasicMaterial, RingGeometry,
-  Color, DirectionalLight, Group, HemisphereLight, Mesh, NoToneMapping, PCFShadowMap, Scene, SRGBColorSpace, Vector3,
+  Color, DirectionalLight, Frustum, Group, HemisphereLight, Matrix4, Mesh, NoToneMapping, PCFShadowMap, Scene, Sphere, SRGBColorSpace, Vector3,
   WebGLRenderer, type BufferGeometry, type IUniform, type ShaderMaterial,
 } from 'three';
 import { BUILDINGS, footprintFor } from '../sim/buildings';
@@ -848,6 +848,33 @@ export class GameRenderer {
     this.sun.position.copy(this.sunDir).multiplyScalar(this.shadowHalf * 2.4).add(this.sun.target.position);
     this.sun.target.updateMatrixWorld();
     this.sun.updateMatrixWorld();
+  }
+
+  /** Debug: triangles the camera can see per scene-object name (meshes and instanced meshes; a batched mesh is counted whole). */
+  debugTris(): Record<string, number> {
+    const w = this.world;
+    const out: Record<string, number> = {};
+    if (!w) return out;
+    const cam = w.rig.camera;
+    cam.updateMatrixWorld();
+    const fr = new Frustum().setFromProjectionMatrix(new Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse));
+    const sph = new Sphere();
+    this.scene.traverse((o) => {
+      const m = o as Mesh;
+      if (!m.isMesh || !o.visible || (m.layers.mask & cam.layers.mask) === 0) return;
+      let p: typeof o.parent = o.parent;
+      while (p) { if (!p.visible) return; p = p.parent; }
+      const g = m.geometry;
+      if (!g) return;
+      if (g.boundingSphere === null) g.computeBoundingSphere();
+      sph.copy(g.boundingSphere as Sphere).applyMatrix4(m.matrixWorld);
+      if (m.frustumCulled && !(m as unknown as { isBatchedMesh?: boolean }).isBatchedMesh && !fr.intersectsSphere(sph)) return;
+      const per = g.index ? g.index.count / 3 : (g.attributes.position?.count ?? 0) / 3;
+      const inst = (m as unknown as { isInstancedMesh?: boolean; count: number }).isInstancedMesh ? (m as unknown as { count: number }).count : 1;
+      const name = (o.name || o.type).replace(/#\d+$/, '').replace(/^(veg:[a-z]+).*$/, '$1');
+      out[name] = (out[name] ?? 0) + Math.round(per * inst);
+    });
+    return out;
   }
 
   /** Debug: count visible draw objects per frame category. */
