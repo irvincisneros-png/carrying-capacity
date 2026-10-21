@@ -546,3 +546,38 @@ same three cues the driver used.
 
 `npx vitest run` 681 tests (9 new in `tests/round5.test.ts`: rehab nursery reach and stuck patches, the no-power opening, the retire recipe really
 makes the plant safe, best value ordering), `npx tsc --noEmit -p .` clean, `npx vite build` clean.
+
+## Round 6: owner's Green Valley notes (2026-10-22)
+
+Plan and the owner's notes are in `docs/plans/round6-owner-notes.md`. Everything there was built and merged:
+
+| WP | Feature |
+|---|---|
+| WP1 | Chunked and culled vegetation, shader warm-up (fixes the black bushes), graded roads, spinning windmills, and a suburb street that joins the roads |
+| WP2 | Moving traffic and people, plus "no road" markers |
+| WP3 | Roads matter: entrance roads, road access and commute CO2 |
+| WP4 | Demand bars |
+| WP5 | Act 1 goals with the "Careful builder" badge, upgrades, new Green Valley cards and the "what it cost" ledger |
+| WP6 | Maps 32 / 64 / 72 with brushes |
+| WP7 | Hybrid Act 1 time |
+| WP8 | Land-limits meter, water field kit, cause chains, field guide, My household, printable report and saved reflections |
+| WP9 | Act 1 innovation timeline and the data-centre offer |
+
+Checks:
+- **Tests:** `npx vitest run` passes 838 tests. `tsc` and `vite build` are clean.
+- **Codex review** of the full diff found 7 bugs, all fixed with regression tests:
+  - mid-decade income clawback
+  - demolition erasing a decade's emissions
+  - unreachable building land
+  - innovation CO2 savings dropped
+  - data-centre lease outliving the building
+  - the tutorial road step un-latching
+  - the field-kit Save button
+- **Saves** from the previous live build load in all six scenarios.
+- **Browser smoke test** of all six scenarios (start, demo town, Act 2) at 1366x768 threw no exceptions.
+
+Open:
+- **Very low on the SwiftShader proxy** is 6–15% slower than the previous build in a back-to-back A/B. The absolute numbers on a busy host were 10–20 fps, against 30+ on a quieter host in round 5. Re-measure on a quiet host or a real Chromebook.
+- **Commute CO2 is small by design** (under 1% of emissions). Raise it if teachers want a stronger transport lesson.
+- **The scripted players do not use brushes, innovations or the data centre** by default. The innovations test covers a run that does.
+- **Check the water-quality trigger values** against the ANZG 2018 tables before anything goes to print.
