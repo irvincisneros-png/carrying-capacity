@@ -8,7 +8,7 @@ import {
 import type { Plan } from './scen';
 
 export const CITY_BOT = {
-  parks: 24, parksPerYear: 3, rooftops: 130, batteries: 16, wind: 2, solar: 3, transit: 6, centres: 3, retrofitPerYear: 3, nurseries: 2,
+  parks: 24, parksPerYear: 3, rooftops: 130, batteries: 16, wind: 2, solar: 3, transit: 6, centres: 3, retrofitPerYear: 3, nurseries: 2, comanagedCap: 100,
   reserve: 10, saveFor: 0, startDelay: 0, scale: 1, disposeAfterRenewable: 0.5,
 };
 
@@ -63,7 +63,8 @@ export function cityThoughtfulPlan(): Plan {
     if (yearsIn < CITY_BOT.startDelay) return s;
     const res = CITY_BOT.reserve;
     if (yearsIn === CITY_BOT.startDelay) s = consultAll(s);
-    s = comanageBush(s, 1);
+    // Co-manage a stretch of bush a year, up to a cap: a cool burn releases CO2 per tile burnt, and the 72x72 map has far more bush than the city had at 48x48.
+    if (s.country.comanaged.length < CITY_BOT.comanagedCap) s = comanageBush(s, 1);
     s = burnPatches(s);
     // 1. Keep the lights on and get the coal out: rooftop solar and batteries until the grid holds without fossil fuel.
     s = greenGridStep(s, { gen: 'rooftopsolar', storage: 'battery', maxBuys: 12, reserve: res, maxGen: sc(CITY_BOT.rooftops), maxStorage: sc(CITY_BOT.batteries) });

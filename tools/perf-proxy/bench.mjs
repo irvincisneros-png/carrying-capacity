@@ -51,6 +51,8 @@ if (WARM > 0) await warmup(WARM);
 // Profiling aids: LIST=1 prints the scene's named objects with triangle / instance counts; HIDE=a,b,c* takes the named
 // objects (trailing * = prefix match) out of the camera's layers (not just .visible, which layer rebuilds reset) before measuring.
 if (process.env.LIST) console.error(JSON.stringify(await page.evaluate(() => { const out = []; window.__cc.renderer.scene.traverse((o) => { if (o.isMesh || o.isInstancedMesh || o.isBatchedMesh) { const g = o.geometry; out.push([o.name || o.type, o.isInstancedMesh ? o.count : (o.isBatchedMesh ? 'batch' : 1), g && g.index ? (g.index.count / 3) | 0 : (g && g.attributes.position ? (g.attributes.position.count / 3) | 0 : 0), o.visible]); } }); return out; })));
+// TRIS=1 prints the triangles the camera can see per scene-object name (frustum-aware, from window.__cc.tris()).
+if (process.env.TRIS) console.error(JSON.stringify(await page.evaluate(() => { const t = window.__cc.tris(); return Object.fromEntries(Object.entries(t).sort((a, b) => b[1] - a[1]).slice(0, 14)); })));
 if (process.env.HIDE) await page.evaluate((names) => { window.__cc.renderer.scene.traverse((o) => { if (names.some((n) => o.name === n || (n.endsWith('*') && o.name.startsWith(n.slice(0, -1))))) o.layers.set(31); }); }, process.env.HIDE.split(','));
 // NODEF=CC_SWAY,CC_ANIM: experiment, drops those shader defines from every material (forces a recompile) to price a shader feature.
 if (process.env.NODEF) await page.evaluate((defs) => { for (const m of window.__cc.renderer.lib.all()) { for (const d of defs) if (m.defines && d in m.defines) delete m.defines[d]; m.needsUpdate = true; } }, process.env.NODEF.split(','));

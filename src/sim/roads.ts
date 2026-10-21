@@ -285,6 +285,14 @@ function townSite(state: GameState): { x: number; y: number } {
 }
 
 /**
+ * Where the town is (or will be), for framing the camera: the Net Zero City centre, the centre of the buildings other than roads,
+ * or the water hub / middle of the map on a fresh game.
+ */
+export function townFocus(state: GameState): { x: number; y: number } {
+  return townSite({ ...state, buildings: state.buildings.filter((b) => b.type !== 'road') });
+}
+
+/**
  * Stretches of buildable land (Land and Bush, ignoring buildings) that are big enough to build a town on, found by flood
  * fill. The one nearest the town site comes first.
  */

@@ -1,5 +1,5 @@
 /**
- * Red Dirt (40x40): red plains under a low range along the north, a dry creek that runs after rain, a permanent
+ * Red Dirt (64x64): red plains under a low range along the north, a dry creek that runs after rain, a permanent
  * waterhole on its middle bend, scattered mulga, and two old open-cut pits at the foot of the range. Pit tiles are
  * marked zone 1 (the mine site) and ringed by rock spoil, so a mine can be worked beside them.
  */
@@ -40,7 +40,30 @@ export function generateOutback(sc: ScenarioDef, seed: number): TileGrid {
 
   // Pits: the main open cut near the foot of the range (north-east), and a smaller old one (south).
   const pit = (px: number, py: number, rx: number, ry: number): void => {
-    const tiles = blob(k, px, py, rx, ry, TileKind.Pit, 0, (kind) => kind !== TileKind.River && kind !== TileKind.Wetland);
+    const painted = blob(k, px, py, rx, ry, TileKind.Pit, 0, (kind) => kind !== TileKind.River && kind !== TileKind.Wetland);
+    // The noisy edge can strand a few tiles from the main hole: give those back to the plain so each pit is one piece.
+    const inPit = new Set(painted);
+    const comp = new Map<number, number>();
+    const sizes: number[] = [];
+    for (const i0 of painted) {
+      if (comp.has(i0)) continue;
+      const id = sizes.length;
+      let n = 0;
+      const q = [i0];
+      comp.set(i0, id);
+      for (let qi = 0; qi < q.length; qi++) {
+        const i = q[qi] as number;
+        n++;
+        const x = i % w;
+        for (const j of [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, i - w, i + w]) {
+          if (j >= 0 && j < w * h && inPit.has(j) && !comp.has(j)) { comp.set(j, id); q.push(j); }
+        }
+      }
+      sizes.push(n);
+    }
+    const main = sizes.indexOf(Math.max(...sizes));
+    const tiles = painted.filter((i) => comp.get(i) === main);
+    for (const i of painted) if (comp.get(i) !== main) { grid.kind[i] = TileKind.Land; grid.elevation[i] = 1; }
     for (const i of tiles) { grid.zone[i] = 1; grid.stage[i] = 0; }
     // Rock spoil ring around the rim.
     for (const i of tiles) {
@@ -53,8 +76,10 @@ export function generateOutback(sc: ScenarioDef, seed: number): TileGrid {
       }
     }
   };
-  pit(w * 0.76, h * 0.3, 4.6 * s, 3.2 * s);
-  pit(w * 0.3, h * 0.72, 2.3 * s, 1.6 * s);
+  // The mine grows more slowly than the map (0.75 of the linear scale): the rehabilitation job is long enough already.
+  const ps = s * 0.75;
+  pit(w * 0.76, h * 0.3, 4.6 * ps, 3.2 * ps);
+  pit(w * 0.3, h * 0.72, 2.3 * ps, 1.6 * ps);
 
   // Mulga and spinifex: clustered along the creek and the foothills.
   const dWater = distanceField(k, (kind) => kind === TileKind.River || kind === TileKind.Wetland);

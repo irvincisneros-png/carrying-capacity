@@ -111,11 +111,13 @@ describe('River Town: doing nothing', () => {
     expect(status(riverBad)).toMatchObject({ river: 'missed', taps: 'missed', farms: 'missed', platypus: 'missed' });
     expect(value(riverBad, 'river')).toBeLessThan(45);
     expect(value(riverBad, 'taps')).toBeGreaterThan(10);
-    expect(value(riverBad, 'farms')).toBeLessThan(40);
+    // Re-banded from 40 (round 6, 64x64 map): the idle farms sit on a river with more room, so the yield and salt are a little kinder.
+    expect(value(riverBad, 'farms')).toBeLessThan(45);
   });
   it('leaves the river sick and the people unhappy, with the animals gone', () => {
     expect(value(riverBad, 'river')).toBeLessThan(value(river, 'river') - 25);
-    expect(rc.residents.filter((r) => r.quality === 'bad').length).toBeGreaterThanOrEqual(5);
+    // Re-banded from 5 (round 6): Kerry's orchard (farm viability 35 or more) and Ray (partnership 20 or more) end 'mixed' as before.
+    expect(rc.residents.filter((r) => r.quality === 'bad').length).toBeGreaterThanOrEqual(4);
     expect(riverBad.wildlife.species.platypus?.pop ?? 0).toBe(0);
     expect(riverBad.wildlife.species['murray-cod']?.pop ?? 0).toBe(0);
     expect(riverBad.flags['w.blooms'] as number).toBeGreaterThan(1.3 * (river.flags['w.blooms'] as number));
@@ -137,7 +139,7 @@ describe('Reef Island: a thoughtful run keeps the reef, the homes and the visito
     expect(value(reef, 'reef')).toBeGreaterThanOrEqual(50);
     expect(value(reef, 'reef')).toBeLessThan(70);
     expect(value(reef, 'homes')).toBe(0);
-    expect(value(reef, 'tourism')).toBeGreaterThanOrEqual(45);
+    expect(value(reef, 'tourism')).toBeGreaterThanOrEqual(55);
     expect(reef.a2.outcome?.success).toBe(true);
   });
   it('earns the bonus star with Big Tilly nesting every summer for years', () => {
@@ -206,7 +208,8 @@ describe('Red Dirt: a thoughtful run goes solar, saves the water and gives the p
     expect(red.wildlife.species.bilby?.pop ?? 0).toBeGreaterThan(5);
     expect(red.eventLog.filter((e) => e.type === 'heatwave').length).toBeGreaterThan(15);
     expect(red.flags['h.deaths'] ?? 0).toBeLessThan(5);
-    expect(red.a2.yearly.filter((y) => y.year > 2030 && y.unmetFrac > 0.03).length).toBeLessThanOrEqual(3);
+    // Re-banded from 3 (round 6, 64x64 map): the panels and batteries must stand well clear of the bigger mine site, further from the town.
+    expect(red.a2.yearly.filter((y) => y.year > 2030 && y.unmetFrac > 0.03).length).toBeLessThanOrEqual(4);
   });
 });
 describe('Red Dirt: doing nothing', () => {
@@ -220,7 +223,8 @@ describe('Red Dirt: doing nothing', () => {
     expect(value(redBad, 'taps')).toBeGreaterThan(100);
     expect(redBad.a2.yearly.at(-1)?.totalKt ?? 0).toBeGreaterThan(40);
     expect(redBad.wildlife.species.bilby?.pop ?? 0).toBe(0);
-    expect(rc.residents.filter((r) => r.quality === 'bad').length).toBeGreaterThanOrEqual(5);
+    // Re-banded from 5 (round 6): one more resident's story ends 'mixed' on the roomier map.
+    expect(rc.residents.filter((r) => r.quality === 'bad').length).toBeGreaterThanOrEqual(4);
   });
 });
 commonChecks('red-dirt', red, redBad);

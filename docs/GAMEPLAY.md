@@ -194,3 +194,17 @@ Owner request: students should see the environmental science behind the choices.
 **Extras.** The card's "Who wins, who loses" shows residents, animals and future generations for every option (`content/winlose.ts`: derived from the option's preview and effects, with the Green Valley cards written by hand). The Field guide (`content/glossary.ts`, `ui/glossary.ts`) underlines each key term the first time it appears in a modal or toast, with a tooltip; the book button opens a menu with the guide, the water kit, the land limits and My household. My household (`content/household.ts`) links the town's numbers to five areas of the student's own life with three things to try each. The end screen has My household and Print my report buttons; the print view (`window.print`, print stylesheet in `ui/learn.css`) has the report card, the numbers, the water tests, big decisions, reflections, the letter and the ticked ideas. Reflections, the letter, ticks and terms met are saved with the game. The hidden costs of solar, wind and batteries (`content/hiddencosts.ts`) are on the build cards, in the Inspect panel and in a new circular-economy review ("Clean tech: the hidden costs"), balanced by what can be done about them.
 
 **Layout.** The clock now sits in the HUD's centre column under the demand bars, and the Act 1 goals sit above the needs panel and Skip button in one right-hand column, so nothing overlaps at 1280x720, 1366x768, 1600x900 or 375x812. `tools/cdp-shots.mjs` takes the screenshots and checks for overlaps.
+## 10. Bigger maps (Round 6, WP6)
+
+Owner note: "the actual map needs to be much larger"; only the part on screen should cost anything to draw.
+
+**Sizes.** Green Valley 32x32, Coal Coast, River Town, Red Dirt and Reef Island 64x64, Net Zero City 72x72. A town is limited by its money, not its land, so the extra ground is room to spread, habitat to protect and country to restore, not more chores. Each scenario still takes about the playing time on its card.
+
+**Rules that changed because the map grew** (details in `HANDOVER.md`, "Map sizes"):
+
+- The Environment meter's bush term, River Town's river pollution and bank clearing are measured against the original map's size, so the same clearing or pollution costs the same.
+- Co-managing bush and cool burns work on the bush within 9 tiles of the tile you click, not on the whole connected stretch (a cool burn releases CO2 for every tile it burns).
+- Reef Island: the tourism goal is an index of 55 (was 45), and turtles need cleaner water by the beach (0.45, was 0.6), because the larger island's beaches and wildlife kept an idle island's tourism and turtles alive.
+- Net Zero City starts with the same city on more land (a ring of hinterland round it), so its scripted win and its 48 kt line are unchanged.
+
+**Controls.** The camera opens on the town at a fixed scale (about 44 tiles across) and the home button / F toggles to the whole map (H goes back to the town). Hold and drag with a building tool to place several: cottages, rooftop solar, street trees, seawalls and wildlife crossings on every tile, native plant nurseries 7 tiles apart, coral nurseries 6, wetlands and phytoremediation beds 4.

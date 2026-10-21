@@ -14,7 +14,8 @@
  *   - every story line read in Town Voices is about 5 seconds, a wildlife line 2; the lines that only report an action already
  *     counted (Caring for Country, the circular economy) or sit inside a card's 55 seconds are not counted again;
  *   - a map bigger than the original 1024 tiles takes longer to read and to pan round before each round of placing: half a minute
- *     per Act 2 decade for every extra 1024 tiles (the enlarged maps are 1.6x to 1.9x the old area, so about 2 to 3 minutes).
+ *     per Act 2 decade for every extra 1024 tiles (the 64x64 maps are 4x the original area and the 72x72 city 5x, so about 11 and 15
+ *     minutes; the brush tools save clicks the estimator does not count, so this stays as an allowance for panning and reading).
  */
 import { getScenario, objectiveStatus } from '../../src/sim';
 import type { GameState } from '../../src/sim';

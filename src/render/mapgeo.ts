@@ -8,6 +8,17 @@ import type { BiomeLook } from './biome';
 /** Terrain vertices per tile edge (fewer on big maps to keep the triangle budget). */
 export const resFor = (w: number, h: number): number => (Math.max(w, h) > 40 ? 3 : 4);
 
+/**
+ * The terrain resolution a graphics tier draws a map at: the tier's own (0 = by map size), and one step coarser on the lite tiers
+ * (Very low, Low) once a map is bigger than 48 tiles, so a 64x64 or 72x72 map costs the triangles a 40x40 one did there. Medium and up
+ * keep the full detail.
+ */
+export function terrainResFor(tierRes: number, lite: boolean, w: number, h: number): number {
+  const big = lite && Math.max(w, h) > 48;
+  if (tierRes > 0) return big ? Math.max(1, tierRes - 1) : tierRes;
+  return big ? 2 : resFor(w, h);
+}
+
 const K = TileKind;
 
 export function isWaterKind(k: number): boolean {

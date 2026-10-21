@@ -12,6 +12,16 @@ import { bIcon, UI_ICONS } from './icons';
 import type { Tip } from './modal';
 import { sfx } from '../audio/sfx';
 
+/**
+ * Buildings that drag-paint (hold the mouse and sweep). The number is the spacing in tiles between pieces in one stroke: 1 means
+ * every tile (street trees, rooftop panels, homes, seawall, crossings); more means the pieces that do their work over a distance
+ * (a native plant nursery reaches 5 tiles, a coral nursery 4, a wetland and a phytoremediation bed filter what is beside them).
+ */
+export const BRUSH_SPACING: Partial<Record<BuildingId, number>> = {
+  cottage: 1, rooftopsolar: 1, parkland: 1, seawall: 1, wildlifecrossing: 1,
+  nursery: 7, coralnursery: 6, wetland: 4, phytoremediation: 4,
+};
+
 export type UtilTool = 'demolish' | 'clear' | 'inspect' | 'comanage' | 'burn' | 'dispose' | 'rehab';
 export type Tool = BuildingId | UtilTool | null;
 export const UTIL_TOOLS: readonly string[] = ['demolish', 'clear', 'inspect', 'comanage', 'burn', 'dispose', 'rehab'];
@@ -199,6 +209,7 @@ export class Toolbar {
       value +
       (HIDDEN_COSTS[id] ? `<div class="row hidden-cost"><span>⛏ <b>Hidden cost:</b> ${HIDDEN_COSTS[id]?.short}</span></div>` : '') +
       (where ? `<div class="row"><span>📍 ${where}</span></div>` : '') +
+      (id in BRUSH_SPACING ? `<div class="row"><span>🖌 Hold and drag to place ${(BRUSH_SPACING[id] ?? 1) > 1 ? `several, about ${BRUSH_SPACING[id]} tiles apart` : 'a row'}</span></div>` : '') +
       (s.year < av.unlock ? `<div class="row"><span>🔒 Unlocks in ${av.unlock}</span></div>` : ''));
   }
 }

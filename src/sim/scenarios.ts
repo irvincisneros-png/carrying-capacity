@@ -186,6 +186,13 @@ export interface ScenarioDef {
    * the map's own size). It is the original, smaller map's area where a scenario has been enlarged.
    */
   pollutionRefTiles?: number;
+  /**
+   * Tile count of land a town can draw on: the carrying-capacity meter (sim/capacity.ts) counts the land, water, bush and sea of
+   * its map as what the place renews, and calibrates that against this many tiles (the map's size when the meter was written).
+   * A bigger map has more land than the town can reach, so its per-tile renewals are scaled by `landReachTiles / area` (never
+   * above 1); without this a town on a 64x64 map would never overshoot. Defaults to the map's own size.
+   */
+  landReachTiles?: number;
   /** Estimated minutes of real play, for the scenario-select card. */
   playMinutes?: readonly [number, number];
   /** Dilemma cards offered per in-game decade of Act 2 (default 3). */
@@ -242,9 +249,10 @@ export const SCENARIOS: Readonly<Record<ScenarioId, ScenarioDef>> = {
     blurb: 'Grow an Illawarra-style coastal town from 1850 to the present day.',
     playMinutes: [100, 115],
     dilemmasPerDecade: 2,
-    mapW: 40,
-    mapH: 40,
+    mapW: 64,
+    mapH: 64,
     pollutionRefTiles: 32 * 32,
+    landReachTiles: 40 * 40,
     seed: 1853,
     terrain: COAST,
     startYear: 1850,

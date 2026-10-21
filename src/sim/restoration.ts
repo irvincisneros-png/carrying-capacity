@@ -4,6 +4,7 @@ import { reefHealth } from './climate';
 import { SOIL_OK, SOIL_TOXIC, WATER_OK, WATER_TOXIC } from './pollution';
 import { seasonRng, seasonWeather } from './season';
 import { getScenario } from './scenarios';
+import { dilate } from './grid';
 import { chunkCount, chunkOf } from './terrain';
 import { TileKind } from './types';
 import type { GameState, Season, TileGrid } from './types';
@@ -71,24 +72,18 @@ export function buildRestoreCtx(state: GameState): RestoreCtx {
   const shallow = new Uint8Array(n);
   const nearWater = new Uint8Array(n);
   const nursery = new Uint8Array(n);
-  for (let y = 0; y < g.h; y++) {
-    for (let x = 0; x < g.w; x++) {
-      const i = y * g.w + x;
-      const k = g.kind[i];
-      let landNear = false, waterNear = false;
-      for (let dy = -3; dy <= 3; dy++) {
-        for (let dx = -3; dx <= 3; dx++) {
-          const xx = x + dx, yy = y + dy;
-          if (xx < 0 || yy < 0 || xx >= g.w || yy >= g.h) continue;
-          const kk = g.kind[yy * g.w + xx];
-          if (kk === TileKind.River || kk === TileKind.Estuary || kk === TileKind.Sea || kk === TileKind.Reef) waterNear = true;
-          if (Math.abs(dx) <= 2 && Math.abs(dy) <= 2 && (kk === TileKind.Land || kk === TileKind.Bush || kk === TileKind.Beach || kk === TileKind.Estuary)) landNear = true;
-        }
-      }
-      if (waterNear) nearWater[i] = 1;
-      if (k === TileKind.Sea && landNear) shallow[i] = 1;
-    }
+  // "Within 3 tiles of water" and "within 2 tiles of land" are square neighbourhoods, so two O(tiles) dilations replace the
+  // 7x7 scan per tile this used to do every season.
+  const waterMask = new Uint8Array(n);
+  const landMask = new Uint8Array(n);
+  for (let i = 0; i < n; i++) {
+    const kk = g.kind[i];
+    if (kk === TileKind.River || kk === TileKind.Estuary || kk === TileKind.Sea || kk === TileKind.Reef) waterMask[i] = 1;
+    if (kk === TileKind.Land || kk === TileKind.Bush || kk === TileKind.Beach || kk === TileKind.Estuary) landMask[i] = 1;
   }
+  nearWater.set(dilate(waterMask, g.w, g.h, 3));
+  const landNear = dilate(landMask, g.w, g.h, 2);
+  for (let i = 0; i < n; i++) if (g.kind[i] === TileKind.Sea && landNear[i] === 1) shallow[i] = 1;
   for (const b of state.buildings) {
     const r = BUILDINGS[b.type].nursery?.radius;
     if (r === undefined) continue;

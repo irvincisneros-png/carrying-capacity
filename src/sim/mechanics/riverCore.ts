@@ -4,6 +4,7 @@
  * billabongs. Flow follows the weather, drought and warming; the player's levers are the allocation policies, storage,
  * efficient irrigation, a fishway at the weir and plantings along the banks.
  */
+import { dilate } from '../grid';
 import { getScenario } from '../scenarios';
 import { policyValue } from '../policyCore';
 import { TileKind } from '../types';
@@ -124,37 +125,36 @@ export function naturalFlow(s: GameState, season: number, rainfall: number, w: F
 /** Fraction of vegetated (red gum, shrub, reed) tiles on the banks: all land within 2 tiles of the river or a billabong. */
 export function ripFraction(s: GameState): number {
   const g = s.grid;
+  const water = new Uint8Array(g.kind.length);
+  for (let i = 0; i < g.kind.length; i++) water[i] = g.kind[i] === TileKind.River || g.kind[i] === TileKind.Wetland ? 1 : 0;
+  const near = dilate(water, g.w, g.h, 2);
   let n = 0, veg = 0;
-  for (let y = 0; y < g.h; y++) {
-    for (let x = 0; x < g.w; x++) {
-      const i = y * g.w + x;
-      const k = g.kind[i];
-      if (k !== TileKind.Land && k !== TileKind.Bush) continue;
-      let near = false;
-      for (let dy = -2; dy <= 2 && !near; dy++) {
-        for (let dx = -2; dx <= 2; dx++) {
-          const xx = x + dx, yy = y + dy;
-          if (xx < 0 || yy < 0 || xx >= g.w || yy >= g.h) continue;
-          const kk = g.kind[yy * g.w + xx];
-          if (kk === TileKind.River || kk === TileKind.Wetland) { near = true; break; }
-        }
-      }
-      if (!near) continue;
-      n++;
-      if ((g.building[i] ?? 0) === 0 && (k === TileKind.Bush || ((g.stage[i] ?? 0) >= 2 && (g.health[i] ?? 0) > 0))) veg++;
-    }
+  for (let i = 0; i < g.kind.length; i++) {
+    const k = g.kind[i];
+    if ((k !== TileKind.Land && k !== TileKind.Bush) || near[i] !== 1) continue;
+    n++;
+    if ((g.building[i] ?? 0) === 0 && (k === TileKind.Bush || ((g.stage[i] ?? 0) >= 2 && (g.health[i] ?? 0) > 0))) veg++;
   }
   return n > 0 ? veg / n : 1;
+}
+
+/** Reference river length (tiles) the town's pollution and bank clearing are measured against (the original map had about 100; calibrated at 140 for the 64x64 river). */
+export const RIVER_REF_TILES = 140;
+
+function riverTiles(s: GameState): number {
+  let n = 0;
+  for (let i = 0; i < s.grid.kind.length; i++) if (s.grid.kind[i] === TileKind.River) n++;
+  return n;
 }
 
 export function meanRiverWaterPollution(s: GameState): number {
   const g = s.grid;
   let t = 0, n = 0;
   for (let i = 0; i < g.kind.length; i++) if (g.kind[i] === TileKind.River) { t += g.waterPollution[i] ?? 0; n++; }
-  // A bigger map has a longer river, so the town's reach is a smaller share of it: the mean is scaled back by the area
-  // growth (same normalisation as the Environment meter) so "polluted river" means what it did on the original map.
-  const ref = getScenario(s.scenarioId)?.pollutionRefTiles ?? g.kind.length;
-  return n > 0 ? (t / n) * (g.kind.length / ref) : 0;
+  // A longer river dilutes what the town puts into it, so the total is measured against the length of river the original map
+  // had (the mean scaled by the river's growth): "polluted river" then means what it did on the original map, however big the
+  // map is. (Scaling by map area instead overstates it: the river grows more slowly than the area.)
+  return n > 0 ? (t / n) * (n / RIVER_REF_TILES) : 0;
 }
 
 /** Mean salt (soil contamination) on unbuilt land within `r` tiles of a building of the given types, or of water if none given. */
@@ -193,7 +193,10 @@ export function riverHealth(s: GameState): number {
   const flowScore = clamp01(flag(s, 'w.envAvg', 0.9));
   const quality = 1 - clamp01(meanRiverWaterPollution(s) / 1.5);
   const salt = 1 - clamp01(meanSaltNear(s, 3, []) / 1.5);
-  const rip = clamp01(ripFraction(s) / 0.7);
+  // Like the pollution above, the bank cleared by the town's farms is a smaller share of a longer river's banks: measure the
+  // cleared share against the original map's river length so the same clearing costs the river the same on any map.
+  const cleared = (1 - ripFraction(s)) * Math.max(1, riverTiles(s) / RIVER_REF_TILES);
+  const rip = clamp01((1 - cleared) / 0.7);
   const weir = weirTileIdx(s).length > 0;
   const passage = weir ? (hasFishway(s) ? 1 : 0.45) : 1;
   const damage = clamp01(flag(s, 'w.damage'));

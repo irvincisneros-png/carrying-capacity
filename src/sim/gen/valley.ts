@@ -1,5 +1,5 @@
 /**
- * Green Valley (20x20): a small inland valley. Hills close the north-east and south-west corners; a creek rises on the
+ * Green Valley (32x32): a small inland valley. Hills close the north-east and south-west corners; a creek rises on the
  * west edge, fills a farm dam (wetland) in the middle and leaves through the south-east. Gentle slopes (elevation 2)
  * run along both sides of the floor, so a wind turbine has a ridge and a hydro dam has a drop.
  */

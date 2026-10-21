@@ -224,10 +224,12 @@ describe('across a whole game', () => {
   const coal = coalThoughtful();
   const bad = coalIdle();
   it('a thoughtful town ends with a healthier creek than it had at the end of the boom, and an idle one ends worse', () => {
-    const a1 = sampleWater(coal.act1, 'river'), a2 = sampleWater(coal.end, 'river');
+    // Round 6 (64x64 map): Coal Coast's river runs mostly beyond the town's reach and reads healthy all game (signal 6 at the end of the
+    // boom); the estuary is where the boom's waste lands, as the river did on the 40x40 map, so the test samples the estuary.
+    const a1 = sampleWater(coal.act1, 'estuary'), a2 = sampleWater(coal.end, 'estuary');
     expect(a1.signal).toBeLessThan(4);
     expect(a2.signal).toBeGreaterThanOrEqual(6);
-    expect(sampleWater(bad.end, 'river').signal).toBeLessThan(4);
+    expect(sampleWater(bad.end, 'estuary').signal).toBeLessThan(4);
     expect(verdict(a1, 'do')).toBe('low');
     for (const i of a2.indicators) expect(i.verdict, i.id).toBe('ok');
   });

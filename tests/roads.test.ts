@@ -47,10 +47,10 @@ describe('the entrance road', () => {
         expect(b?.type, id).toBe('road');
         expect(g.kind[i], id).toBe(TileKind.Land);
       }
-      // The main entrance is on the map edge (the island's is on its own shore).
+      // The main entrance is on the map edge (the island's is on its own shore, which on the 64x64 map is up to 16 tiles in from the edge of the sea).
       const m = list[0] as number;
       const edge = Math.min(m % g.w, Math.floor(m / g.w), g.w - 1 - (m % g.w), g.h - 1 - Math.floor(m / g.w));
-      expect(edge, id).toBeLessThanOrEqual(id === 'reef-island' ? 8 : 0);
+      expect(edge, id).toBeLessThanOrEqual(id === 'reef-island' ? 16 : 0);
       expect(s.buildings.filter((b) => b.type === 'road').length, id).toBeGreaterThan(3);
       expect(roadAccess(s).enforced).toBe(true);
     }
@@ -330,10 +330,10 @@ describe('the Green Valley tutorial road step', () => {
 });
 
 describe('placement rejects ground no road can reach', () => {
-  it('Green Valley (default seed): the cut-off pocket at (10,17) says "No road can reach here"', async () => {
+  it('Green Valley (default seed): the cut-off pocket at (4,30) (the south-west corner of the 32x32 valley; it was (10,17) on 20x20) says "No road can reach here"', async () => {
     const { createGame, canPlace } = await import('../src/sim');
     const s = createGame('green-valley');
-    const c = canPlace(s, 'cottage', 10, 17);
+    const c = canPlace(s, 'cottage', 4, 30);
     expect(c.ok).toBe(false);
     expect(c.reason).toBe('No road can reach here');
   });

@@ -1,5 +1,5 @@
 /**
- * Reef Island (44x44): a tropical island about twice the land area of the original 32x32 map: a ring of beach, a
+ * Reef Island (64x64): a tropical island about four times the land area of the original 32x32 map: a ring of beach, a
  * rainforest-covered core of hills with an open inland valley between them, a mangrove inlet on the sheltered
  * north-west side, rocky headlands on the windward south-east side and a broad fringing reef with a boat pass. The low
  * coastal belt (elevation 1) on the lee side is where a town naturally grows, a metre or so above the tide; the
@@ -16,7 +16,7 @@ export function generateIsland(sc: ScenarioDef, seed: number): TileGrid {
   /** Linear scale against the original 32x32 map (sizes in tiles: inlet, pass, reef band). */
   const s = Math.min(w, h) / 32;
   const cx = w * 0.48, cy = h * 0.47;
-  // About 2x the original island's land area (the old ellipse was 0.35w x 0.255h on 32 tiles).
+  // The island keeps its share of the map (the old ellipse was 0.35w x 0.255h on 32 tiles), so on 64 tiles it is about 4x the original land.
   const rx = w * 0.36, ry = h * 0.26;
   const ang = -0.45;
   const ca = Math.cos(ang), sa = Math.sin(ang);

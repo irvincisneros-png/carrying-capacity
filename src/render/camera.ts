@@ -5,6 +5,13 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 const DEG = Math.PI / 180;
 
+/**
+ * Half-width (tiles) of the stretch of map the default view frames. A big map is not framed whole: the view opens on the town
+ * at the same scale the 40x40 maps had, so only that part of the world needs drawing in detail (the rest is a pan or a zoom
+ * out away; "Frame the whole map" still shows everything).
+ */
+export const FRAME_HALF = 22;
+
 export class CameraRig {
   readonly camera: PerspectiveCamera;
   readonly controls: OrbitControls;
@@ -21,6 +28,7 @@ export class CameraRig {
   private keys = new Set<string>();
   /** Slowly orbit (title screen / epilogue). */
   idleSpin = 0;
+  private homeFocus = new Vector3(0, -0.4, 0);
   private fly: { from: Vector3; to: Vector3; tFrom: Vector3; tTo: Vector3; t: number; dur: number } | null = null;
 
   constructor(dom: HTMLElement, mapW: number, mapH: number) {
@@ -46,12 +54,18 @@ export class CameraRig {
     c.addEventListener('change', () => this.clamp());
   }
 
-  /** Default close 3/4 view (like the style-lab B shot). */
-  home(animate = true): void {
-    // frame the whole slab at a 3/4 angle; pull back further on portrait screens
-    const target = new Vector3(0, -0.4, 0);
+  /** Where the default view opens (world x, z): the town, so a big map starts on it and not on its middle. */
+  setFocus(x: number, z: number): void {
+    this.homeFocus.set(Math.max(-this.halfW, Math.min(this.halfW, x)), -0.4, Math.max(-this.halfH, Math.min(this.halfH, z)));
+  }
+
+  /** Default close 3/4 view (like the style-lab B shot): the town at a fixed scale, or with `whole` the whole slab. */
+  home(animate = true, whole = false): void {
+    // frame a stretch of the slab at a 3/4 angle; pull back further on portrait screens
+    const half = Math.max(this.halfW, this.halfH);
+    const target = whole ? new Vector3(0, -0.4, 0) : this.homeFocus.clone();
     const portrait = this.camera.aspect < 1;
-    const dist = Math.max(this.halfW, this.halfH) * (portrait ? 3.3 : 2.75);
+    const dist = (whole ? half : Math.min(half, FRAME_HALF)) * (portrait ? 3.3 : 2.75);
     const pos = new Vector3().setFromSpherical(new Spherical(dist, 50 * DEG, 0.62)).add(target);
     if (animate) this.flyTo(pos, target, 1.1);
     else {

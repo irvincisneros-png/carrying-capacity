@@ -1,5 +1,5 @@
 /**
- * River Town (40x40): a wide, meandering inland river crossing the map from the north-west to the south-east. A broad
+ * River Town (64x64): a wide, meandering inland river crossing the map from the north-west to the south-east. A broad
  * floodplain (elevation 1) of river red gum woodland lines both banks, with billabongs (wetland) in old oxbows. Open
  * plains (elevation 2) beyond the floodplain are the farmland. Low ranges close the north-east and south-west corners.
  * A weir (River tiles raised to elevation 1) crosses the river upstream of the town reach.
@@ -15,7 +15,7 @@ export function generateRiver(sc: ScenarioDef, seed: number): TileGrid {
   /** Linear scale against the original 32x32 map: reaches, floodplain, ranges and billabongs grow with it. */
   const s = Math.min(w, h) / 32;
 
-  const cy = meander(k, h * 0.26, h * 0.7, h * 0.15, 1.6 * s, 1.2 * s).map((v) => clampi(Math.round(v), 5, h - 6));
+  const cy = meander(k, h * 0.26, h * 0.7, h * 0.15, 2.2, 1.2 * s).map((v) => clampi(Math.round(v), 5, h - 6));
   for (let i = 0; i < w * h; i++) grid.kind[i] = TileKind.Land;
   carveRiver(k, cy, (x) => (x > 3 && x < w - 3 ? 1 : 1), TileKind.River, 0);
 

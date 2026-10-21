@@ -151,6 +151,18 @@ export function notePlacement(s: GameState, b: PlacedBuilding): void {
 
 const N4: readonly (readonly [number, number])[] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
+/**
+ * How far (tiles) one co-management or cool-burn action reaches from the tile clicked. A patch is the connected bush within
+ * this reach, so on a big map one click still means "this stretch of bush" and not the whole connected hinterland (a cool
+ * burn burns a share of its patch and releases CO2, so its size has to be bounded by the action, not by the map).
+ */
+export const CARE_REACH = 5;
+
+const withinReach = (g: { w: number }, start: number): ((i: number) => boolean) => {
+  const sx = start % g.w, sy = Math.floor(start / g.w);
+  return (i) => Math.hypot((i % g.w) - sx, Math.floor(i / g.w) - sy) <= CARE_REACH;
+};
+
 /** 4-connected flood fill over tiles accepted by `ok`, starting from tile index `start`. */
 function flood(s: GameState, start: number, ok: (i: number) => boolean): number[] {
   const g = s.grid;
@@ -180,8 +192,9 @@ export function comanage(state: GameState, x: number, y: number): { state: GameS
   const g = state.grid;
   if (x < 0 || y < 0 || x >= g.w || y >= g.h) return fail(state, 'out-of-bounds', "That isn't on the map");
   const start = y * g.w + x;
-  const isBush = (i: number): boolean => g.kind[i] === TileKind.Bush && (g.building[i] ?? 0) === 0;
-  if (!isBush(start)) return fail(state, 'not-bush', 'Only bushland can be returned to co-management');
+  const near = withinReach(g, start);
+  const isBush = (i: number): boolean => g.kind[i] === TileKind.Bush && (g.building[i] ?? 0) === 0 && near(i);
+  if (!(g.kind[start] === TileKind.Bush && (g.building[start] ?? 0) === 0)) return fail(state, 'not-bush', 'Only bushland can be returned to co-management');
   const patch = flood(state, start, isBush);
   if (patch.length < MIN_PATCH) return fail(state, 'invalid', C.lines.comanageSmall.text);
   const have = new Set(state.country.comanaged);
@@ -204,7 +217,8 @@ export function comanage(state: GameState, x: number, y: number): { state: GameS
 export function comanagedPatch(s: GameState, start: number): number[] {
   const set = new Set(s.country.comanaged);
   const g = s.grid;
-  return flood(s, start, (i) => set.has(i) && (g.building[i] ?? 0) === 0 && (g.kind[i] === TileKind.Bush || g.kind[i] === TileKind.Land));
+  const near = withinReach(g, start);
+  return flood(s, start, (i) => set.has(i) && (g.building[i] ?? 0) === 0 && (g.kind[i] === TileKind.Bush || g.kind[i] === TileKind.Land) && near(i));
 }
 
 export function burn(state: GameState, x: number, y: number): { state: GameState; result: ActionResult } {
@@ -218,7 +232,8 @@ export function burn(state: GameState, x: number, y: number): { state: GameState
   const patch = comanagedPatch(state, start);
   if (patch.length === 0) return fail(state, 'invalid', C.lines.burnNeedsCoMgmt.text);
   const anchor = patch[0] as number;
-  if (state.country.burns.some((b) => b.patch === anchor && b.year > state.year - 3)) {
+  const inPatch = new Set(patch);
+  if (state.country.burns.some((b) => (b.patch === anchor || inPatch.has(b.patch)) && b.year > state.year - 3)) {
     return fail(state, 'already-done', C.lines.burnTooSoon.text);
   }
   const cost = C.costs.burn;
