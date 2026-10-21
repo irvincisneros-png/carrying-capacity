@@ -31,7 +31,7 @@ const GREEN_VALLEY_STEPS: readonly TutorialStep[] = [
   },
   {
     id: 'decade', title: 'Let a decade pass', phase: ['act1'], highlight: 'button:next-decade',
-    instruction: 'Press Next decade. Ten years go by, money comes in, and the graphs begin to draw two lines: yours, and the real world\'s.',
+    instruction: 'Press the play button on the clock (or Skip to end of decade). Ten years go by, one every few seconds, money comes in each year, and the graphs begin to draw two lines: yours, and the real world\'s.',
     done: { all: [t('year', '>=', 1970)] },
   },
   {
@@ -51,7 +51,7 @@ const GREEN_VALLEY_STEPS: readonly TutorialStep[] = [
   },
   {
     id: 'grow', title: 'Grow until 2020', phase: ['act1'], highlight: 'button:next-decade',
-    instruction: 'Keep adding homes and jobs and press Next decade after each round. Check the graphs: CO2 and temperature are climbing. Around 2020 something will happen that changes everything.',
+    instruction: 'Keep adding homes and jobs and let the clock run (pause any time, or Skip to end of decade) after each round of building. Check the graphs: CO2 and temperature are climbing. Around 2020 something will happen that changes everything.',
     done: { all: [t('year', '>=', 2020)] },
   },
   {

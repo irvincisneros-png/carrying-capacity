@@ -228,8 +228,8 @@ export class TutorialOverlay {
       const id = hl.slice(6) as BuildingId;
       try {
         const av = availability(s.scenarioId, id);
-        if (s.year < av.unlock) blocker = `It unlocks in ${av.unlock}: press Next decade until then.`;
-        else if (s.budget < av.cost) blocker = `You need $${av.cost}k and have $${Math.round(s.budget)}k: press Next decade to earn more.`;
+        if (s.year < av.unlock) blocker = `It unlocks in ${av.unlock}: let the years run (or Skip to end of decade) until then.`;
+        else if (s.budget < av.cost) blocker = `You need $${av.cost}k and have $${Math.round(s.budget)}k: let the years run to earn more.`;
       } catch { blocker = ''; }
     }
     if (hl.startsWith('build:') && s.phase === 'act2') {

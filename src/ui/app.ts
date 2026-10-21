@@ -169,7 +169,7 @@ export class App {
     this.droughtEl = h('div', { class: 'toast panel bad hidden', role: 'alert', style: 'position:fixed;top:140px;left:50%;transform:translateX(-50%);z-index:44;width:min(440px, calc(100vw - 24px))' });
     document.body.appendChild(this.droughtEl);
     this.demand = h('div', { class: 'demand panel' });
-    this.nextBtn = h('button', { class: 'btn primary nextbtn', onclick: () => this.nextDecade() }, svg(UI_ICONS.clock), 'Next decade');
+    this.nextBtn = h('button', { class: 'btn primary nextbtn', onclick: () => this.nextDecade() }, svg(UI_ICONS.clock), 'Skip to end of decade');
     this.action = h('div', { class: 'action' }, this.demand, this.nextBtn);
     this.undoBtn = h('button', { class: 'btn small undo hidden', onclick: () => this.undo(), title: 'Undo last building (Ctrl+Z)' }, svg(UI_ICONS.undo), 'Undo');
     this.act2Buttons = h('div', { class: 'action act2btns hidden' },
@@ -254,11 +254,16 @@ export class App {
     this.showTitleScreen();
   }
 
+  /** "Skip to end of decade": fast-forwards the years that are left, then shows the report. */
   private nextDecade(): void {
     if (this.game.state.phase !== 'act1' || modalOpen()) return;
-    sfx('decade');
     const r = this.game.nextDecade();
     if (!r) return;
+    this.showReport(r);
+  }
+
+  private showReport(r: SIM.DecadeReport): void {
+    sfx('decade');
     this.pendingPhase = true;
     showDecadeReport(r, () => {
       this.pendingPhase = false;
@@ -326,6 +331,7 @@ export class App {
       if (!this.pendingPhase && (p === 'epilogue' || p === 'failed')) this.checkPhase(s);
     });
     g.on('speed', (sp) => this.clock.setSpeed(sp));
+    g.on('decadeEnd', (r) => this.showReport(r));
     g.on('simEvents', (evs) => this.onSimEvents(evs));
     g.on('year', (y, s) => {
       if (s.phase === 'act2' && y % 10 === 0) toast(`The ${y}s`, `CO₂ ${s.co2.toFixed(0)} ppm · warming +${fmt1(s.tempC)} °C`, 'info', UI_ICONS.calendar, 4000);
@@ -412,6 +418,7 @@ export class App {
     const s = this.game.state;
     if (s.version !== this.lastUiVersion || s !== s0) this.syncUi(s, false);
     if (s.phase === 'act2') this.clock.update(s, (s.a2.clockMicro ?? 0) / 1_000_000);
+    else if (s.phase === 'act1') this.clock.updateAct1(s, this.game.act1YearFrac);
     this.voices.update();
     if (!modalOpen() && this.dilemmaQueue.length) this.pumpDilemmas();
     ambientTick(dt, Math.max(0, Math.min(1, s.meters.environment / 100)));
@@ -494,11 +501,12 @@ export class App {
     this.nextBtn.disabled = !act1;
     if (act1) {
       const dem = this.demandText(s);
-      this.demand.replaceChildren(h('b', null, `The ${s.year}s · the town needs`), dem);
+      this.demand.replaceChildren(h('b', null, `The ${Math.floor(s.year / 10) * 10}s · the town needs`), dem);
       this.demand.classList.toggle('hidden', !dem);
     }
     this.undoBtn.classList.toggle('hidden', !this.game.canUndo() || (s.phase !== 'act1' && s.phase !== 'act2'));
-    this.clock.el.classList.toggle('hidden', !act2);
+    this.clock.el.classList.toggle('hidden', !act2 && !act1);
+    this.clock.el.classList.toggle('act1', act1);
     this.energy.el.classList.toggle('hidden', !act2);
     this.objectives.el.classList.toggle('hidden', !act2);
     this.act1Goals.update(s);
@@ -535,6 +543,7 @@ export class App {
       this.hud.speciesBtn.classList.toggle('hidden', !sp.length || s.phase === 'act1');
       if (s.phase !== 'act1') this.hud.voicesBtn.classList.remove('hidden');
     }
+    if (act1) this.clock.setSpeed(this.game.speed);
     if (act2) {
       this.clock.setSpeed(this.game.speed);
       this.energy.update(s);
@@ -736,7 +745,7 @@ export class App {
       else if (k === 'i') this.toolbar.select(this.toolbar.tool === 'inspect' ? null : 'inspect');
       else if (k === 'g') this.toggleGraphs();
       else if (k === 'h' || k === 'f') rig?.home(true);
-      else if (k === ' ' && this.game.state.phase === 'act2') { e.preventDefault(); this.game.togglePause(); }
+      else if (k === ' ' && (this.game.state.phase === 'act2' || this.game.state.phase === 'act1') && !modalOpen()) { e.preventDefault(); this.game.togglePause(); }
       else if (k === 'enter' && this.game.state.phase === 'act1') this.nextDecade();
       else if (/^[1-9]$/.test(k)) this.toolbar.selectIndex(Number(k) - 1);
     });

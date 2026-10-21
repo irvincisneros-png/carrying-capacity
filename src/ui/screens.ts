@@ -108,7 +108,7 @@ export function showIntro(s: GameState, onGo: () => void): void {
       h('div', { class: 'stat' }, h('small', null, 'Look around'), h('div', { style: 'font-size:13px' }, 'Drag to pan, right-drag or ', h('kbd', null, 'Q'), h('kbd', null, 'E'), ' to turn, scroll to zoom.')),
       act2Start
         ? h('div', { class: 'stat' }, h('small', null, 'Time'), h('div', { style: 'font-size:13px' }, 'Pause with ', h('kbd', null, 'Space'), ' to plan; speed up with the clock buttons.'))
-        : h('div', { class: 'stat' }, h('small', null, 'Time'), h('div', { style: 'font-size:13px' }, 'Press ', h('b', null, 'Next decade'), ' when you are ready.'))),
+        : h('div', { class: 'stat' }, h('small', null, 'Time'), h('div', { style: 'font-size:13px' }, 'Press play on the clock (', h('kbd', null, 'Space'), ' pauses) and a year passes every few seconds; ', h('b', null, 'Skip to end of decade'), ' jumps ahead.'))),
     h('p', { class: 'ack' }, ACK),
     h('div', { class: 'modal-actions' }, h('button', { class: 'btn primary', onclick: () => { m.close(); } }, 'Let\'s build')),
   ], { onClose: onGo });

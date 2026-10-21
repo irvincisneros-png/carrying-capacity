@@ -1,7 +1,7 @@
 // Client game controller: owns the GameState, dispatches actions to the pure sim, runs the Act 2 clock,
 // autosaves, keeps an undo snapshot, and broadcasts changes / events to the renderer and UI.
 import {
-  advanceDecade, applyAction, consumeEvents, createGame, loadFromStorage, MICRO, saveToStorage, startAct2, tick,
+  advanceDecade, advanceYear, applyAction, consumeEvents, createGame, loadFromStorage, MICRO, saveToStorage, startAct2, tick,
   type Action, type TickResult, type ActionResult, type DecadeReport, type GameState, type ScenarioId, type SimEvent,
 } from '../sim';
 import { SAVE_KEY, deserialize } from '../sim/save';
@@ -9,6 +9,8 @@ import { SAVE_KEY, deserialize } from '../sim/save';
 export type Speed = 0 | 1 | 2 | 4;
 /** Real seconds per in-game year at 1x (docs/GAMEPLAY.md: 15 s). */
 export const SECONDS_PER_YEAR = 15;
+/** Act 1 runs faster: a decade is ten years of about 6 real seconds each at 1x (a minute a decade). */
+export const ACT1_SECONDS_PER_YEAR = 6;
 
 export interface GameEvents {
   state: (s: GameState, prev: GameState | null) => void;
@@ -16,6 +18,8 @@ export interface GameEvents {
   reset: (s: GameState) => void;
   action: (a: Action, r: ActionResult, s: GameState) => void;
   decade: (r: DecadeReport, s: GameState) => void;
+  /** The Act 1 clock ran into a decade end by itself (the clock has auto-paused): show the report. */
+  decadeEnd: (r: DecadeReport, s: GameState) => void;
   simEvents: (e: SimEvent[], s: GameState) => void;
   phase: (phase: GameState['phase'], s: GameState) => void;
   speed: (sp: Speed) => void;
@@ -35,6 +39,8 @@ export class GameController {
   private lastSavedYear = -1;
   /** Real seconds accumulated but not yet handed to tick() (keeps tick calls >= 1/60 year apart). */
   private clockAcc = 0;
+  /** Real seconds (at 1x) since the Act 1 year last ticked. */
+  private act1Acc = 0;
   /**
    * The next season, simulated ahead of time in idle time (the sim is deterministic), keyed on the state it started
    * from. When the clock crosses into that season the result is used instead of simulating it inside the frame, so
@@ -93,7 +99,9 @@ export class GameController {
   newGame(id: ScenarioId, seed?: number): void {
     this.undoState = null;
     this.state = createGame(id, seed);
-    this.speed = 1;
+    // Act 1 opens paused so the first buildings can go down before any year passes; a prebuilt Act 2 town runs at once.
+    this.speed = this.state.phase === 'act2' ? 1 : 0;
+    this.act1Acc = 0;
     this.lastSavedYear = this.state.year;
     this.emit('reset', this.state);
     this.emit('phase', this.state.phase, this.state);
@@ -107,6 +115,7 @@ export class GameController {
     this.undoState = null;
     this.state = s;
     this.speed = s.phase === 'act2' ? 1 : 0;
+    this.act1Acc = 0;
     this.lastSavedYear = s.year;
     this.emit('reset', s);
     this.emit('phase', s.phase, s);
@@ -158,15 +167,43 @@ export class GameController {
     return true;
   }
 
+  /** Skip to the end of the decade: plays out the years that are left and returns the decade's report. */
   nextDecade(): DecadeReport | null {
     const { state, report } = advanceDecade(this.state);
     if (!report) return null;
     this.undoState = null;
+    this.act1Acc = 0;
+    if (this.speed !== 0) this.setSpeed(0);
     this.set(state);
     this.flushEvents();
     this.emit('decade', report, state);
     this.save();
     return report;
+  }
+
+  /** Seconds into the current Act 1 year, 0..1 (for the clock dial). */
+  get act1YearFrac(): number {
+    return Math.max(0, Math.min(1, this.act1Acc / ACT1_SECONDS_PER_YEAR));
+  }
+
+  private updateAct1(dtReal: number): void {
+    this.act1Acc += Math.min(dtReal, 0.25) * this.speed;
+    if (this.act1Acc < ACT1_SECONDS_PER_YEAR) return;
+    this.act1Acc -= ACT1_SECONDS_PER_YEAR;
+    const { state, report } = advanceYear(this.state);
+    // The clock moved on, so the one-step undo (which would rewind the money) no longer applies.
+    this.undoState = null;
+    this.set(state);
+    if (!report) {
+      this.scheduleSave();
+      return;
+    }
+    this.act1Acc = 0;
+    this.setSpeed(0);
+    this.flushEvents();
+    this.emit('decade', report, state);
+    this.emit('decadeEnd', report, state);
+    this.save();
   }
 
   beginAct2(): void {
@@ -206,6 +243,10 @@ export class GameController {
 
   /** Called every animation frame with real seconds elapsed. */
   update(dtReal: number, blocked: boolean): void {
+    if (this.state.phase === 'act1' && this.state.status === 'playing') {
+      if (this.speed !== 0 && !blocked) this.updateAct1(dtReal);
+      return;
+    }
     if (this.state.phase !== 'act2' || this.speed === 0 || blocked) return;
     this.clockAcc += Math.min(dtReal, 0.25) * this.speed;
     if (this.clockAcc < 1 / 60) return;

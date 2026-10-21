@@ -28,7 +28,7 @@ then `docs/GAMEPLAY.md` (the design) and `docs/reviews/qa-playthrough.md` (three
                  │
    ┌─────────────▼──────────────┐
    │ sim/  pure, deterministic   │  createGame, applyAction(state, action) -> {state, result}
-   │       state in, state out   │  Act 1: advanceDecade   Act 2: tick(state, dtYears)
+   │       state in, state out   │  Act 1: advanceYear (advanceDecade = 10)  Act 2: tick(state, dtYears)
    └─────────────┬──────────────┘
                  │ GameState (immutable per step; cloneState before mutating)
    ┌─────────────▼──────────────┐
