@@ -30,9 +30,10 @@ All four styles fall short of the mockups' **density** (the mockups have hundred
 
 | Tier | Target hardware | Shadows | AO | Outlines | Tilt-shift | Foliage | DPR |
 |---|---|---|---|---|---|---|---|
+| Very low | Software renderer / very weak GPU | none | none | none | none (renders straight to the canvas, no post) | 20% trees, thin understorey, 10% props, models without small parts, flat road mesh, half-res terrain mesh, plain-gradient sky, cheap water | 0.6 (upscaled) |
 | Low | Chromebook / old laptop | none | none | none | none | 35% (simple trees) | 1.0 |
 | Medium | Typical school laptop | 1024 soft | none | none | yes | 70% | ≤1.25 |
 | High | Recent laptop / Mac | 2048 soft | N8AO half-res | yes | yes | 100% | ≤1.75 |
 | Ultra | Gaming PC | 4096 | N8AO full | yes | yes + DOF | 130% + extra props + wispy smoke | ≤2 |
 
-Auto-detect: start on Medium, sample 2 s; drop a tier if the average is below 45 fps, raise one if it's above 58 fps with less than 8 ms frame time (max one raise). Re-check after each tier change. The settings menu allows manual override, which is remembered per device in localStorage.
+Auto-detect: start on Medium (on Very low when WebGL reports a software rasteriser such as SwiftShader), sample 2 s of real frame time; drop a tier if the average is below 45 fps (below 20 fps after 1 s), raise one if it's above 58 fps with less than 8 ms frame time (max one raise). Re-check after each tier change, then keep watching in 4 s windows and step down if the game falls under 24 fps. See docs/reviews/perf-chromebook-proxy.md. The settings menu allows manual override, which is remembered per device in localStorage.

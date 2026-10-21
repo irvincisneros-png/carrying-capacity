@@ -116,7 +116,7 @@ export class Kit {
   P = new Parts();
   stacks: KitStack[] = [];
   rotors: KitRotor[] = [];
-  /** Parts whose bounding-box diagonal is below this are dropped (Very low: no window panes, rails, trim). */
+  /** Parts whose largest bounding-box edge is below this are dropped (Very low: no window panes, rails, trim). */
   constructor(readonly d: 0 | 1, readonly cull = 0) {}
   get hi(): boolean {
     return this.d === 1;

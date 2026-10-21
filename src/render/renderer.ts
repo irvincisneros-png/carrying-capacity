@@ -160,7 +160,8 @@ export class GameRenderer {
 
     this.pref = loadPref();
     // CPU rasteriser (SwiftShader / llvmpipe): skip the sampling climb and start on the lowest tier
-    this.softwareGpu = softwareRenderer(r.getContext());
+    // (?nosniff turns the sniff off, to test the sampling climb as a real GPU would see it)
+    this.softwareGpu = !/[?&]nosniff\b/.test(location.search) && softwareRenderer(r.getContext());
     this.tier = this.pref.mode === 'manual' ? this.pref.tier : this.softwareGpu ? 0 : START_TIER;
     this.auto = new AutoTier((t) => this.applyTier(t, true), () => this.tier);
     window.addEventListener('resize', () => this.resize());

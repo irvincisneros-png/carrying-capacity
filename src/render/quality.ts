@@ -26,12 +26,12 @@ export interface TierDef {
   clouds: number;
   /** Terrain vertices per tile edge (0 = the map's default: 4, or 3 on big maps). Fewer = far fewer triangles. */
   terrainRes: number;
-  /** Building parts smaller than this (bounding-box diagonal, world units) are left out of the models. */
+  /** Building parts whose largest bounding-box edge is below this (world units) are left out of the models. */
   partCull: number;
 }
 
 export const TIERS: readonly TierDef[] = [
-  { name: 'Very low', shadows: 0, ao: 'none', outlines: false, tiltShift: false, dof: false, foliage: 0.2, detail: 0, treeDetail: -1, dprMax: 0.6, props: 0.3, smoke: 0.12, lite: true, direct: true, clouds: 0.25, terrainRes: 2, partCull: 0.4 },
+  { name: 'Very low', shadows: 0, ao: 'none', outlines: false, tiltShift: false, dof: false, foliage: 0.2, detail: 0, treeDetail: -1, dprMax: 0.6, props: 0.1, smoke: 0.12, lite: true, direct: true, clouds: 0.25, terrainRes: 2, partCull: 0.28 },
   { name: 'Low', shadows: 0, ao: 'none', outlines: false, tiltShift: false, dof: false, foliage: 0.35, detail: 0, treeDetail: 0, dprMax: 1, props: 0.6, smoke: 0.3, lite: true, direct: false, clouds: 0.5, terrainRes: 0, partCull: 0 },
   { name: 'Medium', shadows: 1024, ao: 'none', outlines: false, tiltShift: true, dof: false, foliage: 0.7, detail: 1, treeDetail: 1, dprMax: 1.25, props: 0.85, smoke: 0.8, lite: false, direct: false, clouds: 1, terrainRes: 0, partCull: 0 },
   { name: 'High', shadows: 2048, ao: 'half', outlines: true, tiltShift: true, dof: false, foliage: 1, detail: 1, treeDetail: 1, dprMax: 1.75, props: 1, smoke: 1, lite: false, direct: false, clouds: 1, terrainRes: 0, partCull: 0 },

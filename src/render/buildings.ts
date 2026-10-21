@@ -1,6 +1,6 @@
 // Every placed building as a batched instance of its procedural model (one draw call for all buildings plus one for
 // their ink outlines), autotiled roads / rail, place + demolish pop animations, turbine rotors, smoke emitters.
-import { Color, Euler, InstancedMesh, Matrix4, Quaternion, Vector3, type Group } from 'three';
+import { BufferAttribute, BufferGeometry, Color, Euler, InstancedMesh, Matrix4, Mesh, Quaternion, Vector3, type Group } from 'three';
 import { BUILDINGS } from '../sim/buildings';
 import { TileKind, type BuildingId, type GameState, type PlacedBuilding } from '../sim/types';
 import { Batch, prepBatchGeo } from './batch';
@@ -68,6 +68,12 @@ function autoYaw(s: GameState, b: PlacedBuilding): number | null {
   return b.type === 'seawall' ? Math.atan2(-best[1], best[0]) : Math.atan2(best[0], best[1]);
 }
 
+const ROAD_W = 0.42;
+const C_ASPHALT = new Color(0x5a5653);
+const C_DIRT = new Color(0x9d7d55);
+const C_BALLAST = new Color(0x8a8079);
+const C_RAIL = new Color(0x9aa0a6);
+const C_LINE = new Color(0xece4c6);
 const _m = new Matrix4();
 const _q = new Quaternion();
 const _e = new Euler();
@@ -82,6 +88,9 @@ export class BuildingLayer {
   private models = new Map<string, BuildingModel>();
   private detail: 0 | 1 = 1;
   private cull = 0;
+  /** Very low: all roads / rail as one draped mesh (one draw call instead of hundreds of batch instances). */
+  private roadMesh: Mesh | null = null;
+  private roadsDirty = false;
   private initial = true;
   rotors: InstancedMesh;
   private rotorInfo: { x: number; y: number; z: number; yaw: number; scale: number; speed: number; phase: number }[] = [];
@@ -115,6 +124,12 @@ export class BuildingLayer {
     if (detail === this.detail && cull === this.cull) return;
     this.detail = detail;
     this.cull = cull;
+    if (this.roadMesh) {
+      this.group.remove(this.roadMesh);
+      this.roadMesh.geometry.dispose();
+      this.roadMesh = null;
+    }
+    this.roadsDirty = true;
     this.models.clear();
     this.group.remove(this.batch.mesh);
     if (this.batch.outline) this.group.remove(this.batch.outline);
@@ -223,6 +238,13 @@ export class BuildingLayer {
       }
       const dirt = rec.type === 'road' && dirtEra;
       if (mask === rec.mask && dirt === rec.dirt) continue;
+      if (this.cull > 0) {
+        // Very low: every road / rail tile is baked into one draped mesh below instead of 1-5 batch instances each
+        rec.mask = mask;
+        rec.dirt = dirt;
+        this.roadsDirty = true;
+        continue;
+      }
       const fresh = rec.mask === -1;
       for (const id of rec.ids) this.batch.remove(id);
       rec.ids.length = 0;
@@ -230,9 +252,8 @@ export class BuildingLayer {
       rec.dirt = dirt;
       const hubKey = rec.type === 'rail' ? 'railHub' : dirt ? 'dirtHub' : 'roadHub';
       const armKey = rec.type === 'rail' ? 'railArm' : dirt ? 'dirtArm' : 'roadArm';
-      const cheap = this.cull > 0; // Very low: flat road / rail quads instead of kerbed slabs with street lights
-      const hubG = this.gid(hubKey, () => (rec.type === 'rail' ? railHubGeo(cheap) : dirt ? dirtHubGeo(cheap) : roadHubGeo(cheap)));
-      const armG = this.gid(armKey, () => (rec.type === 'rail' ? railArmGeo(cheap) : dirt ? dirtArmGeo(cheap) : roadArmGeo(cheap)));
+      const hubG = this.gid(hubKey, rec.type === 'rail' ? railHubGeo : dirt ? dirtHubGeo : roadHubGeo);
+      const armG = this.gid(armKey, rec.type === 'rail' ? railArmGeo : dirt ? dirtArmGeo : roadArmGeo);
       const cx = this.map.cx(bx);
       const cz = this.map.cz(by);
       const cy = this.map.heightAt(cx, cz) + 0.03;
@@ -256,12 +277,69 @@ export class BuildingLayer {
       // road / rail pieces carry their own per-piece matrices; the pop anim rescales the hub only via re-sync
       if (fresh && !this.initial) this.anims.push({ rec, t: 0, dir: 1 });
     }
+    if (this.cull > 0 && this.roadsDirty) this.rebuildRoadMesh();
     this.initial = false;
     this.rebuildRotorsAndEmitters(s);
   }
 
+  /** Bake every road / rail tile into a single flat mesh draped over the terrain (Very low only). */
+  private rebuildRoadMesh(): void {
+    this.roadsDirty = false;
+    const pos: number[] = [];
+    const col: number[] = [];
+    const map = this.map;
+    const H = 0.035;
+    const piece = (corners: [number, number][], lift: number, c: Color): void => {
+      const v = corners.map(([x, z]) => [x, Math.max(map.heightAt(x, z), 0.02) + H + lift, z] as const);
+      for (const i of [0, 1, 2, 0, 2, 3]) {
+        pos.push(v[i]![0], v[i]![1], v[i]![2]);
+        col.push(c.r, c.g, c.b);
+      }
+    };
+    // strip from distance a to b along (dx, dz) from (cx, cz), `w` wide, offset sideways by `o`
+    const strip = (cx: number, cz: number, dx: number, dz: number, a: number, b: number, w: number, o: number, lift: number, c: Color): void => {
+      const px = -dz, pz = dx;
+      const l = o - w / 2, r = o + w / 2;
+      piece([[cx + dx * a + px * l, cz + dz * a + pz * l], [cx + dx * a + px * r, cz + dz * a + pz * r], [cx + dx * b + px * r, cz + dz * b + pz * r], [cx + dx * b + px * l, cz + dz * b + pz * l]], lift, c);
+    };
+    for (const rec of this.recs.values()) {
+      if ((rec.type !== 'road' && rec.type !== 'rail') || rec.mask < 0) continue;
+      const cx = this.map.cx(rec.b.x);
+      const cz = this.map.cz(rec.b.y);
+      const rail = rec.type === 'rail';
+      const w = rail ? 0.3 : rec.dirt ? ROAD_W - 0.02 : ROAD_W;
+      const base = rail ? C_BALLAST : rec.dirt ? C_DIRT : C_ASPHALT;
+      strip(cx, cz, 0, 1, -w / 2, w / 2, w, 0, 0, base);
+      DIRS.forEach(([dx, dz], i) => {
+        if (!(rec.mask & (1 << i))) return;
+        strip(cx, cz, dx, dz, w / 2 - 0.001, 0.5, w, 0, 0, base);
+        if (rail) for (const o of [-0.07, 0.07]) strip(cx, cz, dx, dz, 0, 0.5, 0.025, o, 0.006, C_RAIL);
+        else if (!rec.dirt) strip(cx, cz, dx, dz, w / 2, 0.5, 0.025, 0, 0.004, C_LINE);
+      });
+    }
+    const n = pos.length / 3;
+    if (!this.roadMesh) {
+      const mesh = new Mesh(new BufferGeometry(), this.lib.get({ key: 'building', kind: 'prop' }));
+      mesh.name = 'roads';
+      mesh.frustumCulled = false;
+      mesh.receiveShadow = true;
+      this.group.add(mesh);
+      this.roadMesh = mesh;
+    }
+    const g = new BufferGeometry();
+    g.setAttribute('position', new BufferAttribute(new Float32Array(pos), 3));
+    g.setAttribute('color', new BufferAttribute(new Float32Array(col), 3));
+    const nrm = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) nrm[i * 3 + 1] = 1;
+    g.setAttribute('normal', new BufferAttribute(nrm, 3));
+    this.roadMesh.geometry.dispose();
+    this.roadMesh.geometry = g;
+    this.roadMesh.visible = n > 0;
+  }
+
   private removeRec(rec: Rec, animate: boolean): void {
     this.recs.delete(rec.uid);
+    if (this.cull > 0 && (rec.type === 'road' || rec.type === 'rail')) this.roadsDirty = true;
     if (animate && rec.type !== 'road' && rec.type !== 'rail') {
       this.anims.push({ rec, t: 1, dir: -1 });
       const m = this.model(rec.type);

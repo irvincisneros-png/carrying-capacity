@@ -66,9 +66,10 @@ Green Valley → Coal Coast → River Town and Reef Island → Red Dirt → Net 
 
 ## Performance targets
 
-- ≥ 30 fps on school Chromebooks, 60 fps target; quality tiers Low / Medium / High / Ultra with Auto (drops a tier
-  when the 2-second average is under 45 fps).
-- ≤ 150 draw calls (instancing for repeated meshes); shadows none at Low, 1024 at Medium; pixel ratio capped at 1 (Low) and 1.25 (Medium).
+- ≥ 30 fps on school Chromebooks, 60 fps target; quality tiers Very low / Low / Medium / High / Ultra with Auto (drops a tier
+  when the 2-second average is under 45 fps; starts on Very low on a software renderer). Measured on a SwiftShader proxy in
+  docs/reviews/perf-chromebook-proxy.md.
+- ≤ 150 draw calls (instancing for repeated meshes); shadows none at Low, 1024 at Medium; pixel ratio capped at 0.6 (Very low), 1 (Low) and 1.25 (Medium).
 - The sim runs off the render loop: the next Act 2 season is simulated ahead in idle time and heavy layer rebuilds
   are spread over frames. Measured (headless Chrome, 4× CPU throttle, Net Zero City at 4× speed): 60 fps average,
   worst frame about 33 ms, none over 50 ms.
