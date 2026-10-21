@@ -91,6 +91,19 @@ export function suggestTile(state: GameState, building: BuildingId): { x: number
   return best ? { x: best.x, y: best.y, rotation: best.rotation } : null;
 }
 
+const latchKey = (id: string): string => `tut.done.${id}`;
+
+/**
+ * Remembers every tutorial step whose condition holds right now (flag `tut.done.<id>`), so later play (demolishing a
+ * connected home, a species dying back) can never un-finish it. Mutates the state; called by the sim's action and year hooks.
+ */
+export function latchTutorial(state: GameState): void {
+  for (const st of tutorialStepsFor(state.scenarioId)) {
+    if (state.flags[latchKey(st.id)] === true) continue;
+    if (condMet(state, st.done)) state.flags[latchKey(st.id)] = true;
+  }
+}
+
 export function tutorialStatus(state: GameState): TutorialStatus {
   const steps = tutorialStepsFor(state.scenarioId);
   if (steps.length === 0) {
@@ -98,7 +111,7 @@ export function tutorialStatus(state: GameState): TutorialStatus {
   }
   // Steps are sequential: the current one is the first not done and available in this phase. A step from an earlier
   // phase that was never finished is skipped over; a step from a later phase is not reachable yet.
-  const done = steps.map((s) => condMet(state, s.done));
+  const done = steps.map((s) => state.flags[latchKey(s.id)] === true || condMet(state, s.done));
   const now = PHASE_ORDER[phaseKey(state.phase)];
   let index = -1;
   for (let i = 0; i < steps.length; i++) {

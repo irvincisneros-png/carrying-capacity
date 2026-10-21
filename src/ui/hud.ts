@@ -2,7 +2,9 @@
 import type { GameState } from '../sim/types';
 import { displayYear } from '../sim/game';
 import { bump, fmt1, fmtInt, fmtMoney, h, svg, tweenNumber } from './dom';
+import { CapGauge } from './capacity';
 import { DemandBars } from './demandbars';
+import { LEARN_ICONS } from './learnicons';
 import { UI_ICONS } from './icons';
 
 export interface HudHandlers {
@@ -11,6 +13,8 @@ export interface HudHandlers {
   log(): void;
   voices(): void;
   species(): void;
+  capacity(): void;
+  learn(): void;
 }
 
 export class Hud {
@@ -27,6 +31,8 @@ export class Hud {
   readonly graphsBtn: HTMLButtonElement;
   readonly speciesBtn: HTMLButtonElement;
   readonly demand = new DemandBars();
+  readonly cap: CapGauge;
+  readonly learnBtn: HTMLButtonElement;
   readonly voicesBtn: HTMLButtonElement;
 
   constructor(hd: HudHandlers) {
@@ -49,6 +55,9 @@ export class Hud {
     };
     this.meters = {} as Hud['meters'];
     this.budgetBox = h('div', { class: 'hud-stat', title: 'Budget (thousands of dollars)' }, svg(UI_ICONS.coin), h('div', null, h('small', null, 'Budget'), this.budget));
+    this.cap = new CapGauge(() => hd.capacity());
+    this.demand.el.insertBefore(this.cap.el, this.demand.slot);
+    this.learnBtn = h('button', { class: 'iconbtn', title: 'Learn: water kit, field guide, my household', 'aria-label': 'Learn', 'data-qa': 'learn-btn', onclick: () => hd.learn() }, svg(LEARN_ICONS.book));
     this.graphsBtn = h('button', { class: 'iconbtn', title: 'Graphs (G)', 'aria-label': 'Graphs', onclick: () => hd.graphs() }, svg(UI_ICONS.chart));
     this.voicesBtn = h('button', { class: 'iconbtn hidden', title: 'Town voices', 'aria-label': 'Town voices', onclick: () => hd.voices() }, svg(UI_ICONS.speech));
     this.speciesBtn = h('button', { class: 'iconbtn hidden', title: 'Wildlife', 'aria-label': 'Wildlife', onclick: () => hd.species() }, svg(UI_ICONS.paw));
@@ -70,6 +79,7 @@ export class Hud {
         this.voicesBtn,
         this.speciesBtn,
         h('button', { class: 'iconbtn', title: 'Event log', 'aria-label': 'Event log', onclick: () => hd.log() }, svg(UI_ICONS.log)),
+        this.learnBtn,
         this.graphsBtn,
         h('button', { class: 'iconbtn', title: 'Settings', 'aria-label': 'Settings', onclick: () => hd.settings() }, svg(UI_ICONS.gear))));
   }
@@ -120,6 +130,7 @@ export class Hud {
       }
     }
     this.demand.update(s);
+    this.cap.update(s);
     this.last = s;
   }
 }

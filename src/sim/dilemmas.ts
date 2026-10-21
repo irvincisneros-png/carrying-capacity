@@ -4,6 +4,8 @@
  * clean answer on purpose. Act 1 gets about four cards in total; Act 2 gets two or three per in-game decade.
  */
 import { DILEMMAS } from '../content/dilemmas';
+import { DATACENTRE_CARDS } from '../content/dilemmas/datacentre';
+import { INNOVATION_CARDS } from '../content/innovations';
 import { condMet, renderText, storyVars } from './conditions';
 import type { Cond } from './conditions';
 import { applyEffects, effectImpact } from './effects';
@@ -81,12 +83,17 @@ export function emptyDilemmas(): DilemmasState {
   return { offered: {}, pending: [], decisions: [], adjust: 0 };
 }
 
+/** Innovation timeline cards (Act 1) have ids starting 'inn-'. They have their own scheduler (sim/innovations.ts). */
+export const isInnovation = (id: string): boolean => id.startsWith('inn-');
+/** The tech company's data-centre offer ('dc-offer') is scheduled the same way, on top of the regular cards. */
+export const isExtra = (id: string): boolean => id.startsWith('inn-') || id.startsWith('dc-');
+
 export function dilemmasFor(scenario: ScenarioId): readonly DilemmaDef[] {
   return DILEMMAS[scenario] ?? [];
 }
 
 export function getDilemma(scenario: ScenarioId, id: string): DilemmaDef | undefined {
-  return dilemmasFor(scenario).find((d) => d.id === id);
+  return dilemmasFor(scenario).find((d) => d.id === id) ?? (isInnovation(id) ? INNOVATION_CARDS.find((d) => d.id === id) : id === 'dc-offer' ? DATACENTRE_CARDS[scenario] : undefined);
 }
 
 /** How many times a card has been put on the table (answered, ignored or waiting). */
@@ -109,7 +116,7 @@ export function repeatFraming(s: GameState, d: DilemmaDef): { title: string; lea
   return { title: `${d.title} (again)`, lead: leads[hash32(s.seed, s.year, d.id.length) % leads.length] ?? '' };
 }
 
-function fire(s: GameState, d: DilemmaDef): void {
+export function fire(s: GameState, d: DilemmaDef): void {
   const again = repeatFraming(s, d);
   s.dilemmas.offered[d.id] = s.year;
   s.dilemmas.pending.push(d.id);
@@ -131,12 +138,13 @@ function canOffer(s: GameState, d: DilemmaDef): boolean {
 
 function eligible(s: GameState, phase: 'act1' | 'act2'): DilemmaDef[] {
   return dilemmasFor(s.scenarioId)
-    .filter((d) => d.phase === phase && canOffer(s, d) && s.year >= d.years[0] && s.year <= d.years[1] && condMet(s, d.when))
+    .filter((d) => !isExtra(d.id) && d.phase === phase && canOffer(s, d) && s.year >= d.years[0] && s.year <= d.years[1] && condMet(s, d.when))
     .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0) || hash32(s.seed, s.year, a.id.length * 131 + a.id.charCodeAt(a.id.length - 1)) - hash32(s.seed, s.year, b.id.length * 131 + b.id.charCodeAt(b.id.length - 1)));
 }
 
 function expire(s: GameState): void {
   for (const id of s.dilemmas.pending.slice()) {
+    if (isExtra(id)) continue;
     const y = s.dilemmas.offered[id];
     if (y === undefined || s.year - y < PENDING_EXPIRY_YEARS) continue;
     const d = getDilemma(s.scenarioId, id);
@@ -156,8 +164,8 @@ function expire(s: GameState): void {
 export function offerAct1(s: GameState): void {
   expire(s);
   const a1 = getScenario(s.scenarioId).act1;
-  const last = Math.max(-1e9, ...Object.values(s.dilemmas.offered).map((y) => y));
-  if (s.dilemmas.pending.length > 0 || s.year - last < (a1?.cardGap ?? ACT1_MIN_GAP)) return;
+  const last = Math.max(-1e9, ...Object.entries(s.dilemmas.offered).filter(([id]) => !isExtra(id)).map(([, y]) => y));
+  if (s.dilemmas.pending.some((id) => !isExtra(id)) || s.year - last < (a1?.cardGap ?? ACT1_MIN_GAP)) return;
   const picks = eligible(s, 'act1').slice(0, a1?.cardsPerTurn ?? 1);
   for (const pick of picks) fire(s, pick);
 }
@@ -169,9 +177,9 @@ export function offerAct2(s: GameState): void {
   const off = s.year - start;
   if (off < 1) return;
   const window = Math.floor(off / 10);
-  const inWindow = Object.values(s.dilemmas.offered).filter((y) => Math.floor((y - start) / 10) === window).length;
+  const inWindow = Object.entries(s.dilemmas.offered).filter(([id, y]) => !isExtra(id) && Math.floor((y - start) / 10) === window).length;
   const perDecade = offersPerDecade(s.scenarioId);
-  if (inWindow >= perDecade || s.dilemmas.pending.length >= 2) return;
+  if (inWindow >= perDecade || s.dilemmas.pending.filter((id) => !isExtra(id)).length >= 2) return;
   const within = off % 10;
   // Cards arrive in years 1, 4 and 7 of the decade (2 and 6 when there are two); a missed slot is retried the next year.
   const slots = offerSlots(perDecade);

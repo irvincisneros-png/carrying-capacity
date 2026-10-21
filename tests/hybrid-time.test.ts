@@ -108,4 +108,56 @@ describe('hybrid time: advanceYear', () => {
     expect(Object.keys(s.flags).some((k) => k.startsWith('dec.'))).toBe(false);
     expect(applyAction(s, { type: 'clear', x: 0, y: 0 }).result).toBeDefined();
   });
+
+  it('income accrues per year from that year\'s buildings: demolishing never claws money back', () => {
+    let s = createGame('green-valley');
+    s = buildN(s, 'cottage', 3).state;
+    s = buildN(s, 'farm', 1).state;
+    s = advanceDecade(s).state;
+    const farm = s.buildings.find((b) => b.type === 'farm');
+    expect(farm).toBeDefined();
+    for (let i = 0; i < 9; i++) {
+      const before = s.budget;
+      s = advanceYear(s).state;
+      expect(s.budget).toBeGreaterThanOrEqual(before);
+    }
+    s = applyAction(s, { type: 'demolish', x: farm!.x, y: farm!.y }).state;
+    const before = s.budget;
+    s = advanceYear(s).state;
+    expect(s.budget).toBeGreaterThanOrEqual(before);
+  });
+
+  it('a building put up in the last year earns about a tenth of the decade, not all of it', () => {
+    const base = buildN(createGame('green-valley'), 'cottage', 3).state;
+    let a = advanceDecade(base).state;
+    let b = a;
+    for (let i = 0; i < 9; i++) { a = advanceYear(a).state; b = advanceYear(b).state; }
+    const farmed = buildN(b, 'farm', 1);
+    expect(farmed.built).toBe(1);
+    const cost = b.budget - farmed.state.budget;
+    const withFarm = advanceYear(farmed.state).state.budget - (farmed.state.budget);
+    const without = advanceYear(a).state.budget - a.budget;
+    // one year's difference stays small next to what ten years of the farm would pay
+    expect(withFarm - without).toBeLessThan(cost * 3 + 50);
+  });
+
+  it('emissions and pollution count the years a building actually ran', () => {
+    const start0 = buildN(createGame('coal-coast'), 'cottage', 4).state;
+    const start = { ...advanceDecade(start0).state, budget: 99999 };
+    const placed = buildN(start, 'coalmine', 1);
+    expect(placed.built).toBe(1);
+    const fac = placed.state.buildings.find((b) => b.type === 'coalmine')!;
+    const emOf = (st: GameState): number => st.history[st.history.length - 1]!.totalKt;
+    const full = advanceDecade(placed.state).state;
+    let part = placed.state;
+    for (let i = 0; i < 5; i++) part = advanceYear(part).state;
+    part = applyAction(part, { type: 'demolish', x: fac.x, y: fac.y }).state;
+    part = advanceDecade(part).state;
+    const never = advanceDecade(start).state;
+    expect(emOf(part)).toBeGreaterThan(emOf(never));
+    expect(emOf(part)).toBeLessThan(emOf(full));
+    const air = (st: GameState): number => st.grid.airPollution.reduce((a, v) => a + v, 0);
+    expect(air(part)).toBeGreaterThan(air(never));
+    expect(air(part)).toBeLessThan(air(full));
+  });
 });

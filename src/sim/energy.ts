@@ -1,4 +1,5 @@
 import { BUILDINGS } from './buildings';
+import { dcLoad } from './datacentre';
 import { workingBuildings } from './roads';
 import { getScenario } from './scenarios';
 import { seasonIndexOf, seasonWeather } from './season';
@@ -71,8 +72,10 @@ export function baseDemand(state: GameState): SectorDemand {
   const out: SectorDemand = { homes: 0, industry: 0, transport: 0 };
   for (const b of workingBuildings(state)) {
     const d = BUILDINGS[b.type];
-    if (d.power < 0) out[sectorOf(b.type)] -= d.power;
+    if (d.power < 0 && b.type !== 'datacentre') out[sectorOf(b.type)] -= d.power;
   }
+  // Data centres run flat out day and night; their load (after any PPA and the cooling type) is added to industry.
+  out.industry += dcLoad(state);
   return out;
 }
 
@@ -83,12 +86,14 @@ function hasActive(state: GameState, type: string, seasonIndex: number): boolean
 /** Demand by sector for one block (0 day, 1 night) in a season. */
 export function blockDemand(state: GameState, season: Season, block: 0 | 1, seasonIndex = seasonIndexOf(state)): SectorDemand {
   const base = baseDemand(state);
+  const dc = dcLoad(state);
   let homes = base.homes * HOMES_SEASON[season] * HOMES_BLOCK[block];
   if (season === 0) homes *= 1 + WARMING_SUMMER_AC * Math.max(0, state.tempC);
   if (hasActive(state, 'heatwave', seasonIndex)) homes *= HEATWAVE_HOMES;
   return {
     homes,
-    industry: base.industry * INDUSTRY_BLOCK[block],
+    // The data-centre share of industry does not follow the working day: it is the same in the day and the night.
+    industry: (base.industry - dc) * INDUSTRY_BLOCK[block] + dc,
     transport: base.transport * TRANSPORT_SEASON[season] * TRANSPORT_BLOCK[block],
   };
 }

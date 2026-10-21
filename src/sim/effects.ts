@@ -3,6 +3,7 @@ import { CLEAR_KT_PER_TILE } from './rules';
 import { TileKind } from './types';
 import type { GameState } from './types';
 import { addPartnership } from './country';
+import { placeDataCentre } from './datacentre';
 
 export type TileScope = 'estuary' | 'river' | 'reef' | 'bush' | 'land' | 'beach' | 'sea' | 'all' | 'contaminated' | 'wetland';
 
@@ -39,6 +40,8 @@ export interface Effects {
   tiles?: readonly TileEffect[];
   /** One-off emissions (kt CO2-e) counted in the next year / decade. */
   emissionsKt?: number;
+  /** Put a data centre on open land (Act 2 offer card). Does nothing if there is no room. */
+  build?: 'datacentre';
 }
 
 const inScope = (kind: number, scope: TileScope, soil: number): boolean => {
@@ -122,8 +125,10 @@ export function applyEffects(s: GameState, fx: Effects | undefined): void {
   if (fx.flags) for (const k of Object.keys(fx.flags)) s.flags[k] = fx.flags[k] as boolean | number;
   if (fx.partnership) addPartnership(s, fx.partnership);
   if (fx.tiles) for (const t of fx.tiles) applyTileEffect(s, t);
-  // Act 1 has no negative land emissions to offset, so a saving there cannot dip below zero.
-  if (fx.emissionsKt) s.pendingLandKt = s.phase === 'act1' ? Math.max(0, s.pendingLandKt + fx.emissionsKt) : s.pendingLandKt + fx.emissionsKt;
+  if (fx.build === 'datacentre') placeDataCentre(s);
+  // A saving is kept (pendingLandKt may go negative) and comes off the next decade's real emissions; if that decade has
+  // less than the saving, the rest carries on (see advanceYear), so the advertised kt are the kt that are saved.
+  if (fx.emissionsKt) s.pendingLandKt += fx.emissionsKt;
 }
 
 /**
@@ -145,7 +150,7 @@ export function applyLingeringRunoff(s: GameState): void {
 export function effectImpact(fx: Effects | undefined): number {
   if (!fx) return 0;
   let n = Math.abs(fx.budget ?? 0) / 10 + Math.abs(fx.society ?? 0) + Math.abs(fx.partnership ?? 0) / 2;
-  n += Math.abs(fx.incomePerYear ?? 0) * 3 + Math.abs(fx.incomePerDecade ?? 0) / 3 + (fx.clearBush ?? 0) / 2 + Math.abs(fx.emissionsKt ?? 0) / 10 + (fx.tiles?.length ?? 0) * 2;
+  n += Math.abs(fx.incomePerYear ?? 0) * 3 + Math.abs(fx.incomePerDecade ?? 0) / 3 + (fx.clearBush ?? 0) / 2 + Math.abs(fx.emissionsKt ?? 0) / 10 + (fx.tiles?.length ?? 0) * 2 + (fx.build ? 4 : 0);
   if (fx.mood) for (const k of Object.keys(fx.mood)) n += Math.abs(fx.mood[k] ?? 0) / 4;
   if (fx.flags) n += Object.keys(fx.flags).length;
   return Math.round(n * 10) / 10;

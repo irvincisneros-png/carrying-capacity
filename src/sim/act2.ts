@@ -1,6 +1,9 @@
 import { BUILDINGS } from './buildings';
+import { dcLeaseIncome } from './datacentre';
 import { climateAt } from './climate';
 import { ACT2_INCOME_MULT, ACT2_POP_GROWTH, computeMeters, economySnapshot, INCOME_PER_JOB, BASE_GRANT } from './economy';
+import { applyCapacityToMap, capacityIncomePerDecade, capSummary, stepCapacity } from './capacity';
+import { stepLearn } from './fieldkit';
 import { balanceGrid, baseDemand, GAS_AVAILABILITY } from './energy';
 import { commuteStats, workingBuildings } from './roads';
 import { emit, makeCtx, rollEvents } from './events';
@@ -248,8 +251,8 @@ function yearEnd(s: GameState, quiet: boolean): void {
 
   const snap = economySnapshot(s);
   const income = ((snap.filledJobs * INCOME_PER_JOB + BASE_GRANT) * sc.modifiers.budgetMult / 10) * ACT2_INCOME_MULT * (1 - 0.8 * unmet);
-  const incomeAdj = typeof s.flags['income.adj'] === 'number' ? s.flags['income.adj'] : 0;
-  s.lastIncome = Math.round(income + incomeAdj + mechIncome(s) + choiceIncomePerDecade(s) / 10);
+  const incomeAdj = (typeof s.flags['income.adj'] === 'number' ? s.flags['income.adj'] : 0) + dcLeaseIncome(s);
+  s.lastIncome = Math.round(income + incomeAdj + mechIncome(s) + (choiceIncomePerDecade(s) + capacityIncomePerDecade(s)) / 10);
   s.budget += s.lastIncome;
   payFund(s);
 
@@ -263,6 +266,9 @@ function yearEnd(s: GameState, quiet: boolean): void {
   a2.eqTempC = clim.tempC;
   s.tempC += (clim.tempC - s.tempC) * (1 - Math.exp(-1 / WARMING_TAU_YEARS));
   if (!quiet) layersYearEnd(s);
+  stepCapacity(s);
+  applyCapacityToMap(s, 1);
+  stepLearn(s);
 
   s.meters = computeMeters(s);
   for (const k of ['economy', 'society', 'environment'] as const) {
@@ -271,7 +277,7 @@ function yearEnd(s: GameState, quiet: boolean): void {
   const rec: YearRecord = {
     year: s.year, co2: s.co2, tempC: s.tempC, eqTempC: a2.eqTempC,
     emissionsKt: { ...em }, totalKt: total, meters: { ...s.meters }, budget: s.budget, population: s.population,
-    unmetFrac: unmet, renewableShare: a2.lastGrid?.renewableShare ?? 0, commuteKt: commute,
+    unmetFrac: unmet, renewableShare: a2.lastGrid?.renewableShare ?? 0, commuteKt: commute, cap: capSummary(s),
     estuaryHealth: estuaryHealth(s), meanHealth: meanHealth(s), reefHealth: meanReefHealth(s),
   };
   if (sc.mechanics?.includes('river')) rec.riverHealth = mechMetric(s, 'riverHealth') ?? undefined;

@@ -172,6 +172,48 @@ export function assumeRoads<T extends Pick<GameState, 'flags'>>(state: T): T {
   return { ...state, flags };
 }
 
+const REACH_CACHE = new WeakMap<Uint8Array, { version: number; key: string; mask: Uint8Array }>();
+
+/** Land and bush tiles joined (ignoring buildings) to some entrance: the only ground a road in from the edge can ever cover. */
+function entranceLand(state: GameState): Uint8Array | null {
+  const entrances = entranceList(state);
+  if (entrances.length === 0) return null;
+  const g = state.grid;
+  const key = entrances.join(',');
+  const hit = REACH_CACHE.get(g.kind);
+  if (hit && hit.version === state.version && hit.key === key) return hit.mask;
+  const n = g.w * g.h;
+  const mask = new Uint8Array(n);
+  const isLand = (i: number): boolean => g.kind[i] === TileKind.Land || g.kind[i] === TileKind.Bush;
+  const queue: number[] = [];
+  for (const e of entrances) if (e >= 0 && e < n && mask[e] === 0) { mask[e] = 1; queue.push(e); }
+  for (let qh = 0; qh < queue.length; qh++) {
+    for (const j of neighbours(queue[qh] as number, g.w, g.h)) if (mask[j] === 0 && isLand(j)) { mask[j] = 1; queue.push(j); }
+  }
+  REACH_CACHE.set(g.kind, { version: state.version, key, mask });
+  return mask;
+}
+
+/**
+ * True when a building that needs a road could never be joined to the entrance if put on this footprint: no tile beside it
+ * belongs to a stretch of land that has an entrance (a small island of land cut off by water, say). False when roads are not enforced.
+ */
+export function roadUnreachable(state: GameState, type: BuildingId, x: number, y: number, w: number, h: number): boolean {
+  if (!needsRoad(type)) return false;
+  const mask = entranceLand(state);
+  if (!mask) return false;
+  const g = state.grid;
+  for (let yy = y - 1; yy <= y + h; yy++) {
+    for (let xx = x - 1; xx <= x + w; xx++) {
+      const corner = (xx < x || xx >= x + w) && (yy < y || yy >= y + h);
+      if (corner || xx < 0 || yy < 0 || xx >= g.w || yy >= g.h) continue;
+      if (xx >= x && xx < x + w && yy >= y && yy < y + h) continue;
+      if (mask[yy * g.w + xx] === 1) return false;
+    }
+  }
+  return true;
+}
+
 /** Buildings that currently work (connected to the entrance, or exempt from needing a road). */
 export function workingBuildings(state: GameState): readonly PlacedBuilding[] {
   return roadAccess(state).workingBuildings;

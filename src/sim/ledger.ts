@@ -6,6 +6,7 @@
  * air is smoky), and creek fish follow the creek's health. They give the dilemma cards something to point at in
  * Act 1, before the Act 2 wildlife model (which needs restored habitat) starts.
  */
+import { fishStockFactor } from './capacity';
 import { measureTiles } from './economy';
 import { WATER_TOXIC } from './pollution';
 import { TileKind } from './types';
@@ -36,7 +37,7 @@ export function landSnapshot(s: GameState): LandSnapshot {
     creek,
     air: Math.round((1 - clamp01(measureTiles(s).housingAir / 9)) * 100),
     birds: Math.round(bush * 1.6 * (1 - 0.4 * clamp01(meanAir))),
-    fish: Math.round(water * 0.6 * (creek / 100)),
+    fish: Math.round(water * 0.6 * (creek / 100) * fishStockFactor(s)),
   };
 }
 

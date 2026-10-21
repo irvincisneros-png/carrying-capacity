@@ -150,7 +150,51 @@ The card shows each option's money in plain words ("Costs $14k now. About $8k mo
 
 **Play time.** Green Valley is estimated at about 35 minutes by `tests/helpers/playtime.ts` (six boom cards at 55 seconds each, up from one), so the scenario-select card says 28 to 38 minutes.
 
-## 8. Bigger maps (Round 6, WP6)
+
+## 8. Technology: the innovation timeline and the data centre (Round 6, WP9)
+
+Owner request: "Is there any tech research? Or somewhere down the line showing how adding large datacenters damage the environment, take the water and electricity?" Sources are in `docs/research/wp8-wp9-facts.md`; figures that were flagged uncertain there are worded cautiously ("reported", "estimated") in the cards.
+
+**Act 1 innovation timeline** (`content/innovations.ts`, scheduler `sim/innovations.ts`). Eight real innovations are offered at decade turns as dilemma cards (ids `inn-*`, three options each, the last always "do nothing", which changes and costs nothing). They use the ordinary card schema, evidence button and `choose` action, but have their own scheduler: at most two a turn and five in a game (Green Valley: one, the CFC card, to stay inside its 28 to 38 minute play time), outside the regular cards' 20-year gap, and an unanswered one lapses at the next turn with no Society penalty. Effects are small and one-off: money, `tiles` pollution multipliers, `emissionsKt` and Society.
+
+| Window | Card | Adopt (cost, effect) | Honest note in the evidence |
+|---|---|---|---|
+| 1970-89 | Clean Air Act (1961) and Clean Waters Act (1970) | -$22k, air x0.8, creek x0.88, -$1k a decade | End-of-pipe focus; a stronger EPA in 1991 |
+| 1986-2009 | Unleaded petrol and catalytic converters | -$18k, air x0.85 | Leaded petrol ended only in 2002, a 17-year phase-out |
+| 1987-2009 | CFC phase-out (Montreal Protocol, 1987; Australia 1989) | -$12k, -6 kt CO2, Society +2, ozone good-news note a decade later | The success story: met every target |
+| 1990-2009 | Sewage: treatment plant or deep ocean outfall (1990-91) | plant -$30k, water x0.8; outfall -$16k, beach x0.7 | "Moving the problem offshore" |
+| 1990-2019 | Kerbside recycling | -$15k, -6 kt CO2, soil x0.92 | Dirty loads are rejected; results vary by council |
+| 2004-19 | BASIX (2004) | -$12k, -8 kt CO2 | Targets 40% less water, 25% less greenhouse gas; totals are industry figures |
+| 2010-20 | Solar Bonus Scheme (2010) | modest -$12k, -5 kt; generous (60 cents) -$30k, -10 kt, -$2k a decade | Great uptake, price set too high |
+| 2000-20 | Container deposits (NSW 2017) | -$10k, creek x0.94, soil x0.96 | The operator's own litter figures |
+
+The scripted players pass on the timeline by default (they were tuned before it existed), and `tests/innovations.test.ts` plays all of them adopting every innovation and still winning on every event seed.
+
+**The data centre** (`sim/datacentre.ts`, `content/dilemmas/datacentre.ts`). From 2035 plus up to seven years (set by the seed), a tech company offers a data centre once, on top of the regular cards (it does not use up one of the decade's slots, and lapses after five years with no penalty). Net Zero City, River Town and Red Dirt place a real building (`datacentre`: 3x3, painterly sheds with rooftop chillers and a substation, never in the build menu); Coal Coast and Reef Island get a lighter card with the money and a one-off emissions cost, and no building. Options: decline; accept as offered; accept with conditions (the evidence-backed one).
+
+| | As offered | With conditions |
+|---|---|---|
+| Money | +$20k now, +$4k a year, stress +2, Society -1 | -$6k now (connections), +$3k a year, Society +1 |
+| Electricity | 9.5 units flat, day and night (a suburb is 4): renewable share down, gas and emissions up, blackouts if the grid cannot cover it | the company's own new solar, wind and batteries cover half: 5.5 units (air cooling adds 10%) |
+| River Town | evaporative cooling takes 0.9 flow units a season from the farms' share first, then the river's environmental flow | recycled water, 0.06 |
+| Red Dirt | pumps 0.3 units a season from the aquifer (about 1 point a year) | air cooling, 0.015 |
+| Net Zero City | +7% heat deaths in a heatwave per data centre (waste heat) | waste heat to a pool or homes: +1% |
+
+Flags `dc.cool` (0 evaporative, 1 recycled, 2 air), `dc.ppa`, `dc.heat`, `dc.accepted` carry the terms, so old saves need nothing. `tests/datacentre.test.ts` covers accepting as offered (grid, river, aquifer and heat all take a hit) against conditions and declining. The scripted players decline the offer by default; `tests/innovations.test.ts` also plays Red Dirt, Net Zero City and River Town accepting it with conditions.
+## 9. The learning layer (Round 6, WP8)
+
+Owner request: students should see the environmental science behind the choices. Everything below is in both acts of all six scenarios, deterministic, and kept in `flags` or the optional `GameState.learn`, so old saves load unchanged. Facts and sources are in `docs/research/wp8-wp9-facts.md`.
+
+**Land limits meter (`sim/capacity.ts`, `content/capacity.ts`, `ui/capacity.ts`).** A row in the demand-bar block: five pips (water, food and farmland, fish and timber, energy, CO2 and waste) and a one-line reading ("Overshoot: Energy, CO2 and waste"). Each line is what the town uses in a year against what the land renews: water against creek, wetland and bush catchment; food against farms and open land; the tighter of fish and timber against the creek, estuary, reef and bush; energy against renewable output; CO2 and waste against bush, regrowth, wetlands and sea. A ratio above 1 is overshoot (energy is judged over 1.25, because a grid that is nearly all renewable is fine). Click for the panel with the kid-friendly definitions, the five bars and the three stocks. Overshoot runs down three stocks in `flags` (`cc.flow`, `cc.fish`, `cc.soil`, 100 = untouched): at most 4 points a year, floor 40, and +1.5 a year back up under the line. A lower stock lowers what that line renews, and has three small knock-ons: a little dirt in a low creek (at most about 0.07 per decade), up to 1.2k a farm a decade lost to tired soil, and fewer fish in the ledger's fish guide. A city's water, food and fish come from outside its map, so those lines are shown but not counted, and do not run its own creek down. Per-place tuning is in `content/capacity.ts`. Calibration and the scripted-player results are recorded in `tests/capacity.test.ts`: every thoughtful run ends under the line on every line, idle runs end over on at least two lines, and a coal town goes over on CO2 and energy at the height of the boom. The ratios are in the history records (`cap`) and the graphs CSV.
+
+**Water field kit (`sim/fieldkit.ts`, `content/waterkit.ts`, `ui/fieldkit.ts`).** "Test the creek" ($2k, once a decade in Act 1 and once a year in Act 2) reports dissolved oxygen, total nitrogen and phosphorus, turbidity, pH and conductivity against the NSW and ANZECC trigger values (coastal lowland values for Green Valley, Coal Coast, Reef Island and Net Zero City; Murray-Darling values for River Town and Red Dirt), plus a water bug survey with a SIGNAL2 score. The numbers are derived from the sim's water pollution, farm runoff, sewage outfalls, wetlands, lost bush, creek flow, soil contamination and (Red Dirt) the aquifer. Before skipping a decade the player may pick better, same or worse and write a line; the kit shows the prediction next to the result at the end of the decade (a free survey closes it if they did not test, or the next paid test does). Readings, predictions and results go in the graphs CSV as their own tables, and in the printable report.
+
+**"Why did that happen?" (`content/causes.ts`, `sim/causes.ts`, `ui/causes.ts`).** Clicking a toast, an event-log line or a "Why..." link under the decade ledger opens a chain of three to five boxes for fish kills, algal blooms, smog, species loss, heat deaths, coral bleaching, floods, drought, erosion, bushfire, blackout, crown-of-thorns and storm surge. Boxes with a house mark show the player's own causes (their farms, outfalls, lost bush, warming, grid).
+
+**Extras.** The card's "Who wins, who loses" shows residents, animals and future generations for every option (`content/winlose.ts`: derived from the option's preview and effects, with the Green Valley cards written by hand). The Field guide (`content/glossary.ts`, `ui/glossary.ts`) underlines each key term the first time it appears in a modal or toast, with a tooltip; the book button opens a menu with the guide, the water kit, the land limits and My household. My household (`content/household.ts`) links the town's numbers to five areas of the student's own life with three things to try each. The end screen has My household and Print my report buttons; the print view (`window.print`, print stylesheet in `ui/learn.css`) has the report card, the numbers, the water tests, big decisions, reflections, the letter and the ticked ideas. Reflections, the letter, ticks and terms met are saved with the game. The hidden costs of solar, wind and batteries (`content/hiddencosts.ts`) are on the build cards, in the Inspect panel and in a new circular-economy review ("Clean tech: the hidden costs"), balanced by what can be done about them.
+
+**Layout.** The clock now sits in the HUD's centre column under the demand bars, and the Act 1 goals sit above the needs panel and Skip button in one right-hand column, so nothing overlaps at 1280x720, 1366x768, 1600x900 or 375x812. `tools/cdp-shots.mjs` takes the screenshots and checks for overlaps.
+## 10. Bigger maps (Round 6, WP6)
 
 Owner note: "the actual map needs to be much larger"; only the part on screen should cost anything to draw.
 

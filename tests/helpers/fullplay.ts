@@ -10,6 +10,7 @@ import {
 import type { Action, GameState } from '../../src/sim';
 import { goodPlayPlan, moveFarmsInland } from './goodplay';
 import { connectedOrNull } from './roads';
+import { scriptedPick } from './scen';
 import type { BuildingId } from '../../src/sim';
 
 type Plan = (s: GameState) => GameState;
@@ -71,7 +72,7 @@ export function answerPrompts(state: GameState, maxCost = Infinity): GameState {
   for (const id of s.dilemmas.pending.slice()) {
     const d = getDilemma(s.scenarioId, id);
     if (!d) continue;
-    const pref = DILEMMA_PICKS[id] ?? d.options.find((o) => o.evidenceBacked)?.id ?? d.options[0]?.id;
+    const pref = DILEMMA_PICKS[id] ?? scriptedPick(d.id, d.options) ?? d.options.find((o) => o.evidenceBacked)?.id ?? d.options[0]?.id;
     const order = [pref, ...d.options.map((o) => o.id)];
     for (const opt of order) {
       if (!opt) continue;

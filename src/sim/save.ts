@@ -262,6 +262,9 @@ export function deserialize(text: string | null): GameState | null {
       state.circular = raw.circular as GameState['circular'];
       state.satellites = raw.satellites as GameState['satellites'];
     }
+    if (isObj(raw.learn) && Array.isArray(raw.learn.kit) && Array.isArray(raw.learn.predictions) && isObj(raw.learn.reflections) && Array.isArray(raw.learn.household) && Array.isArray(raw.learn.terms)) {
+      state.learn = { ...(raw.learn as unknown as NonNullable<GameState['learn']>), lastTest: fin(raw.learn.lastTest) ? raw.learn.lastTest : -1, letter: typeof raw.learn.letter === 'string' ? raw.learn.letter : '' };
+    }
     if (ver === 1 && phase === 'turning-point') enterTurningPoint(state);
     if (ver < 3 && (phase === 'act2' || phase === 'epilogue' || phase === 'failed')) {
       // Migrating a game that is already in Act 2: legacy sites are the buildings from before the transition.

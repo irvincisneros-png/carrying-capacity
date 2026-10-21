@@ -17,6 +17,18 @@ export interface Picks {
 }
 
 /** Answers every pending story question: the named pick if there is one, else the evidence-backed option, else the cheapest. */
+/**
+ * The scripted towns were tuned (margins and all) before the WP9 additions, so by default they pass on the innovation
+ * timeline (the last, "do nothing" option, which changes nothing) and say no to the tech company. tests/innovations.test.ts
+ * and tests/datacentre.test.ts switch the policy to play them.
+ */
+export const WP9_POLICY: { innovations: 'skip' | 'adopt'; datacentre: 'decline' | 'offered' | 'conditions' } = { innovations: 'skip', datacentre: 'decline' };
+export function scriptedPick(id: string, options: readonly { id: string; evidenceBacked?: boolean }[]): string | undefined {
+  if (id.startsWith('inn-')) return WP9_POLICY.innovations === 'skip' ? options[options.length - 1]?.id : options.find((o) => o.evidenceBacked)?.id;
+  if (id === 'dc-offer') return ({ decline: 'dc-decline', offered: 'dc-offered', conditions: 'dc-conditions' } as const)[WP9_POLICY.datacentre];
+  return undefined;
+}
+
 export function answerPrompts(state: GameState, picks: Picks = {}, maxCost = Infinity): GameState {
   let s = state;
   const cast = CAST[s.scenarioId] ?? [];
@@ -35,7 +47,9 @@ export function answerPrompts(state: GameState, picks: Picks = {}, maxCost = Inf
   for (const id of s.dilemmas.pending.slice()) {
     const d = getDilemma(s.scenarioId, id);
     if (!d) continue;
-    const pref = picks.dilemmas?.[id] ?? d.options.find((o) => o.evidenceBacked)?.id ?? d.options.slice().sort((a, b) => (b.effects.budget ?? 0) - (a.effects.budget ?? 0))[0]?.id;
+    // The scripted towns are tuned to a grid and a river without a data centre, so they say no to the tech company
+    // (tests/datacentre.test.ts covers accepting it, as offered and with conditions).
+    const pref = picks.dilemmas?.[id] ?? scriptedPick(d.id, d.options) ?? d.options.find((o) => o.evidenceBacked)?.id ?? d.options.slice().sort((a, b) => (b.effects.budget ?? 0) - (a.effects.budget ?? 0))[0]?.id;
     const order = [pref, ...d.options.map((o) => o.id)];
     for (const opt of order) {
       if (!opt) continue;

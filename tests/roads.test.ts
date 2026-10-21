@@ -328,3 +328,13 @@ describe('the Green Valley tutorial road step', () => {
     expect(tutorialStatus(s).steps.find((x) => x.id === 'roads')?.done).toBe(true);
   });
 });
+
+describe('placement rejects ground no road can reach', () => {
+  it('Green Valley (default seed): the cut-off pocket at (10,17) says "No road can reach here"', async () => {
+    const { createGame, canPlace } = await import('../src/sim');
+    const s = createGame('green-valley');
+    const c = canPlace(s, 'cottage', 10, 17);
+    expect(c.ok).toBe(false);
+    expect(c.reason).toBe('No road can reach here');
+  });
+});

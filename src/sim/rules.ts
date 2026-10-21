@@ -1,5 +1,6 @@
 import { BUILDINGS, footprintFor, isBuildingId } from './buildings';
 import type { BuildingDef } from './buildings';
+import { roadUnreachable } from './roads';
 import { getScenario } from './scenarios';
 import { inBounds } from './terrain';
 import { TILE_KIND_NAMES, TileKind } from './types';
@@ -40,6 +41,8 @@ const HOME_SCENARIOS: Partial<Record<BuildingId, readonly GameState['scenarioId'
   transitline: ['coal-coast', 'net-zero-city'],
   greensuburb: ['coal-coast', 'net-zero-city'],
   parkland: ['coal-coast', 'red-dirt', 'net-zero-city'],
+  /** Never in the build menu: it is placed when you accept a tech company's offer (see sim/datacentre.ts). */
+  datacentre: [],
 };
 
 export function availability(scenarioId: GameState['scenarioId'], id: BuildingId): Availability {
@@ -222,6 +225,8 @@ export function canPlace(
     );
     if (!ok) return fail('needs-nearby-building', nb.reason, fp, av.cost, bush);
   }
+
+  if (roadUnreachable(state, buildingId, x, y, w, h)) return fail('bad-siting', 'No road can reach here', fp, av.cost, bush);
 
   if (state.budget < av.cost) {
     return fail('no-funds', `Not enough money: ${def.name} costs ${av.cost}`, fp, av.cost, bush);

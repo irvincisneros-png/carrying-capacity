@@ -169,3 +169,19 @@ describe('following the tutorial from start to finish', () => {
     expect(s.flags['metric.wildlifeThriving']).toBe(1);
   });
 });
+
+describe('tutorial steps latch', () => {
+  it('the road step stays done after a connected farm is demolished', async () => {
+    const { buildN } = await import('./helpers/autoplay');
+    let s = createGame('green-valley');
+    s = buildN(s, 'cottage', 3).state;
+    s = buildN(s, 'farm', 1).state;
+    const road = (st: GameState) => tutorialStatus(st).steps.find((x) => x.id === 'roads')!.done;
+    expect(road(s)).toBe(true);
+    const farm = s.buildings.find((b) => b.type === 'farm')!;
+    const r = applyAction(s, { type: 'demolish', x: farm.x, y: farm.y });
+    expect(r.result.ok).toBe(true);
+    expect(road(r.state)).toBe(true);
+    expect(r.state.flags['tut.done.roads']).toBe(true);
+  });
+});

@@ -4,6 +4,7 @@ import { BUILDINGS, BUILDING_IDS } from '../sim/buildings';
 import { availability } from '../sim/rules';
 import { getScenario } from '../sim/scenarios';
 import { cutPerBuild } from '../sim/outlook';
+import { HIDDEN_COSTS } from '../content/hiddencosts';
 import type { BuildingId, GameState } from '../sim/types';
 import { hideDraft, NEUTRAL_COMMUNITY } from './draft';
 import { clear, h, svg } from './dom';
@@ -206,6 +207,7 @@ export class Toolbar {
       `<b>${av.name ?? d.name}</b> · $${av.cost}k · ${size}<br>${av.blurb ?? d.blurb}` +
       `<div class="row">${facts.map((f) => `<span>${f}</span>`).join('')}</div>` +
       value +
+      (HIDDEN_COSTS[id] ? `<div class="row hidden-cost"><span>⛏ <b>Hidden cost:</b> ${HIDDEN_COSTS[id]?.short}</span></div>` : '') +
       (where ? `<div class="row"><span>📍 ${where}</span></div>` : '') +
       (id in BRUSH_SPACING ? `<div class="row"><span>🖌 Hold and drag to place ${(BRUSH_SPACING[id] ?? 1) > 1 ? `several, about ${BRUSH_SPACING[id]} tiles apart` : 'a row'}</span></div>` : '') +
       (s.year < av.unlock ? `<div class="row"><span>🔒 Unlocks in ${av.unlock}</span></div>` : ''));
