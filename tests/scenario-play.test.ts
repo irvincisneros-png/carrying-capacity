@@ -303,7 +303,9 @@ describe('Green Valley: the tutorial is a short, friendly game', () => {
   });
   it('has two residents, eight cards (six in the boom), and two species', () => {
     expect((CAST['green-valley'] ?? []).map((r) => r.id)).toEqual(['jo-marsh', 'ali-rahman']);
-    expect(valley.dilemmas.decisions.filter((d) => d.optionId !== 'ignored')).toHaveLength(8);
+    // Eight regular cards plus the one innovation-timeline card (WP9: the CFC success story).
+    expect(valley.dilemmas.decisions.filter((d) => d.optionId !== 'ignored' && !d.dilemmaId.startsWith('inn-'))).toHaveLength(8);
+    expect(valley.dilemmas.decisions.filter((d) => d.dilemmaId.startsWith('inn-'))).toHaveLength(1);
     expect(speciesFor('green-valley').map((x) => x.id)).toEqual(['koala', 'frogs']);
     for (const r of CAST['green-valley'] ?? []) expect(beatsFired(valley, r.id)).toBeGreaterThanOrEqual(3);
   });

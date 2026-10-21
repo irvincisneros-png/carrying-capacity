@@ -98,13 +98,13 @@ describe('a thoughtful run reaches three stars', () => {
     const start = getScenario('coal-coast').act2.startYear;
     const per = new Array<number>(8).fill(0);
     // Every card is answered in the year it arrives, so the decisions log is the full list of offers (cards can recur).
-    for (const d of thoughtful.dilemmas.decisions) if (d.year >= start) per[Math.floor((d.year - start) / 10)] = (per[Math.floor((d.year - start) / 10)] ?? 0) + 1;
+    for (const d of thoughtful.dilemmas.decisions) if (d.year >= start && d.dilemmaId !== 'dc-offer') per[Math.floor((d.year - start) / 10)] = (per[Math.floor((d.year - start) / 10)] ?? 0) + 1;
     for (let w = 0; w < 7; w++) {
       expect(per[w], `decade ${start + w * 10}s`).toBeGreaterThanOrEqual(2);
       expect(per[w], `decade ${start + w * 10}s`).toBeLessThanOrEqual(3);
     }
     expect(per[7]).toBeGreaterThanOrEqual(1);
-    const act1Cards = Object.values(thoughtful.dilemmas.offered).filter((y) => y < start).length;
+    const act1Cards = Object.entries(thoughtful.dilemmas.offered).filter(([id, y]) => y < start && !id.startsWith('inn-')).length;
     expect(act1Cards).toBeGreaterThanOrEqual(4);
     expect(act1Cards).toBeLessThanOrEqual(5);
     expect(thoughtful.dilemmas.decisions.filter((d) => d.optionId === 'ignored')).toHaveLength(0);

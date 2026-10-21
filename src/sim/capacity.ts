@@ -68,7 +68,7 @@ export const CAP = {
   waterPerPerson: 0.5,
   waterFarm: 14,
   waterDripFarm: 7,
-  waterIndustry: { factory: 10, steelworks: 22, coalpower: 18, coalmine: 6, gaspower: 4, resort: 10, port: 4 } as Partial<Record<BuildingId, number>>,
+  waterIndustry: { factory: 10, steelworks: 22, coalpower: 18, coalmine: 6, gaspower: 4, resort: 10, port: 4, datacentre: 6 } as Partial<Record<BuildingId, number>>,
   waterRiver: 6,
   waterWetland: 4,
   waterEstuary: 3,

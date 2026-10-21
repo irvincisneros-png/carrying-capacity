@@ -12,7 +12,7 @@ then `docs/GAMEPLAY.md` (the design) and `docs/reviews/qa-playthrough.md` (three
   wildlife with named families, residents with story beats and moods, dilemma cards with evidence, Caring for Country
   (draft), satellites and early warnings, circular economy (repurpose / recycle / landfill and research), community
   projects (late-game money sink), scenario policies (water sharing, drought plan, starfish control, turtle lighting,
-  water restrictions), scenario mechanics (river, reef, outback, city heat), graphs with CSV export, and the learning layer (land limits meter, water field kit with predictions, cause chains, field guide, who wins and loses, My household, printable report; see GAMEPLAY.md section 8).
+  water restrictions), scenario mechanics (river, reef, outback, city heat), graphs with CSV export, and the learning layer (land limits meter, water field kit with predictions, cause chains, field guide, who wins and loses, My household, printable report; see GAMEPLAY.md section 9).
 - **Quality bar**: `npx vitest run` (about 670 tests including whole-scenario balance runs on four event seeds),
   `npx tsc --noEmit -p .` and `npx vite build` all clean. No console errors in the QA replays. 60 fps on the
   test machine with 4× CPU throttling.
@@ -74,6 +74,10 @@ then `docs/GAMEPLAY.md` (the design) and `docs/reviews/qa-playthrough.md` (three
 6. Tests: a scripted thoughtful player and an idle player in `tests/helpers/`, then add the scenario to
    `tests/scenario-play.test.ts` and, if it has an Act 1, to `tests/balance-seeds.test.ts`. The thoughtful run must
    win on every seed, the idle run must not.
+
+## Innovations and the data centre (WP9)
+
+Extra cards live outside the regular decks: `inn-*` (Act 1 timeline, `content/innovations.ts`) and `dc-offer` (`content/dilemmas/datacentre.ts`), each with a scheduler in `sim/innovations.ts` (`offerInnovations` at the Act 1 decade turn, `offerDataCentre` at the Act 2 year end) that does not touch the regular cards' gap or per-decade count. `getDilemma` finds them; `dilemmasFor` does not list them. To add an innovation, add a card to `INNOVATION_CARDS` (last option "do nothing", `effects: {}`) and check `tests/innovations.test.ts`. The data centre is placed by the `build: 'datacentre'` card effect and read by `sim/energy.ts` (flat load), `mechanics/river.ts` (cooling water), `mechanics/outback.ts` (aquifer) and `mechanics/heatCore.ts` (heat). Scripted test players skip innovations and decline the data centre unless `WP9_POLICY` (tests/helpers/scen.ts) says otherwise. The scripted full-game runs are chaotic at the margin (a few dollars in Act 1 can move a layout and flip a goal), so after any change to card costs run the whole suite, not just the new tests.
 
 ## Map sizes (enlarged 2026-10-21)
 

@@ -1,4 +1,5 @@
 /** River Town hooks: the seasonal water budget, salt on irrigated land, billabongs, and farm income. */
+import { dcRiverDraw } from '../datacentre';
 import { getScenario } from '../scenarios';
 import { seasonWeather } from '../season';
 import { emitStory } from '../story';
@@ -29,7 +30,9 @@ export function riverSeason(s: GameState, idx: number): void {
   const tDem = townDemand(s, season, drought);
   const fDem = farmDemand(s, season, drought);
   const tCap = alloc.town * flow;
-  const fCap = alloc.farms * flow;
+  // A data centre's cooling water comes out of the farms' share first, then out of what the river keeps for itself.
+  const dcDraw = dcRiverDraw(s, season);
+  const fCap = Math.max(0, alloc.farms * flow - dcDraw);
 
   // Town water: take what is needed (and top up storage) within the allocation; storage covers the rest.
   const cap = storageCapacity(s);
@@ -69,7 +72,7 @@ export function riverSeason(s: GameState, idx: number): void {
   setFlag(s, 'w.yq', flag(s, 'w.yq') + fDem);
 
   // What is left stays in the river.
-  let extraction = townTake + fRiver;
+  let extraction = townTake + fRiver + dcDraw;
   const envNeed = envFloor;
   // Drought plan in a normal season: bank half of what flows past above the river's own share (never the river's share).
   if (!drought && plan) {
