@@ -54,3 +54,7 @@ export { TUTORIAL_STEPS } from '../content/tutorial';
 export * from './upgrades';
 export * from './act1goals';
 export * from './ledger';
+export * from './capacity';
+export * from './fieldkit';
+export * from './learnTypes';
+export * from './causes';

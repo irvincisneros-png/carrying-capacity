@@ -19,10 +19,23 @@ import { bIcon, UI_ICONS } from './icons';
 import { openModal, type ModalHandle } from './modal';
 import { objectiveRow } from './act2';
 import { act1Badge, act1IntroBox, act1TurningNote, ledgerView } from './act1';
+import type { ChainKey } from '../content/causes';
+import { learnOf } from '../sim/fieldkit';
+import { LEARN_ICONS } from './learnicons';
 import { portrait, reportCardView, speakerFrom } from './empathy';
 import type { ReportCard, Speaker } from './types';
 import { CAST } from '../content/residents';
 import { SIMPLIFIED } from '../content/simplified';
+
+/** A reflection box that remembers what the player wrote (saved with the game) and shows it again. */
+export function reflectBox(key: string, initial: string, save?: (key: string, text: string) => void, placeholder = 'Your thoughts (copy these into your workbook)', rows = 2): HTMLTextAreaElement {
+  const t = h('textarea', { class: 'reflect', rows, placeholder, 'data-reflect': key.slice(0, 40) }) as HTMLTextAreaElement;
+  t.value = initial;
+  let timer = 0;
+  t.addEventListener('input', () => { window.clearTimeout(timer); timer = window.setTimeout(() => save?.(key, t.value), 500); });
+  t.addEventListener('blur', () => { window.clearTimeout(timer); if (t.value !== initial) save?.(key, t.value); });
+  return t;
+}
 
 const SCEN_ICON: Record<ScenarioId, string> = {
   'green-valley': UI_ICONS.sprout,
@@ -137,7 +150,14 @@ function goalsBox(sc: ReturnType<typeof getScenario>, act2Start: boolean): HTMLE
 }
 
 // ---------------------------------------------------------------- decade report
-export function showDecadeReport(r: DecadeReport, onClose: () => void): ModalHandle {
+export interface ReportExtras {
+  /** Shown under the ledger: for example the result of the player's creek prediction. */
+  node?: HTMLElement | null;
+  /** "Why did that happen?" links under the ledger open a cause chain. */
+  onWhy?: (key: ChainKey, what: string) => void;
+}
+
+export function showDecadeReport(r: DecadeReport, onClose: () => void, extra?: ReportExtras): ModalHandle {
   const total = r.totalKt;
   const bars = h('div', { class: 'emis-bars' }, ...EMISSION_CATEGORIES.filter((c) => r.emissionsKt[c] > 0).map((c) => h('i', { style: `width:${(r.emissionsKt[c] / Math.max(1, total)) * 100}%;background:${CAT_COL[c]}`, title: `${CAT_NAME[c]}: ${r.emissionsKt[c].toFixed(0)} kt` })));
   const md = (k: 'environment' | 'society' | 'economy', label: string): HTMLElement => {
@@ -156,7 +176,8 @@ export function showDecadeReport(r: DecadeReport, onClose: () => void): ModalHan
     total > 0 ? h('div', null, h('div', { class: 'graph-title' }, 'Where the emissions came from', h('span', null, `biggest: ${CAT_NAME[r.topSource]}`)), bars,
       h('div', { class: 'legend' }, ...EMISSION_CATEGORIES.filter((c) => r.emissionsKt[c] > 0).map((c) => h('span', null, h('i', { style: `background:${CAT_COL[c]}` }), `${CAT_NAME[c]} ${r.emissionsKt[c].toFixed(0)}`)))) : null,
     h('div', { class: 'stat-grid' }, md('environment', 'Environment'), md('society', 'Society'), md('economy', 'Economy')),
-    ledgerView(r),
+    ledgerView(r, extra?.onWhy),
+    extra?.node ?? null,
     !r.actComplete && r.demand ? h('div', { class: 'stat', style: 'background:#fff1d6' }, h('small', null, 'What the town needs now'), h('div', { style: 'font-weight:700' }, r.demand)) : null,
     r.fact ? h('div', { class: 'fact' }, svg(UI_ICONS.info), h('p', null, h('b', null, `Did you know? (${r.fact.year}) `), degC(r.fact.text))) : null,
     h('div', { class: 'modal-actions' }, h('button', { class: 'btn primary', onclick: () => m.close() }, r.actComplete ? 'See where you ended up' : 'Keep building')),
@@ -165,7 +186,7 @@ export function showDecadeReport(r: DecadeReport, onClose: () => void): ModalHan
 }
 
 // ---------------------------------------------------------------- present day + turning point
-export function showTurningPoint(s: GameState, onBegin: () => void, storyOnly = false): void {
+export function showTurningPoint(s: GameState, onBegin: () => void, storyOnly = false, save?: (key: string, text: string) => void): void {
   const tp = s.turningPoint;
   const last = s.history[s.history.length - 1];
   const sources = last ? [...EMISSION_CATEGORIES].map((c) => ({ c, v: s.history.reduce((n, r) => n + r.emissionsKt[c], 0) })).sort((a, b) => b.v - a.v).slice(0, 3) : [];
@@ -186,7 +207,7 @@ export function showTurningPoint(s: GameState, onBegin: () => void, storyOnly = 
         h('div', { class: 'stat' }, h('small', null, 'Economy'), h('b', null, String(Math.round(s.meters.economy)))),
         h('div', { class: 'stat' }, h('small', null, 'Top 3 sources'), h('div', { style: 'font-size:13px;font-weight:800' }, sources.map((x) => `${CAT_NAME[x.c]} ${fmtInt(x.v)} kt`).join(' · ')))),
       h('h3', { style: 'margin-top:8px' }, 'Think about it'),
-      ...prompts.map((p) => h('div', { style: 'margin-top:8px' }, h('b', { style: 'font-size:14px' }, p), h('textarea', { class: 'reflect', rows: 2, placeholder: 'Your thoughts (copy these into your workbook)' }))),
+      ...prompts.map((p) => h('div', { style: 'margin-top:8px' }, h('b', { style: 'font-size:14px' }, p), reflectBox(p, learnOf(s).reflections[p] ?? '', save))),
       h('div', { class: 'modal-actions' }, h('button', { class: 'btn primary', onclick: () => { m.close(); step2(); } }, 'Continue')),
     ], { wide: true, closable: false });
   };
@@ -254,7 +275,14 @@ function castSpeaker(id: ScenarioId, residentId: string): Speaker {
 }
 
 // ---------------------------------------------------------------- epilogue / failure
-export function showEnding(s: GameState, onTitle: () => void, card?: ReportCard, next?: { label: string; go: () => void } | null, unlockedNote?: string): void {
+export interface EndingHooks {
+  /** Save a reflection answer (by prompt) or the letter. */
+  save(key: string, text: string): void;
+  household(): void;
+  print(): void;
+}
+
+export function showEnding(s: GameState, onTitle: () => void, card?: ReportCard, next?: { label: string; go: () => void } | null, unlockedNote?: string, hooks?: EndingHooks): void {
   const failed = s.phase === 'failed';
   let objs: ReturnType<typeof objectiveStatus> = [];
   try { objs = objectiveStatus(s); } catch { objs = s.a2.outcome?.objectives ?? []; }
@@ -274,9 +302,12 @@ export function showEnding(s: GameState, onTitle: () => void, card?: ReportCard,
     GraphsPanel.staticGraphs(s),
     h('h3', null, 'Think about it'),
     ...(rc.reflection?.length ? rc.reflection : ['What would you tell Sam and Jordan about the world you left them?']).map((q) =>
-      h('div', { style: 'margin-top:8px' }, h('b', { style: 'font-size:14px' }, q), h('textarea', { class: 'reflect', rows: 2, placeholder: 'Your thoughts' }))),
+      h('div', { style: 'margin-top:8px' }, h('b', { style: 'font-size:14px' }, q), reflectBox(q, learnOf(s).reflections[q] ?? (/letter/i.test(q) ? learnOf(s).letter : ''), hooks ? (k, t) => { hooks.save(k, t); if (/letter/i.test(k)) hooks.save('letter', t); } : undefined, 'Your thoughts', /letter/i.test(q) ? 4 : 2))),
+    hooks ? h('p', { class: 'muted', style: 'font-size:12.5px;margin:6px 0 0' }, 'What you write here is saved with your game, so it will still be here if you come back.') : null,
     unlockedNote ? h('div', { class: 'fact', style: 'background:#fff1c8' }, svg(UI_ICONS.star), h('p', null, h('b', null, 'Unlocked: '), unlockedNote)) : null,
     h('div', { class: 'modal-actions' },
+      hooks ? h('button', { class: 'btn teal', 'data-qa': 'open-household', onclick: () => hooks.household() }, svg(LEARN_ICONS.house), 'My household') : null,
+      hooks ? h('button', { class: 'btn', 'data-qa': 'open-print', onclick: () => hooks.print() }, svg(LEARN_ICONS.printer), 'Print my report') : null,
       h('button', { class: `btn ${next ? '' : 'primary'}`, onclick: onTitle }, 'Back to title'),
       next ? h('button', { class: 'btn primary', onclick: next.go }, svg(UI_ICONS.play), next.label) : null),
   ], { wide: true, closable: true });

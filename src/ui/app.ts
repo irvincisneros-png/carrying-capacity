@@ -28,6 +28,14 @@ import { Act1GoalsPanel, upgradeBlock } from './act1';
 import { showDecadeReport, showEnding, showIntro, showSettings, showTitle, showTurningPoint } from './screens';
 import { Toolbar, type Tool } from './toolbar';
 import { EVENT_NAMES } from '../content/act2';
+import { HIDDEN_COSTS } from '../content/hiddencosts';
+import { learnOf } from '../sim/fieldkit';
+import { openCapacityPanel } from './capacity';
+import { chainOpener, openCauseChain } from './causes';
+import { FieldKitPanel, latestPredictionView, promptPrediction } from './fieldkit';
+import { FieldGuide, glossarySeen, onGlossaryNew, setGlossarySeen } from './glossary';
+import { openPrintReport, showHousehold } from './household';
+import { LEARN_ICONS } from './learnicons';
 import * as SIM from '../sim';
 
 const params = new URLSearchParams(location.search);
@@ -83,6 +91,11 @@ export class App {
   private projectNudge = '';
   private overlayFn: ((s: GameState) => ArrayLike<number>) | null = null;
   private overlayRamp: import('../render/overlay').Ramp = 'heat';
+  kit: FieldKitPanel;
+  guide: FieldGuide;
+  private learnMenu: HTMLElement;
+  private rightCol: HTMLElement;
+  private lastPredPrompt = -1;
 
   constructor(root: HTMLElement) {
     this.renderer = new GameRenderer(root);
@@ -105,6 +118,8 @@ export class App {
       log: () => this.openLog(),
       voices: () => { this.loadVoices(); this.voices.open(); },
       species: () => this.species.open(),
+      capacity: () => { sfx('click'); openCapacityPanel(this.game.state); },
+      learn: () => this.toggleLearnMenu(),
     });
     this.toolbar = new Toolbar(this.tip);
     this.toolbar.onTool = (t) => this.onTool(t);
@@ -168,6 +183,25 @@ export class App {
     document.body.appendChild(this.warnEl);
     this.droughtEl = h('div', { class: 'toast panel bad hidden', role: 'alert', style: 'position:fixed;top:140px;left:50%;transform:translateX(-50%);z-index:44;width:min(440px, calc(100vw - 24px))' });
     document.body.appendChild(this.droughtEl);
+    this.kit = new FieldKitPanel();
+    this.kit.onTest = (site) => {
+      const r = this.game.dispatch({ type: 'learn', op: 'test', site } as SIM.Action);
+      if (r.ok) { sfx('good'); floater(window.innerWidth / 2, 120, `-$${r.spent}k`, 'cost'); } else { sfx('error'); toast('Not now', degC(r.reason ?? ''), 'warn', UI_ICONS.info, 4000); }
+      this.kit.render(this.game.state);
+    };
+    this.kit.onPredict = (choice, text) => {
+      const r = this.game.dispatch({ type: 'learn', op: 'predict', choice, text } as SIM.Action);
+      if (r.ok) sfx('good'); else { sfx('error'); toast('Not yet', degC(r.reason ?? ''), 'warn', UI_ICONS.info, 4000); }
+      this.kit.render(this.game.state);
+    };
+    this.guide = new FieldGuide();
+    onGlossaryNew((id) => { this.game.dispatch({ type: 'learn', op: 'term', id } as SIM.Action); if (this.guide.el.classList.contains('open')) this.guide.render(); });
+    this.learnMenu = h('div', { class: 'learn-menu panel hidden', role: 'menu' },
+      this.menuItem(LEARN_ICONS.water, 'Water field kit', 'Test the creek and predict', () => this.kit.open(this.game.state)),
+      this.menuItem(LEARN_ICONS.scale, 'Land limits', 'Use and renewal', () => openCapacityPanel(this.game.state)),
+      this.menuItem(LEARN_ICONS.book, 'Field guide', 'Words from the game', () => this.guide.open()),
+      this.menuItem(LEARN_ICONS.house, 'My household', 'Link the town to home', () => this.openHousehold()));
+    document.body.appendChild(this.learnMenu);
     this.demand = h('div', { class: 'demand panel' });
     this.nextBtn = h('button', { class: 'btn primary nextbtn', onclick: () => this.nextDecade() }, svg(UI_ICONS.clock), 'Skip to end of decade');
     this.action = h('div', { class: 'action' }, this.demand, this.nextBtn);
@@ -180,7 +214,10 @@ export class App {
     document.body.appendChild(this.logDrawer);
     this.inspectEl = h('div', { class: 'inspect panel hidden' });
     document.body.appendChild(this.inspectEl);
-    this.ui.append(this.hud.el, this.readouts.el, this.tutorial.el, this.toolbar.el, this.graphs.el, this.clock.el, this.energy.el, this.objectives.el, this.act1Goals.el, this.action, this.undoBtn, this.act2Buttons);
+    // The clock sits in the HUD's centre column and the Act 1 goals sit above the needs panel in one right-hand column, so nothing overlaps (any screen size).
+    this.hud.el.querySelector('.hud-center')?.append(this.clock.el);
+    this.rightCol = h('div', { class: 'rightcol' }, this.act1Goals.el, this.action);
+    this.ui.append(this.hud.el, this.readouts.el, this.tutorial.el, this.toolbar.el, this.graphs.el, this.energy.el, this.objectives.el, this.rightCol, this.undoBtn, this.act2Buttons);
     if (DEBUG) {
       this.debugEl = h('div', { class: 'debug' });
       document.body.appendChild(this.debugEl);
@@ -257,18 +294,60 @@ export class App {
   /** "Skip to end of decade": fast-forwards the years that are left, then shows the report. */
   private nextDecade(): void {
     if (this.game.state.phase !== 'act1' || modalOpen()) return;
+    const s = this.game.state;
+    // Once a decade, before time jumps, offer a one-line prediction about the creek (it is checked at the end of the decade).
+    if (this.lastPredPrompt !== s.year) {
+      this.lastPredPrompt = s.year;
+      if (promptPrediction(s, (choice, text) => { this.game.dispatch({ type: 'learn', op: 'predict', choice, text } as SIM.Action); }, () => this.skipDecade())) return;
+    }
+    this.skipDecade();
+  }
+
+  private skipDecade(): void {
     const r = this.game.nextDecade();
     if (!r) return;
     this.showReport(r);
   }
 
+  // ---------------------------------------------------------------- learning layer
+  private menuItem(icon: string, title: string, sub: string, go: () => void): HTMLElement {
+    return h('button', { class: 'learn-item', role: 'menuitem', onclick: () => { this.learnMenu.classList.add('hidden'); this.hud.learnBtn.classList.remove('on'); sfx('click'); go(); } },
+      svg(icon), h('span', null, h('b', null, title), h('small', null, sub)));
+  }
+
+  private toggleLearnMenu(): void {
+    const open = this.learnMenu.classList.contains('hidden');
+    this.learnMenu.classList.toggle('hidden', !open);
+    this.hud.learnBtn.classList.toggle('on', open);
+    if (open) {
+      const r = this.hud.learnBtn.getBoundingClientRect();
+      this.learnMenu.style.top = `${Math.round(r.bottom + 8)}px`;
+      this.learnMenu.style.right = `${Math.max(8, Math.round(window.innerWidth - r.right))}px`;
+    }
+    sfx('click');
+  }
+
+  private saveReflection(key: string, text: string): void {
+    this.game.dispatch(key === 'letter' ? { type: 'learn', op: 'letter', text } as SIM.Action : { type: 'learn', op: 'reflect', key, text } as SIM.Action);
+  }
+
+  private openHousehold(): void {
+    showHousehold(this.game.state, {
+      tick: (id, on) => { this.game.dispatch({ type: 'learn', op: 'household', id, on } as SIM.Action); },
+      openPrint: () => openPrintReport(this.game.state, reportCard(this.game.state)),
+    });
+  }
+
   private showReport(r: SIM.DecadeReport): void {
     sfx('decade');
     this.pendingPhase = true;
+    const s = this.game.state;
+    const last = learnOf(s).predictions[learnOf(s).predictions.length - 1];
+    const pred = last && last.resolvedYear !== undefined && last.resolvedYear === s.year ? latestPredictionView(s) : null;
     showDecadeReport(r, () => {
       this.pendingPhase = false;
       this.checkPhase(this.game.state);
-    });
+    }, { node: pred, onWhy: (key, what) => openCauseChain(this.game.state, key, what) });
   }
 
   private checkPhase(s: GameState): void {
@@ -279,7 +358,7 @@ export class App {
         sfx('good');
         if (this.game.state.flags['a2.stopgap']) toast('Act 2 begins, paused', 'The town has no power. Build gas stations first (Energy), then press play.', 'warn', UI_ICONS.warn, 9000);
         else toast('Act 2 begins', 'Time now flows. Use the speed buttons or Space to pause and plan.', 'good', UI_ICONS.sprout);
-      });
+      }, false, (k, t) => this.saveReflection(k, t));
     } else if (s.phase === 'epilogue' || s.phase === 'failed') {
       this.game.setSpeed(0);
       const rig = this.renderer.rig;
@@ -302,7 +381,11 @@ export class App {
       if (nextId && s.phase !== 'failed') next = { label: `Next: ${SIM.getScenario(nextId).name}`, go: () => { closeAllModals(); this.newGame(nextId); } };
       else if (s.phase === 'failed') next = { label: 'Try again', go: () => { closeAllModals(); this.newGame(s.scenarioId); } };
       void order;
-      showEnding(s, () => { closeAllModals(); this.resetToTitle(); }, rc, next, note);
+      showEnding(s, () => { closeAllModals(); this.resetToTitle(); }, rc, next, note, {
+        save: (k, t) => this.saveReflection(k, t),
+        household: () => this.openHousehold(),
+        print: () => openPrintReport(this.game.state, reportCard(this.game.state)),
+      });
     }
   }
 
@@ -317,6 +400,7 @@ export class App {
   private wireGame(): void {
     const g = this.game;
     g.on('reset', (s) => {
+      setGlossarySeen(learnOf(s).terms);
       this.renderer.setWorld(s);
       this.renderer.setState(s, true);
       this.lastUiVersion = -1;
@@ -349,7 +433,7 @@ export class App {
         const line = storyLine(s, e);
         if (line) {
           this.voices.say(line);
-          if (!line.at) toast(line.speaker.name, line.text, 'info', UI_ICONS.speech, 8000);
+          if (!line.at) toast(line.speaker.name, line.text, 'info', UI_ICONS.speech, 8000, chainOpener(() => this.game.state, e) ?? undefined);
         }
         const beat = beatChoice(s, e);
         if (beat) this.dilemmaQueue.push({ card: beat, kind: 'beat' });
@@ -358,7 +442,7 @@ export class App {
       const bad = e.type === 'bushfire' || e.type === 'flood' || e.type === 'fish-kill' || e.type === 'blackout' || e.type === 'marine-heatwave';
       sfx('event');
       const name = (EVENT_NAMES as Record<string, string>)[e.type] ?? e.type;
-      toast(name, degC(e.text), bad ? 'bad' : 'warn', hazIcon(e.type), 9000);
+      toast(name, degC(e.text), bad ? 'bad' : 'warn', hazIcon(e.type), 9000, chainOpener(() => this.game.state, e) ?? undefined);
       this.renderer.eventFx(e);
     }
     this.pumpDilemmas();
@@ -380,7 +464,9 @@ export class App {
 
   private log(e: SimEvent): void {
     if (e.type === 'story' && hideDraft() && (e as unknown as { story?: { needsConsultation?: boolean } }).story?.needsConsultation) return;
-    const item = h('div', { class: 'log-item' }, svg(hazIcon(e.type)), h('div', null, h('small', null, `${e.year} · ${['summer', 'autumn', 'winter', 'spring'][e.season] ?? ''}`), degC(e.text)));
+    const open = chainOpener(() => this.game.state, e);
+    const item = h('div', { class: `log-item${open ? ' why' : ''}`, ...(open ? { role: 'button', tabindex: 0, title: 'Why did that happen? Click to see' } : {}) }, svg(hazIcon(e.type)), h('div', null, h('small', null, `${e.year} · ${['summer', 'autumn', 'winter', 'spring'][e.season] ?? ''}`), degC(e.text), open ? h('em', { class: 'why-hint' }, 'Why did that happen?') : null));
+    if (open) item.addEventListener('click', open);
     this.logList.prepend(item);
     while (this.logList.children.length > 150) this.logList.lastElementChild?.remove();
   }
@@ -492,6 +578,7 @@ export class App {
     if (!force && s.version === this.lastUiVersion) return;
     this.lastUiVersion = s.version;
     this.hud.update(s);
+    this.kit.refresh(s);
     this.updateNoRoad(s);
     this.toolbar.update(s);
     this.graphs.update(s);
@@ -989,6 +1076,8 @@ export class App {
         } else { sfx('error'); toast('Not yet', degC(r.reason ?? ''), 'warn', UI_ICONS.info, 4000); }
       });
       if (ub) rows.push(ub);
+      const hc = HIDDEN_COSTS[b.type];
+      if (hc) rows.push(h('details', { class: 'hidden-cost-box', 'data-qa': 'hidden-cost' }, h('summary', null, 'Hidden costs of this clean tech'), h('p', null, hc.long), h('p', null, h('b', null, 'The balance: '), hc.balance)));
     }
     if (b && s.phase === 'act2') {
       const it = SIM.itemAt(s, tx, ty);

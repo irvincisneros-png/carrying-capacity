@@ -41,6 +41,8 @@ export interface DilemmaOption {
   detail?: string;
   cost?: number;
   impacts: DilemmaImpact[];
+  /** "Who wins, who loses": one line each for residents, animals and future generations. */
+  winLose?: { residents: string; animals: string; future: string };
 }
 
 export interface DilemmaCard {

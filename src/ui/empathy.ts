@@ -192,6 +192,8 @@ export function showDilemma(card: DilemmaCard, onChoose: (optionId: string) => v
     },
     h('h4', null, h('span', null, o.label), o.cost ? h('span', { class: 'muted' }, `$${o.cost}k`) : null),
     o.detail ? h('p', { style: 'margin:0 0 8px;font-size:13px' }, o.detail) : null,
+    o.winLose ? h('div', { class: 'winlose', 'data-qa': 'winlose' }, h('b', null, 'Who wins, who loses'),
+      h('p', null, h('span', null, 'Residents'), o.winLose.residents), h('p', null, h('span', null, 'Animals'), o.winLose.animals), h('p', null, h('span', null, 'Future generations'), o.winLose.future)) : null,
     h('div', { class: 'impacts' }, ...o.impacts.map((im) => {
       const cls = im.effect >= 2 ? 'p2' : im.effect >= 1 ? 'p1' : im.effect <= -2 ? 'n2' : im.effect <= -1 ? 'n1' : 'z';
       const arrow = im.mixed ? '▲▼' : im.effect > 0 ? '▲'.repeat(Math.min(2, im.effect)) : im.effect < 0 ? '▼'.repeat(Math.min(2, -im.effect)) : '•';
