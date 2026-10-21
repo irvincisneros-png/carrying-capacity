@@ -1,5 +1,6 @@
 // Top HUD: year, budget, population, the three meters, CO2 / temperature chips and top-right buttons.
 import type { GameState } from '../sim/types';
+import { displayYear } from '../sim/game';
 import { bump, fmt1, fmtInt, fmtMoney, h, svg, tweenNumber } from './dom';
 import { DemandBars } from './demandbars';
 import { UI_ICONS } from './icons';
@@ -75,11 +76,11 @@ export class Hud {
 
   update(s: GameState): void {
     const p = this.last;
-    if (p && p.version === s.version && p.year === s.year && p.a2?.season === s.a2?.season) return;
+    if (p && p.version === s.version && p.year === s.year && displayYear(p) === displayYear(s) && p.a2?.season === s.a2?.season) return;
     const act = s.phase === 'act1' ? 'Act 1 · Boom' : s.phase === 'turning-point' ? 'Turning point' : s.phase === 'act2' ? `Act 2 · ${['Summer', 'Autumn', 'Winter', 'Spring'][s.a2.season] ?? ''}` : s.phase === 'epilogue' ? 'Epilogue' : 'The end';
     this.yearSub.textContent = act;
-    if (!p || p.year !== s.year) {
-      this.year.textContent = String(s.year);
+    if (!p || displayYear(p) !== displayYear(s)) {
+      this.year.textContent = String(displayYear(s));
       if (p) bump(this.year);
     }
     if (!p || Math.round(p.budget) !== Math.round(s.budget)) {

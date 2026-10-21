@@ -9,6 +9,7 @@ import { mechMetric, rehabWatch } from '../sim/mechanics';
 import { readoutTrend } from './scenario';
 import { hash32, seasonWeather } from '../sim/season';
 import { getScenario } from '../sim/scenarios';
+import { displayYear, yearInDecade } from '../sim/game';
 import { BONUS_SPECIES, SPECIES_BY_ID } from '../content/species';
 import type { EnergySource, EventType, GameState, GridBlock, ObjectiveResult } from '../sim/types';
 import { clear, degC, fmt1, h, svg } from './dom';
@@ -53,6 +54,17 @@ export class Clock {
   setSpeed(s: Speed): void {
     const map: Speed[] = [0, 1, 2, 4];
     this.speedBtns.forEach((b, i) => b.classList.toggle('on', map[i] === s));
+  }
+
+  /** Act 1: the dial turns once a decade; the label counts the years of the decade played. */
+  updateAct1(s: GameState, yearFrac: number): void {
+    const n = yearInDecade(s);
+    this.dial.style.transform = `rotate(${((n + yearFrac) / 10) * 360 + 180}deg)`;
+    this.lastSeason = -1;
+    const y = String(displayYear(s));
+    if (this.yearL.textContent !== y) this.yearL.textContent = y;
+    const lab = `Year ${n + 1} of 10`;
+    if (this.label.textContent !== lab) this.label.textContent = lab;
   }
 
   update(s: GameState, frac: number): void {

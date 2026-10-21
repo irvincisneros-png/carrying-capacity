@@ -43,8 +43,8 @@ export function landSnapshot(s: GameState): LandSnapshot {
 export const creekHealth = (s: GameState): number => landSnapshot(s).creek;
 
 /** The cost of the decade that took the game from `prev` to `next`. */
-export function decadeCost(prev: GameState, next: GameState, co2Kt: number): DecadeCost {
-  const a = landSnapshot(prev), b = landSnapshot(next);
+export function decadeCost(prev: GameState, next: GameState, co2Kt: number, before?: LandSnapshot): DecadeCost {
+  const a = before ?? landSnapshot(prev), b = landSnapshot(next);
   return {
     bushLost: Math.max(0, a.bush - b.bush),
     bushLeft: b.bush,

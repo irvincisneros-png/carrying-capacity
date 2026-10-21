@@ -7,7 +7,7 @@ Supersedes the Act structure details in DESIGN.md where they differ. Owner requi
 | Phase | Time | Pace | What happens |
 |---|---|---|---|
 | Prologue | 2 min | cutscene-lite | Meet the place: camera fly-over, 3 resident voices introduce themselves |
-| Act 1 Boom | 15–25 min | decade turns | Build the town to the present. Cheap = dirty. Graphs climb. Residents prosper, the bush and reef quietly decline |
+| Act 1 Boom | 15–25 min | real-time years, report each decade (pause/1×/2×/4×, skip to end of decade) | Build the town to the present. Cheap = dirty. Graphs climb. Residents prosper, the bush and reef quietly decline |
 | Turning point | 3 min | story beat | A crisis lands (fish kill, bushfire, flood) that a resident is personally hurt by; the scientist character shows *your* graphs. Act 2 objectives appear |
 | Act 2 Transition | 40–80 min | real-time years (pause/1×/2×/4×) | Clean → Restore → Circular tiers, Terra Nil-style, while keeping people OK. Events, choices, animals return |
 | Epilogue | 5 min | reflection | 2100 Report Card, resident epilogues (where each person ended up), animal census, "Appreciate" fly-over, reflection prompts |
@@ -145,5 +145,7 @@ The point is the difference between local pollution and greenhouse gas. A smalle
 The card shows each option's money in plain words ("Costs $14k now. About $8k more income every decade."), for every scenario.
 
 **Decade report ledger.** Beside the income, "what it cost": bush tiles lost (and left), creek health, air quality around homes, CO2 added, and a rough guide to bush birds and creek fish before and after. Birds and fish are not a census; they follow the bush and the creek's health (`sim/ledger.ts`), so Act 1 choices have a wildlife consequence before the Act 2 model starts.
+
+**Hybrid time in Act 1.** Act 1 years tick in real time (about 6 seconds a year at 1x, on the same clock widget as Act 2: pause, 1x, 2x, 4x; Space pauses). A new game opens paused. Each year `advanceYear` (sim/game.ts) pays a tenth of the decade's income (jobs, mechanics income and card income, from the buildings that stand that year, so a building placed mid-decade pays from the next year) and moves the population a tenth of the way to the decade's target. At the tenth year the decade step runs (pollution, climate, meters, residents' moods, history, cards) and the clock auto-pauses on the decade report. "Skip to end of decade" (or Enter) fast-forwards the years that are left. `advanceDecade` is ten `advanceYear` calls and gives exactly the state it always did (tests/hybrid-time.test.ts), so scripted players and balance runs are unchanged. Mid-decade bookkeeping lives in `flags['dec.*']` (absent at a boundary, so old saves load); `state.year` stays the decade's first year and `displayYear(state)` is the clock's year. Building unlocks, cards, residents and the demand panel change per decade. Undo lasts until the next year ticks. Autosave runs every year.
 
 **Play time.** Green Valley is estimated at about 35 minutes by `tests/helpers/playtime.ts` (six boom cards at 55 seconds each, up from one), so the scenario-select card says 28 to 38 minutes.

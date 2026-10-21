@@ -18,7 +18,8 @@ import { buildingAt, canPlace, CLEAR_COST, CLEAR_KT_PER_TILE, DEMOLISH_REFUND, a
 import { mulberry32 } from './rng';
 import { applyLingeringRunoff } from './effects';
 import { recordAct1 } from './act1goals';
-import { decadeCost } from './ledger';
+import { decadeCost, landSnapshot } from './ledger';
+import type { LandSnapshot } from './ledger';
 import { applyUpgrade, choiceIncomePerDecade, co2Of } from './upgrades';
 import { getScenario, isScenarioId } from './scenarios';
 import { generateTerrain, inBounds } from './terrain';
@@ -34,6 +35,15 @@ import type {
 /** 4: scenario maps were enlarged; saves carry their own map size (3 and older still load, at their old size). */
 export const SAVE_VERSION = 4;
 export const DECADE_YEARS = 10;
+/** Act 1 mid-decade bookkeeping lives in flags (all absent at a decade boundary, so old saves load unchanged). */
+const DEC_N = 'dec.n';
+const DEC_POP0 = 'dec.pop0';
+const DEC_PAID = 'dec.paid';
+const DEC_M0E = 'dec.m0.e';
+const DEC_M0S = 'dec.m0.s';
+const DEC_M0V = 'dec.m0.v';
+const LAND_KEYS = ['bush', 'creek', 'air', 'birds', 'fish'] as const;
+const DEC_KEYS = [DEC_N, DEC_POP0, DEC_PAID, DEC_M0E, DEC_M0S, DEC_M0V, ...LAND_KEYS.map((k) => `dec.l.${k}`)];
 
 export { cloneState, emptyEmissions };
 
@@ -240,11 +250,78 @@ export function projectedEmissions(state: GameState): EmissionsBySource {
   return e;
 }
 
+/** Mid-decade clock position in Act 1 (0 at a decade boundary): how many of the decade's years have already been played. */
+export function yearInDecade(state: GameState): number {
+  return state.phase === 'act1' ? Math.max(0, Math.min(DECADE_YEARS - 1, Math.floor(Number(state.flags[DEC_N] ?? 0)))) : 0;
+}
+
+/** The calendar year shown on the Act 1 clock (decade start plus the years played in it). */
+export function displayYear(state: GameState): number {
+  return state.year + yearInDecade(state);
+}
+
+/** Plays out the rest of the decade in one go (ten advanceYear calls from a boundary) and returns its report. */
 export function advanceDecade(state: GameState): { state: GameState; report: DecadeReport | null } {
+  if (state.phase !== 'act1' || state.status !== 'playing') return { state, report: null };
+  let cur = state;
+  let report: DecadeReport | null = null;
+  for (let i = 0; i < DECADE_YEARS && !report; i++) {
+    const r = advanceYear(cur);
+    cur = r.state;
+    report = r.report;
+  }
+  return { state: { ...cur, version: state.version + 1 }, report };
+}
+
+/**
+ * One year of Act 1. Money (a tenth of the decade's income) and population growth (a tenth of the way to the decade's
+ * target) arrive each year, from the buildings that stand at that moment. At the tenth year the decade's pollution,
+ * climate, meters, history and story step runs and a DecadeReport is returned. With no actions in between, ten calls
+ * give exactly the state advanceDecade always did.
+ */
+export function advanceYear(state: GameState): { state: GameState; report: DecadeReport | null } {
   if (state.phase !== 'act1' || state.status !== 'playing') return { state, report: null };
   const sc = getScenario(state.scenarioId);
   const next = cloneState(state);
-  const prevMeters: Meters = { ...state.meters };
+  const n = yearInDecade(state);
+  const pop0 = n === 0 ? state.population : Number(state.flags[DEC_POP0] ?? state.population);
+  const paidSoFar = n === 0 ? 0 : Number(state.flags[DEC_PAID] ?? 0);
+  const final = n === DECADE_YEARS - 1;
+  const f = state.flags;
+  const startMeters: Meters = f[DEC_M0E] !== undefined
+    ? { economy: Number(f[DEC_M0E]), society: Number(f[DEC_M0S]), environment: Number(f[DEC_M0V]) }
+    : { ...state.meters };
+  const startLand: LandSnapshot | undefined = f['dec.l.bush'] !== undefined
+    ? Object.fromEntries(LAND_KEYS.map((k) => [k, Number(f[`dec.l.${k}`])])) as unknown as LandSnapshot
+    : undefined;
+
+  /** Population toward this decade's target, and this year's share of the decade's income (catching up if the total moved). */
+  const economyStep = (): void => {
+    const target = growPopulation(pop0, economySnapshot(state).housing);
+    next.population = final ? target : Math.round(pop0 + (target - pop0) * (n + 1) / DECADE_YEARS);
+    const snap = economySnapshot(next, target);
+    const decade = decadeIncome(snap, sc.modifiers.budgetMult) + Math.round(mechIncome(next) * DECADE_YEARS) + Math.round(choiceIncomePerDecade(next));
+    const paidTotal = final ? decade : Math.round(decade * (n + 1) / DECADE_YEARS);
+    next.budget += paidTotal - paidSoFar;
+    next.lastIncome = decade;
+    next.flags[DEC_PAID] = paidTotal;
+  };
+
+  if (!final) {
+    economyStep();
+    next.flags[DEC_N] = n + 1;
+    next.flags[DEC_POP0] = pop0;
+    if (n === 0) {
+      next.flags[DEC_M0E] = state.meters.economy;
+      next.flags[DEC_M0S] = state.meters.society;
+      next.flags[DEC_M0V] = state.meters.environment;
+      const land = landSnapshot(state);
+      for (const k of LAND_KEYS) next.flags[`dec.l.${k}`] = land[k];
+    }
+    next.meters = computeMeters(next);
+    next.version = state.version + 1;
+    return { state: next, report: null };
+  }
 
   // 1. Emissions over the decade just played.
   const em = projectedEmissions(state);
@@ -255,11 +332,9 @@ export function advanceDecade(state: GameState): { state: GameState; report: Dec
   updatePollution(next.grid, workingBuildings(state));
   applyLingeringRunoff(next);
 
-  // 3. Economy: population then income.
-  next.population = growPopulation(state.population, economySnapshot(state).housing);
-  const snap = economySnapshot(next);
-  next.lastIncome = decadeIncome(snap, sc.modifiers.budgetMult) + Math.round(mechIncome(next) * DECADE_YEARS) + Math.round(choiceIncomePerDecade(next));
-  next.budget += next.lastIncome;
+  // 3. Economy: the last year's population and income (the other nine arrived as the years went by).
+  economyStep();
+  for (const k of DEC_KEYS) delete next.flags[k];
 
   // Commuting along the road network is part of the transport total (and reported on its own).
   const commute = commuteStats(next);
@@ -308,9 +383,9 @@ export function advanceDecade(state: GameState): { state: GameState; report: Dec
     deltaTempC: next.tempC - state.tempC,
     meters: { ...next.meters },
     meterDeltas: {
-      economy: next.meters.economy - prevMeters.economy,
-      society: next.meters.society - prevMeters.society,
-      environment: next.meters.environment - prevMeters.environment,
+      economy: next.meters.economy - startMeters.economy,
+      society: next.meters.society - startMeters.society,
+      environment: next.meters.environment - startMeters.environment,
     },
     population: next.population,
     income: next.lastIncome,
@@ -320,7 +395,7 @@ export function advanceDecade(state: GameState): { state: GameState; report: Dec
     commuteTiles: commute.meanDist,
     fact: getFactForDecade(state.year),
     actComplete: next.status === 'act1-complete',
-    cost: decadeCost(state, next, total),
+    cost: decadeCost(state, next, total, startLand),
   };
   return { state: next, report };
 }
