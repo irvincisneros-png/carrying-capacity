@@ -56,6 +56,12 @@ export class AmbientLayer {
     return b;
   }
 
+  /**
+   * Per-frame hook for moving life (traffic, pedestrians). Nothing moves yet: the cars and wagons placed by sync()
+   * are static. A later layer drives its own instanced meshes from here (called once a frame with the clock in seconds).
+   */
+  update(_dt: number, _time: number): void {}
+
   setDetail(detail: 0 | 1): void {
     if (detail === this.detail) return;
     this.detail = detail;

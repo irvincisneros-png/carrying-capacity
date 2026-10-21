@@ -41,8 +41,8 @@ const _c2 = new Color();
 const SLOT4: [number, number][] = [[-0.22, -0.2], [0.24, -0.1], [-0.08, 0.25], [0.22, 0.28]];
 const SLOT6: [number, number][] = [[-0.3, -0.28], [0.05, -0.32], [0.32, -0.05], [-0.28, 0.12], [0.02, 0.3], [0.3, 0.32]];
 
-/** Chunk edge in tiles: keeps the number of chunk draws small on small maps, culls usefully on big ones. */
-const chunkFor = (w: number, h: number): number => (Math.max(w, h) >= 56 ? 16 : Math.max(w, h) > 24 ? 12 : 10);
+/** Chunk edge in tiles: at most 3x3 chunks whatever the map size, so a whole-map view costs a few extra draws, while a zoomed-in view culls the rest. */
+export const chunkFor = (w: number, h: number): number => Math.max(10, Math.ceil(Math.max(w, h) / 3));
 
 export class Vegetation {
   private sets: Record<string, ChunkedSet> = {};

@@ -241,6 +241,7 @@ export class GameRenderer {
     group.add(gridMesh);
     group.add(cursor.group);
     bld.onPop = (x, y, z, size, demolish) => fx.dust(x, y, z, size, demolish);
+    bld.onTerrain = () => this.refreshTerrainHeights();
     const rig = new CameraRig(this.renderer.domElement, s.grid.w, s.grid.h);
     if (prevCam && this.world && this.world.map.w === s.grid.w && this.world.map.h === s.grid.h) {
       // same map rebuilt at another terrain resolution (a graphics tier change): keep the player's view
@@ -352,6 +353,7 @@ export class GameRenderer {
     if (!w) return;
     w.sig = sig;
     w.map.update(s.grid);
+    w.bld.markRoadsStale();
     const tb = buildTerrain(w.map);
     const oldT = w.terrainMesh.geometry;
     w.terrainMesh.geometry = tb.terrain;
@@ -365,6 +367,25 @@ export class GameRenderer {
     (w.heightTex.image.data as Uint8Array).set(tb.heightTex.image.data as Uint8Array);
     w.heightTex.needsUpdate = true;
     tb.heightTex.dispose();
+  }
+
+  /**
+   * Roads grade the ground under them (MapGeo.carve): push the new heights into the live terrain mesh and the water
+   * depth texture in place (the wall around the map keeps its heights, so the slab still meets the surface).
+   */
+  private refreshTerrainHeights(): void {
+    const w = this.world;
+    if (!w) return;
+    const geo = w.terrainMesh.geometry;
+    const pos = geo.getAttribute('position');
+    const h = w.map.heights;
+    for (let k = 0; k < h.length; k++) pos.setY(k, h[k]!);
+    pos.needsUpdate = true;
+    geo.computeVertexNormals();
+    geo.computeBoundingSphere();
+    const data = w.heightTex.image.data as Uint8Array;
+    for (let k = 0; k < h.length; k++) data[k] = Math.max(0, Math.min(255, Math.round(((h[k]! + 2) / 3) * 255)));
+    w.heightTex.needsUpdate = true;
   }
 
   /** Metres of sea-level rise -> world height (sim tile heights 0 / 0.9 / 1.8 / 4.0 m map onto our terraces). */
@@ -704,6 +725,7 @@ export class GameRenderer {
     w.veg.setFocus(w.rig.controls.target.x, w.rig.controls.target.z);
     w.tiles.update(dt);
     w.bld.update(dt, time);
+    w.amb.update(dt, time);
     w.fx.update(dt);
     w.cursor.update(dt);
     w.overlay.update(dt);

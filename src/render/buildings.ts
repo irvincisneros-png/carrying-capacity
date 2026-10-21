@@ -1,13 +1,14 @@
 // Every placed building as a batched instance of its procedural model (one draw call for all buildings plus one for
 // their ink outlines), autotiled roads / rail, place + demolish pop animations, turbine rotors, smoke emitters.
-import { BufferAttribute, BufferGeometry, Color, Euler, InstancedMesh, Matrix4, Mesh, Quaternion, Vector3, type Group } from 'three';
+import { Color, Euler, InstancedMesh, Matrix4, Quaternion, Vector3, type Group } from 'three';
 import { BUILDINGS } from '../sim/buildings';
 import { TileKind, type BuildingId, type GameState, type PlacedBuilding } from '../sim/types';
 import { Batch, prepBatchGeo } from './batch';
 import type { MapGeo } from './mapgeo';
 import type { MatLib } from './materials';
-import { buildBuildingModel, rotorGeo, wheelGeo, type BuildingModel } from './models/buildings';
-import { dirtArmGeo, dirtHubGeo, railArmGeo, railHubGeo, roadArmGeo, roadHubGeo } from './roadgeo';
+import { SUBURB_STREET_TOP, buildBuildingModel, rotorGeo, wheelGeo, type BuildingModel } from './models/buildings';
+import { RoadMesh } from './roadmesh';
+import { ASPHALT_LIFT, gradeRoads, type RoadPin, type RoadTile } from './roadnet';
 
 export interface Emitter {
   x: number; y: number; z: number;
@@ -26,6 +27,8 @@ interface Rec {
   dirt: boolean;
   x: number; y: number; z: number; yaw: number;
   b: PlacedBuilding;
+  /** Brick suburb: street mouths as (suburb tile index * 4 + direction a road enters from), see STREETS */
+  mouths?: Set<number>;
 }
 
 interface Anim {
@@ -68,12 +71,19 @@ function autoYaw(s: GameState, b: PlacedBuilding): number | null {
   return b.type === 'seawall' ? Math.atan2(-best[1], best[0]) : Math.atan2(best[0], best[1]);
 }
 
-const ROAD_W = 0.42;
-const C_ASPHALT = new Color(0x5a5653);
-const C_DIRT = new Color(0x9d7d55);
-const C_BALLAST = new Color(0x8a8079);
-const C_RAIL = new Color(0x9aa0a6);
-const C_LINE = new Color(0xece4c6);
+const SUBURBS: ReadonlySet<BuildingId> = new Set<BuildingId>(['suburb', 'greensuburb']);
+/**
+ * The brick suburb's street runs along local x through the centre of the footprint's second tile row, so it can be
+ * turned four ways. Each entry: model yaw, then the street's two mouths as [road tile offset, suburb tile offset,
+ * direction (DIRS index) from the road tile into the suburb] relative to the footprint's top-left tile.
+ */
+const STREETS: { yaw: number; ends: [number, number, number, number, number][] }[] = [
+  { yaw: 0, ends: [[2, 1, 1, 1, 3], [-1, 1, 0, 1, 1]] },
+  { yaw: Math.PI, ends: [[2, 0, 1, 0, 3], [-1, 0, 0, 0, 1]] },
+  { yaw: Math.PI / 2, ends: [[1, -1, 1, 0, 0], [1, 2, 1, 1, 2]] },
+  { yaw: -Math.PI / 2, ends: [[0, -1, 0, 0, 0], [0, 2, 0, 1, 2]] },
+];
+const angDiff = (a: number, b: number): number => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
 const _m = new Matrix4();
 const _q = new Quaternion();
 const _e = new Euler();
@@ -88,9 +98,12 @@ export class BuildingLayer {
   private models = new Map<string, BuildingModel>();
   private detail: 0 | 1 = 1;
   private cull = 0;
-  /** Very low: all roads / rail as one draped mesh (one draw call instead of hundreds of batch instances). */
-  private roadMesh: Mesh | null = null;
-  private roadsDirty = false;
+  /** All roads / rail: draped ribbon meshes per chunk of tiles, graded into the terrain (see roadnet.ts). */
+  readonly roads: RoadMesh;
+  private roadSig = -1;
+  private roadsStale = true;
+  /** Called when grading the roads changed the terrain heights (the renderer refreshes the terrain mesh). */
+  onTerrain: (() => void) | null = null;
   private initial = true;
   rotors: InstancedMesh;
   /** Windmill pump wheels (farm, bore): same spin machinery as the turbine rotors, own model. Static on Very low. */
@@ -104,6 +117,7 @@ export class BuildingLayer {
 
   constructor(private map: MapGeo, private lib: MatLib, private group: Group) {
     this.batch = this.makeBatch();
+    this.roads = new RoadMesh(map, lib.get({ key: 'building', kind: 'prop' }), group);
     const rotorMat = lib.get({ key: 'rotor', kind: 'prop', noSmog: true });
     this.rotors = new InstancedMesh(prepBatchGeo(rotorGeo(1)), rotorMat, 128);
     this.rotors.count = 0;
@@ -134,12 +148,8 @@ export class BuildingLayer {
     if (detail === this.detail && cull === this.cull) return;
     this.detail = detail;
     this.cull = cull;
-    if (this.roadMesh) {
-      this.group.remove(this.roadMesh);
-      this.roadMesh.geometry.dispose();
-      this.roadMesh = null;
-    }
-    this.roadsDirty = true;
+    this.roads.hi = detail === 1 && cull === 0;
+    this.roadsStale = true;
     this.models.clear();
     this.group.remove(this.batch.mesh);
     if (this.batch.outline) this.group.remove(this.batch.outline);
@@ -235,14 +245,28 @@ export class BuildingLayer {
     }
     // removed
     for (const rec of [...this.recs.values()]) if (!seen.has(rec.uid)) this.removeRec(rec, !this.initial);
+    // Brick suburbs turn their street toward an adjacent player road (a render-side choice; the sim footprint is square)
+    const pins: RoadPin[] = [];
+    for (const rec of this.recs.values()) if (SUBURBS.has(rec.type)) this.orientSuburb(rec, (tx, ty) => isType(tx, ty, 'road'), pins, g.w);
     // roads / rail autotile
+    const tiles: RoadTile[] = [];
+    let sig = 17;
     for (const rec of this.recs.values()) {
       if (rec.type !== 'road' && rec.type !== 'rail') continue;
       const bx = rec.b.x;
       const by = rec.b.y;
       let mask = 0;
       DIRS.forEach(([dx, dy], i) => {
-        if (rec.type === 'road' ? isType(bx + dx, by + dy, 'road') : isType(bx + dx, by + dy, RAIL_LINKS)) mask |= 1 << i;
+        const nx = bx + dx;
+        const ny = by + dy;
+        if (rec.type === 'road') {
+          if (isType(nx, ny, 'road')) mask |= 1 << i;
+          else if (this.map.inBounds(nx, ny)) {
+            // a brick suburb's street mouth joins the road
+            const nrec = this.recs.get(g.building[ny * g.w + nx] ?? 0);
+            if (nrec?.mouths?.has((ny * g.w + nx) * 4 + i)) mask |= 1 << i;
+          }
+        } else if (isType(nx, ny, RAIL_LINKS)) mask |= 1 << i;
       });
       if (rec.type === 'rail') {
         if (mask === 0) mask = 0b0101;
@@ -250,110 +274,74 @@ export class BuildingLayer {
         else if (mask === 2 || mask === 8) mask = 0b1010;
       }
       const dirt = rec.type === 'road' && dirtEra;
-      if (mask === rec.mask && dirt === rec.dirt) continue;
-      if (this.cull > 0) {
-        // Very low: every road / rail tile is baked into one draped mesh below instead of 1-5 batch instances each
-        rec.mask = mask;
-        rec.dirt = dirt;
-        this.roadsDirty = true;
-        continue;
-      }
-      const fresh = rec.mask === -1;
-      for (const id of rec.ids) this.batch.remove(id);
-      rec.ids.length = 0;
       rec.mask = mask;
       rec.dirt = dirt;
-      const hubKey = rec.type === 'rail' ? 'railHub' : dirt ? 'dirtHub' : 'roadHub';
-      const armKey = rec.type === 'rail' ? 'railArm' : dirt ? 'dirtArm' : 'roadArm';
-      const hubG = this.gid(hubKey, rec.type === 'rail' ? railHubGeo : dirt ? dirtHubGeo : roadHubGeo);
-      const armG = this.gid(armKey, rec.type === 'rail' ? railArmGeo : dirt ? dirtArmGeo : roadArmGeo);
-      const cx = this.map.cx(bx);
-      const cz = this.map.cz(by);
-      const cy = this.map.heightAt(cx, cz) + 0.03;
-      rec.x = cx; rec.y = cy; rec.z = cz; rec.yaw = 0;
-      const sc = fresh && !this.initial ? 0.001 : 1;
-      _q.identity();
-      _m.compose(_p.set(cx, cy, cz), _q, _s.set(sc, sc, sc));
-      rec.ids.push(this.batch.add(hubG, _m));
-      DIRS.forEach(([dx, dy], i) => {
-        if (!(mask & (1 << i))) return;
-        const ex = cx + dx * 0.5;
-        const ez = cz + dy * 0.5;
-        const ey = Math.max(this.map.heightAt(ex, ez), 0.02) + 0.03;
-        const pitch = -Math.atan2(ey - cy, 0.5);
-        const yaw = Math.atan2(dx, dy);
-        _e.set(pitch, yaw, 0, 'YXZ');
-        _q.setFromEuler(_e);
-        _m.compose(_p.set(cx, cy, cz), _q, _s.set(sc, sc, sc));
-        rec.ids.push(this.batch.add(armG, _m));
-      });
-      // road / rail pieces carry their own per-piece matrices; the pop anim rescales the hub only via re-sync
-      if (fresh && !this.initial) this.anims.push({ rec, t: 0, dir: 1 });
+      tiles.push({ tx: bx, ty: by, fam: rec.type, mask, dirt });
+      sig = Math.imul(sig ^ (rec.uid * 31 + mask * 7 + (dirt ? 1 : 0) + (rec.type === 'rail' ? 64 : 0)), 16777619);
     }
-    if (this.cull > 0 && this.roadsDirty) this.rebuildRoadMesh();
+    for (const p of pins) sig = Math.imul(sig ^ (p.tx * 131 + p.ty * 17 + p.dir + Math.round(p.y * 1000) * 3), 16777619);
+    sig = Math.imul(sig ^ tiles.length, 16777619);
+    if (sig !== this.roadSig || this.roadsStale) {
+      this.roadSig = sig;
+      this.roadsStale = false;
+      this.regradeRoads(tiles, pins);
+    }
     this.initial = false;
     this.rebuildRotorsAndEmitters(s);
   }
 
-  /** Bake every road / rail tile into a single flat mesh draped over the terrain (Very low only). */
-  private rebuildRoadMesh(): void {
-    this.roadsDirty = false;
-    const pos: number[] = [];
-    const col: number[] = [];
-    const map = this.map;
-    const H = 0.035;
-    const piece = (corners: [number, number][], lift: number, c: Color): void => {
-      const v = corners.map(([x, z]) => [x, Math.max(map.heightAt(x, z), 0.02) + H + lift, z] as const);
-      for (const i of [0, 1, 2, 0, 2, 3]) {
-        pos.push(v[i]![0], v[i]![1], v[i]![2]);
-        col.push(c.r, c.g, c.b);
+  /** Mark the baked roads stale (terrain was rebuilt under them): the next sync regrades and redraws them. */
+  markRoadsStale(): void {
+    this.roadsStale = true;
+  }
+
+  /** Grade the terrain under the roads, tell the renderer if its heights moved, then redraw the ribbons on top. */
+  private regradeRoads(tiles: RoadTile[], pins: RoadPin[]): void {
+    const { segs } = gradeRoads(this.map, tiles, pins);
+    const moved = this.map.carve(segs);
+    if (moved) this.onTerrain?.();
+    this.roads.rebuild(tiles);
+  }
+
+  /**
+   * Choose which way the suburb's street faces: toward an adjacent road if there is one (most road tiles meeting a
+   * street mouth wins; ties keep the player's rotation, then the current facing), else the player's rotation.
+   * Records the street mouths for the road autotile and pins road edges that meet a mouth to the street's height.
+   */
+  private orientSuburb(rec: Rec, isRoad: (tx: number, ty: number) => boolean, pins: RoadPin[], gridW: number): void {
+    const b = rec.b;
+    const own = -b.rotation * (Math.PI / 2);
+    let best = STREETS[0]!;
+    let bestScore = -1;
+    for (const c of STREETS) {
+      let score = c.ends.reduce((n, e) => n + (isRoad(b.x + e[0], b.y + e[1]) ? 1 : 0), 0) * 4;
+      if (score > 0) score += (angDiff(c.yaw, own) < 0.01 ? 2 : 0) + (angDiff(c.yaw, rec.yaw) < 0.01 ? 1 : 0);
+      else score = angDiff(c.yaw, own) < 0.01 ? 0 : -1;
+      if (score > bestScore) { bestScore = score; best = c; }
+    }
+    if (angDiff(best.yaw, rec.yaw) > 0.01) {
+      rec.yaw = best.yaw;
+      if (rec.ids.length && !this.anims.some((a) => a.rec === rec)) {
+        this.compose(rec, 1, 1);
+        for (const id of rec.ids) this.batch.set(id, _m);
       }
-    };
-    // strip from distance a to b along (dx, dz) from (cx, cz), `w` wide, offset sideways by `o`
-    const strip = (cx: number, cz: number, dx: number, dz: number, a: number, b: number, w: number, o: number, lift: number, c: Color): void => {
-      const px = -dz, pz = dx;
-      const l = o - w / 2, r = o + w / 2;
-      piece([[cx + dx * a + px * l, cz + dz * a + pz * l], [cx + dx * a + px * r, cz + dz * a + pz * r], [cx + dx * b + px * r, cz + dz * b + pz * r], [cx + dx * b + px * l, cz + dz * b + pz * l]], lift, c);
-    };
-    for (const rec of this.recs.values()) {
-      if ((rec.type !== 'road' && rec.type !== 'rail') || rec.mask < 0) continue;
-      const cx = this.map.cx(rec.b.x);
-      const cz = this.map.cz(rec.b.y);
-      const rail = rec.type === 'rail';
-      const w = rail ? 0.3 : rec.dirt ? ROAD_W - 0.02 : ROAD_W;
-      const base = rail ? C_BALLAST : rec.dirt ? C_DIRT : C_ASPHALT;
-      strip(cx, cz, 0, 1, -w / 2, w / 2, w, 0, 0, base);
-      DIRS.forEach(([dx, dz], i) => {
-        if (!(rec.mask & (1 << i))) return;
-        strip(cx, cz, dx, dz, w / 2 - 0.001, 0.5, w, 0, 0, base);
-        if (rail) for (const o of [-0.07, 0.07]) strip(cx, cz, dx, dz, 0, 0.5, 0.025, o, 0.006, C_RAIL);
-        else if (!rec.dirt) strip(cx, cz, dx, dz, w / 2, 0.5, 0.025, 0, 0.004, C_LINE);
-      });
     }
-    const n = pos.length / 3;
-    if (!this.roadMesh) {
-      const mesh = new Mesh(new BufferGeometry(), this.lib.get({ key: 'building', kind: 'prop' }));
-      mesh.name = 'roads';
-      mesh.frustumCulled = false;
-      mesh.receiveShadow = true;
-      this.group.add(mesh);
-      this.roadMesh = mesh;
+    const mouths = new Set<number>();
+    const top = rec.y + SUBURB_STREET_TOP * BSCALE_Y - ASPHALT_LIFT;
+    for (const [rx, ry, sx, sy, dir] of best.ends) {
+      mouths.add((((b.y + sy) * gridW) + b.x + sx) * 4 + dir);
+      if (isRoad(b.x + rx, b.y + ry)) pins.push({ tx: b.x + rx, ty: b.y + ry, dir, y: top });
     }
-    const g = new BufferGeometry();
-    g.setAttribute('position', new BufferAttribute(new Float32Array(pos), 3));
-    g.setAttribute('color', new BufferAttribute(new Float32Array(col), 3));
-    const nrm = new Float32Array(n * 3);
-    for (let i = 0; i < n; i++) nrm[i * 3 + 1] = 1;
-    g.setAttribute('normal', new BufferAttribute(nrm, 3));
-    this.roadMesh.geometry.dispose();
-    this.roadMesh.geometry = g;
-    this.roadMesh.visible = n > 0;
+    rec.mouths = mouths;
   }
 
   private removeRec(rec: Rec, animate: boolean): void {
     this.recs.delete(rec.uid);
-    if (this.cull > 0 && (rec.type === 'road' || rec.type === 'rail')) this.roadsDirty = true;
-    if (animate && rec.type !== 'road' && rec.type !== 'rail') {
+    if (rec.type === 'road' || rec.type === 'rail') {
+      this.roadsStale = true;
+      return;
+    }
+    if (animate) {
       this.anims.push({ rec, t: 1, dir: -1 });
       const m = this.model(rec.type);
       this.onPop?.(rec.x, rec.y, rec.z, Math.max(rec.b.w, rec.b.h) * 0.6 + (m ? m.height * 0.1 : 0), true);
@@ -435,18 +423,13 @@ export class BuildingLayer {
         sxz = 0.6 + 0.4 * t;
       }
       const rec = a.rec;
-      if (rec.type === 'road' || rec.type === 'rail') {
-        // hub + arms: rescale each about the tile centre (rebuild their transforms)
-        this.rescalePieces(rec, Math.max(0.001, sxz));
-      } else {
-        this.compose(rec, Math.max(0.001, sxz), Math.max(0.001, sy));
-        for (const id of rec.ids) this.batch.set(id, _m);
-      }
+      this.compose(rec, Math.max(0.001, sxz), Math.max(0.001, sy));
+      for (const id of rec.ids) this.batch.set(id, _m);
       if ((a.dir > 0 && a.t >= 1) || (a.dir < 0 && a.t <= 0)) {
         if (a.dir < 0) {
           for (const id of rec.ids) this.batch.remove(id);
           rec.ids.length = 0;
-        } else if (rec.type !== 'road' && rec.type !== 'rail') {
+        } else {
           const m = this.model(rec.type);
           this.onPop?.(rec.x, rec.y, rec.z, Math.max(rec.b.w, rec.b.h) * 0.55 + (m ? m.height * 0.08 : 0), false);
         }
@@ -467,27 +450,6 @@ export class BuildingLayer {
     }
     if (ri) this.rotors.instanceMatrix.needsUpdate = true;
     if (wi) this.wheels.instanceMatrix.needsUpdate = true;
-  }
-
-  private rescalePieces(rec: Rec, sc: number): void {
-    const mask = rec.mask;
-    let k = 0;
-    _q.identity();
-    _m.compose(_p.set(rec.x, rec.y, rec.z), _q, _s.set(sc, sc, sc));
-    const hub = rec.ids[k++];
-    if (hub !== undefined) this.batch.set(hub, _m);
-    for (let i = 0; i < 4; i++) {
-      if (!(mask & (1 << i))) continue;
-      const d = DIRS[i]!;
-      const ex = rec.x + d[0] * 0.5;
-      const ez = rec.z + d[1] * 0.5;
-      const ey = Math.max(this.map.heightAt(ex, ez), 0.02) + 0.03;
-      _e.set(-Math.atan2(ey - rec.y, 0.5), Math.atan2(d[0], d[1]), 0, 'YXZ');
-      _q.setFromEuler(_e);
-      _m.compose(_p.set(rec.x, rec.y, rec.z), _q, _s.set(sc, sc, sc));
-      const id = rec.ids[k++];
-      if (id !== undefined) this.batch.set(id, _m);
-    }
   }
 
   /** Is anything animating (so the caller keeps rendering)? */
