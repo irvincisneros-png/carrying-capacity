@@ -49,17 +49,18 @@ describe('place / demolish / clear', () => {
       throw new Error('no land');
     })();
     const beforeKinds = Array.from(s0.grid.kind);
+    const nBefore = s0.buildings.length; // the entrance road and the country road that runs in from it
     const { state: s1, result } = applyAction(s0, { type: 'place', building: 'cottage', x: spot.x, y: spot.y });
     expect(result.ok).toBe(true);
     expect(result.spent).toBe(10);
     expect(s1.budget).toBe(90);
     expect(s1.version).toBe(s0.version + 1);
-    expect(s1.buildings).toHaveLength(1);
+    expect(s1.buildings).toHaveLength(nBefore + 1);
     expect(buildingAt(s1, spot.x, spot.y)?.type).toBe('cottage');
-    expect(s0.buildings).toHaveLength(0);
+    expect(s0.buildings).toHaveLength(nBefore);
     expect(s0.budget).toBe(100);
     expect(Array.from(s0.grid.kind)).toEqual(beforeKinds);
-    expect(s0.grid.building.every((v) => v === 0)).toBe(true);
+    expect(s0.grid.building.filter((v) => v !== 0)).toHaveLength(nBefore);
     expect(s1.grid.building).not.toBe(s0.grid.building);
   });
   it('failed actions return the same state object and a human-readable reason', () => {

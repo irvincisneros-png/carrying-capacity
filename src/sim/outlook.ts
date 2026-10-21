@@ -8,12 +8,13 @@ import { circularMods, wasteEmissionsMult } from './circular';
 import { REPURPOSE } from '../content/circular';
 import { balanceGrid } from './energy';
 import { mechEmissionFactor } from './mechanics';
+import { assumeRoads, commuteStats, workingBuildings } from './roads';
 import { availability } from './rules';
 import { getScenario } from './scenarios';
 import { seasonIndexOf } from './season';
 import type { BuildingId, GameState, Season } from './types';
 
-export type SourceKey = 'coal' | 'gas' | 'homes' | 'industry' | 'mines' | 'traffic' | 'waste' | 'farms' | 'other';
+export type SourceKey = 'coal' | 'gas' | 'homes' | 'industry' | 'mines' | 'traffic' | 'commute' | 'waste' | 'farms' | 'other';
 
 export interface SourceRow {
   key: SourceKey;
@@ -82,7 +83,7 @@ export interface RetirePlan {
 
 /** Worst shortfall (share of that block's demand) over the four seasons for a set of buildings, and what is behind it. */
 export function gridShortfall(s: GameState, buildings: readonly GameState['buildings'][number][]): { worst: number; when: 'by day' | 'at night' | ''; spareByDay: number; nightGap: number } {
-  const without: GameState = { ...s, buildings: buildings.slice() };
+  const without: GameState = assumeRoads({ ...s, buildings: buildings.slice() });
   const base = seasonIndexOf(s) - s.a2.season;
   let worst = 0, when: 'by day' | 'at night' | '' = '', spareByDay = 0, nightGap = 0;
   for (let k = 0; k < 4; k++) {
@@ -147,11 +148,13 @@ export function emissionSources(s: GameState): SourceRow[] {
   const sc = getScenario(s.scenarioId);
   const sum: Record<SourceKey, { kt: number; n: number }> = {
     coal: { kt: 0, n: 0 }, gas: { kt: 0, n: 0 }, homes: { kt: 0, n: 0 }, industry: { kt: 0, n: 0 }, mines: { kt: 0, n: 0 },
-    traffic: { kt: 0, n: 0 }, waste: { kt: 0, n: 0 }, farms: { kt: 0, n: 0 }, other: { kt: 0, n: 0 },
+    traffic: { kt: 0, n: 0 }, commute: { kt: 0, n: 0 }, waste: { kt: 0, n: 0 }, farms: { kt: 0, n: 0 }, other: { kt: 0, n: 0 },
   };
   const wasteK = s.phase === 'act2' ? wasteEmissionsMult(s) : 1;
+  const cm = commuteStats(s);
+  sum.commute.kt = cm.ktPerDecade / 10;
   let oldHomes = 0;
-  for (const b of s.buildings) {
+  for (const b of workingBuildings(s)) {
     const def = BUILDINGS[b.type];
     if (b.type === 'coalpower') { sum.coal.n++; continue; }
     if (b.type === 'gaspower') { sum.gas.n++; continue; }
@@ -179,7 +182,7 @@ export function emissionSources(s: GameState): SourceRow[] {
   const rows: SourceRow[] = [];
   const SHORT: Record<SourceKey, string> = {
     coal: 'Power stations', gas: 'Gas power', homes: oldHomes > 0 ? `Homes (${oldHomes} old)` : 'Homes', industry: 'Factories',
-    mines: 'Mines', traffic: 'Traffic', waste: 'Waste', farms: 'Farms', other: 'Other',
+    mines: 'Mines', traffic: 'Traffic', commute: 'Commuting', waste: 'Waste', farms: 'Farms', other: 'Other',
   };
   const add = (key: SourceKey, label: string, lever: string, waitsFor?: string): void => {
     const v = sum[key];
@@ -196,6 +199,7 @@ export function emissionSources(s: GameState): SourceRow[] {
     circularOpen ? undefined : `Old sites opens around ${circularYear}`);
   add('mines', 'Mines', 'Close the mines (Old sites) once the town has other jobs.');
   add('traffic', 'Traffic and freight', 'Transit lines move people out of cars: each line serves about 900 people.');
+  add('commute', 'Commuting to work', 'Keep homes close to jobs along short roads, and build light rail: each line cuts commuting emissions by about an eighth.');
   add('waste', 'Waste', 'Recycling research and composting (Old sites) cut landfill gas.');
   add('farms', 'Farms and land', 'Small: efficient farms and restored bush help a little.');
   add('other', 'Everything else', 'Small sources spread across the town.');
@@ -236,7 +240,7 @@ function cuttingPace(s: GameState, nowKt: number, n = 5): number | null {
 /** The best-value ways to cut emissions at today's buildings: clean-power builds, retrofits, transit, and (once open) turning a factory into a recycling plant. */
 export function bestValue(s: GameState, max = 4): ValueRow[] {
   const rows: ValueRow[] = [];
-  const total = (st: GameState): number => emissionSources(st).reduce((a, r) => a + r.kt, 0);
+  const total = (st: GameState): number => emissionSources(assumeRoads(st)).reduce((a, r) => a + r.kt, 0);
   for (const id of ['transitline', 'greensuburb', 'rooftopsolar', 'solarfarm', 'windfarm', 'offshorewind'] as const) {
     const av = availability(s.scenarioId, id);
     if (av.disabled || BUILDINGS[id].unlock > s.year) continue;
@@ -318,7 +322,7 @@ export function cutPerBuild(s: GameState, type: BuildingId, cost: number): { kt:
   } else {
     buildings = [...s.buildings, { uid: -1, type, x: 0, y: 0, rotation: 0, w: def.w, h: def.h, builtYear: s.year }];
   }
-  const total = (st: GameState): number => emissionSources(st).reduce((a, r) => a + r.kt, 0);
+  const total = (st: GameState): number => emissionSources(assumeRoads(st)).reduce((a, r) => a + r.kt, 0);
   const kt = total(s) - total({ ...s, buildings });
   if (!(kt >= 0.05)) return null;
   return { kt: Math.round(kt * 10) / 10, perKt: Math.round(cost / kt) };

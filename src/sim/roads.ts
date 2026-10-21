@@ -162,6 +162,16 @@ export function roadAccess(state: GameState): RoadAccess {
   return result;
 }
 
+/**
+ * A copy of the state in which the road rule is off (every building counts as connected). For what-if sums, such as the cost
+ * of one more building, where the new building has not been given a place or a road yet.
+ */
+export function assumeRoads<T extends Pick<GameState, 'flags'>>(state: T): T {
+  const flags: GameState['flags'] = {};
+  for (const k of Object.keys(state.flags)) if (!k.startsWith(ENTRANCE_FLAG)) flags[k] = state.flags[k] as boolean | number;
+  return { ...state, flags };
+}
+
 /** Buildings that currently work (connected to the entrance, or exempt from needing a road). */
 export function workingBuildings(state: GameState): readonly PlacedBuilding[] {
   return roadAccess(state).workingBuildings;

@@ -46,7 +46,8 @@ describe('save / load', () => {
     const a = advanceDecade(s).state;
     const b = advanceDecade(back).state;
     expect(JSON.stringify(a.history)).toBe(JSON.stringify(b.history));
-    const x = applyAction(back, { type: 'demolish', x: s.buildings[0]?.x ?? 0, y: s.buildings[0]?.y ?? 0 });
+    const home = s.buildings.find((b) => b.type === 'cottage');
+    const x = applyAction(back, { type: 'demolish', x: home?.x ?? 0, y: home?.y ?? 0 });
     expect(x.result.ok).toBe(true);
   });
   it('is versioned', () => {
@@ -103,7 +104,7 @@ describe('save / load', () => {
     st.setItem(SAVE_KEY, '{"saveVersion":1,"broken":true}');
     const s = loadFromStorage(st, 'coal-coast');
     expect(s.year).toBe(1850);
-    expect(s.buildings).toHaveLength(0);
+    expect(s.buildings.every((b) => b.type === 'road')).toBe(true); // only the entrance road and the country road in
     expect(s.budget).toBe(100);
   });
   it('missing storage / throwing storage falls back to a new game and saving reports failure', () => {
@@ -144,6 +145,9 @@ describe('save / load', () => {
       expect(sc.mapW).toBeGreaterThan(size);
       const s = cloneState(createGame(sid));
       s.grid = generateTerrain({ ...sc, mapW: size, mapH: size }, s.seed);
+      // A game from before roads mattered: no entrance (one is added on load), and no roads on the old map.
+      s.buildings = [];
+      for (const k of Object.keys(s.flags)) if (k.startsWith('road.entrance')) delete s.flags[k];
       let b = 0;
       for (let i = 0; i < s.grid.kind.length && b < 3; i++) {
         const r = applyAction(s, { type: 'place', building: 'cottage', x: i % size, y: Math.floor(i / size) });
@@ -155,7 +159,9 @@ describe('save / load', () => {
       const back = deserialize(JSON.stringify(raw));
       expect(back, id).not.toBeNull();
       expect([back?.grid.w, back?.grid.h], id).toEqual([size, size]);
-      expect(back?.buildings.length).toBe(s.buildings.length);
+      // Everything that was there survives; the load adds the entrance road (and the country road in) to a save from before roads mattered.
+      expect(back?.buildings.filter((b) => b.type !== 'road').length).toBe(s.buildings.length);
+      expect(back?.flags['road.entrance']).toBeDefined();
       expect(back?.saveVersion).toBe(SAVE_VERSION);
       // It is still a working game: a decade of Act 1 runs, then a year of Act 2 on the old-size map.
       let g = advanceDecade(back as NonNullable<typeof back>).state;
@@ -173,6 +179,8 @@ describe('save / load', () => {
     const sc = getScenario('green-valley');
     const s = cloneState(createGame('green-valley'));
     s.grid = generateTerrain({ ...sc, mapW: 16, mapH: 16 }, s.seed);
+    s.buildings = [];
+    for (const k of Object.keys(s.flags)) if (k.startsWith('road.entrance')) delete s.flags[k];
     const raw = JSON.parse(serialize(s)) as { saveVersion: number };
     raw.saveVersion = 3;
     let back = deserialize(JSON.stringify(raw)) as NonNullable<ReturnType<typeof deserialize>>;

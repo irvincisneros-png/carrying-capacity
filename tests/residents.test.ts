@@ -246,7 +246,9 @@ describe('story beats', () => {
     expect(lag).toBeDefined();
     expect(lag?.text).toMatch(/\d+ kilotonnes/);
     expect(lag?.text).toMatch(/still moving towards \d\.\d C/);
-    expect(lag?.text).toContain(`${s.a2.eqTempC.toFixed(1)} C`);
+    // The line quotes the equilibrium temperature as it stood when she said it (it keeps moving with later emissions).
+    const at = s.a2.yearly.filter((y) => y.year === (lag?.year ?? 0) || y.year === (lag?.year ?? 0) + 1).map((y) => `${y.eqTempC.toFixed(1)} C`);
+    expect(at.some((t) => (lag?.text ?? '').includes(t))).toBe(true);
   });
   it('describes the dirty Act 1 with Lena\'s fish kill at the turning point', () => {
     const act1 = runScript(createGame('coal-coast'), greedyPlan(DIRTY_WANTS, 1.0)).state;

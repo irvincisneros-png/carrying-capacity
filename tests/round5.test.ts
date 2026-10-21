@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  advanceDecade, applyAction, BUILDINGS, createGame, bestValue, netZeroOutlook, rehabPlan, rehabWatch, retirePlan, startAct2, stopgapPlan, tick, TileKind,
+  advanceDecade, applyAction, assumeRoads, BUILDINGS, createGame, bestValue, netZeroOutlook, rehabPlan, rehabWatch, retirePlan, startAct2, stopgapPlan, tick, TileKind,
 } from '../src/sim';
 import type { BuildingId, GameState } from '../src/sim';
 import { act2Sandbox, addBuilding, paint } from './helpers/fixtures';
@@ -74,7 +74,7 @@ describe('Red Dirt with no power station in Act 1', () => {
   });
   it('does not fire for a town that built a power station', () => {
     const g = createGame('red-dirt');
-    expect(stopgapPlan({ buildings: [...g.buildings, { ...g.buildings[0]!, type: 'coalpower' }] })).toBeNull();
+    expect(stopgapPlan(assumeRoads({ ...g, buildings: [...g.buildings, { ...g.buildings[0]!, uid: 999, type: 'coalpower' }] }))).toBeNull();
   });
 });
 

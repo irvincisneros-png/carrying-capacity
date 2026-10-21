@@ -19,6 +19,8 @@ function midAct2(): GameState {
     s = plan(s);
     s = tick(s, 1).state;
   }
+  // Make sure the circular layer has some research in it, whatever the scripted town could afford along the way.
+  if (s.circular.research.length === 0 && s.circular.unlocked) s = applyAction({ ...s, budget: s.budget + 500 }, { type: 'research', id: 'ewaste' }).state;
   return s;
 }
 const mid = midAct2();
