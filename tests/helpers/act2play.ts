@@ -4,6 +4,8 @@ import { connectAll, connectionCost, connectOutcome, roadDistance } from './road
 
 /** Value, in the callers' score units, of one tile of new road when two sites are otherwise alike. */
 const ACT2_ROAD_WEIGHT = 0.05;
+/** In Act 1 the builders score sites by distance in tiles, so a tile of new road is worth a tile of walking. */
+const ACT1_ROAD_WEIGHT = 1;
 import { roadAccess } from '../../src/sim';
 
 export interface Placed {
@@ -37,7 +39,7 @@ export function bestSpot(
         // These careful players keep wetlands on open ground and never dig one into standing bush.
         if (id === 'wetland' && bushIn(state, c.footprint) > 0) continue;
         // Scores are in the callers' own units; a tile of new road is a small tie-breaker, so equal sites go to the one a road already reaches.
-        const toRoad = road && BUILDINGS[id].needsRoad !== false ? ACT2_ROAD_WEIGHT * Math.max(0, (road[y * state.grid.w + x] ?? 0) - 1) : 0;
+        const toRoad = road && BUILDINGS[id].needsRoad !== false ? (state.phase === 'act1' ? ACT1_ROAD_WEIGHT : ACT2_ROAD_WEIGHT) * Math.max(0, (road[y * state.grid.w + x] ?? 0) - 1) : 0;
         cands.push({ x, y, rotation, sc: score(x, y, c.footprint.w, c.footprint.h) - toRoad });
       }
     }

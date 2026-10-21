@@ -185,19 +185,25 @@ export function isWorking(state: GameState, uid: number): boolean {
 // Placing the entrance and finding road routes
 // ---------------------------------------------------------------------------------------------------------
 
-/** Can a road tile go here? (Mirrors canPlace for the road: open Land, or Bush in Act 1, not mine-site ground in Act 2.) */
+/** Can a road tile go here? (Mirrors canPlace for the road: open Land or Bush, but not mine-site ground being rehabilitated in Act 2.) */
 export function roadTileOk(state: GameState, i: number): boolean {
+  return roadTileCost(state, i) > 0;
+}
+
+/** What laying a road on a tile costs in routing terms: 0 not allowed, 1 open ground, BUSH_STEP for bush (the bush is lost). */
+export const BUSH_STEP = 3;
+export function roadTileCost(state: GameState, i: number): number {
   const g = state.grid;
-  if ((g.building[i] ?? 0) !== 0) return false;
+  if ((g.building[i] ?? 0) !== 0) return 0;
   const k = g.kind[i];
   if (k === TileKind.Land) {
     if (state.phase === 'act2') {
       const z = g.zone?.[i] ?? 0;
-      if (z > 0 && z < 250 && (getScenario(state.scenarioId).mechanics ?? []).includes('outback')) return false;
+      if (z > 0 && z < 250 && (getScenario(state.scenarioId).mechanics ?? []).includes('outback')) return 0;
     }
-    return true;
+    return 1;
   }
-  return k === TileKind.Bush && state.phase !== 'act2';
+  return k === TileKind.Bush ? BUSH_STEP : 0;
 }
 
 const neighbours = (i: number, w: number, h: number): number[] => {
@@ -392,30 +398,31 @@ export function roadRoute(state: GameState, uid: number): number[] | null {
   };
   for (let k = 0; k < target.w; k++) { mark(target.x + k, target.y - 1); mark(target.x + k, target.y + target.h); }
   for (let k = 0; k < target.h; k++) { mark(target.x - 1, target.y + k); mark(target.x + target.w, target.y + k); }
-  // 0-1 BFS from the reached network outward (new tiles cost 1, existing roads cost 0), two bucket stacks.
+  // Dijkstra from the reached network outward over bucketed costs: existing roads cost 0, open ground 1, bush BUSH_STEP.
   const dist = new Int32Array(n).fill(-1);
   const prev = new Int32Array(n).fill(-1);
   const settled = new Uint8Array(n);
-  let cur: number[] = [];
-  let next: number[] = [];
-  for (let i = 0; i < n; i++) if ((acc.reached[i] ?? 0) !== 0) { dist[i] = 0; cur.push(i); }
-  let cost = 0;
+  const buckets: number[][] = [[]];
+  for (let i = 0; i < n; i++) if ((acc.reached[i] ?? 0) !== 0) { dist[i] = 0; (buckets[0] as number[]).push(i); }
   let found = -1;
-  while (cur.length > 0 || next.length > 0) {
-    if (cur.length === 0) { cur = next; next = []; cost++; }
-    const i = cur.pop() as number;
-    if (settled[i] === 1 || dist[i] !== cost) continue;
-    settled[i] = 1;
-    if (adjacent[i] === 1) { found = i; break; }
-    for (const j of neighbours(i, g.w, g.h)) {
-      if (settled[j] === 1) continue;
-      const free = roadLike[j] === 1;
-      if (!free && !roadTileOk(state, j)) continue;
-      const nd = cost + (free ? 0 : 1);
-      if (dist[j] === -1 || nd < (dist[j] as number)) {
-        dist[j] = nd;
-        prev[j] = i;
-        (nd === cost ? cur : next).push(j);
+  for (let d = 0; d < buckets.length && found < 0; d++) {
+    const cur = buckets[d] as number[];
+    while (cur.length > 0 && found < 0) {
+      const i = cur.pop() as number;
+      if (settled[i] === 1 || dist[i] !== d) continue;
+      settled[i] = 1;
+      if (adjacent[i] === 1) { found = i; break; }
+      for (const j of neighbours(i, g.w, g.h)) {
+        if (settled[j] === 1) continue;
+        const step = roadLike[j] === 1 ? 0 : roadTileCost(state, j);
+        if (step === 0 && roadLike[j] !== 1) continue;
+        const nd = d + step;
+        if (dist[j] === -1 || nd < (dist[j] as number)) {
+          dist[j] = nd;
+          prev[j] = i;
+          while (buckets.length <= nd) buckets.push([]);
+          (buckets[nd] as number[]).push(j);
+        }
       }
     }
   }
