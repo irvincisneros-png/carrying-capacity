@@ -285,7 +285,7 @@ export class GraphsPanel {
       h('span', null, h('i', { style: `background:${PLAYER}` }), 'Your world'),
       h('span', null, h('i', { style: `background:${REAL};height:2px;width:14px;border-radius:0` }), 'Real record (dashed)'));
     const legendBars = h('div', { class: 'legend' }, ...EMISSION_CATEGORIES.map((k) => h('span', null, h('i', { style: `background:${CAT_COL[k]}` }), CAT_NAME[k])));
-    this.el = h('div', { class: 'side graphs panel hidden' },
+    this.el = h('div', { class: 'side graphs drawer panel', 'aria-label': 'Climate graphs' },
       h('div', { class: 'panel-head' },
         h('h3', null, svg(UI_ICONS.chart), 'Your climate data'),
         h('div', { class: 'toprow-btns' },
@@ -300,12 +300,12 @@ export class GraphsPanel {
   }
 
   get open(): boolean {
-    return !this.el.classList.contains('hidden');
+    return this.el.classList.contains('open');
   }
 
   toggle(force?: boolean): void {
     const show = force ?? !this.open;
-    this.el.classList.toggle('hidden', !show);
+    this.el.classList.toggle('open', show);
     if (show) requestAnimationFrame(() => this.draw());
   }
 

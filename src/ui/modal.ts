@@ -51,25 +51,33 @@ export function closeTopModal(): boolean {
 }
 
 // ---------------------------------------------------------------- toasts
+// Calm by design: at most two at once, bottom-left above the build toolbar (never over the clock or the cards), each one
+// dismisses itself. Low-priority news (a resident's remark, a decade note) goes to Town voices / the Event log instead.
 let toastBox: HTMLElement | null = null;
+const MAX_TOASTS = 2;
+/** Longest a toast stays: calm, not sticky (bad news keeps a little longer so it is read). */
+const TOAST_MAX_MS = { info: 5500, good: 5000, warn: 6500, bad: 7500 } as const;
 /** `onOpen` makes the toast clickable: it runs the handler (for example the cause chain) instead of just dismissing. */
 export function toast(title: string, text: string, kind: 'info' | 'good' | 'warn' | 'bad' = 'info', icon: string = UI_ICONS.info, ms = 6500, onOpen?: () => void): void {
   if (!toastBox) {
     toastBox = h('div', { class: 'toasts', 'aria-live': 'polite' });
     document.body.appendChild(toastBox);
   }
-  const t = h('div', { class: `toast panel ${kind}${onOpen ? ' why' : ''}`, ...(onOpen ? { role: 'button', tabindex: 0, 'data-why': '1' } : {}) }, svg(icon), h('div', null, h('b', null, title), text ? h('p', null, text) : null, onOpen ? h('small', { class: 'why-hint' }, 'Why did that happen? Click to see') : null));
+  // The same message twice in a row only keeps the newer one.
+  for (const old of Array.from(toastBox.children)) if (old.getAttribute('data-key') === `${title}|${text}`) old.remove();
+  const t = h('div', { class: `toast panel ${kind}${onOpen ? ' why' : ''}`, 'data-key': `${title}|${text}`, ...(onOpen ? { role: 'button', tabindex: 0, 'data-why': '1' } : {}) }, svg(icon), h('div', null, h('b', null, title), text ? h('p', null, text) : null, onOpen ? h('small', { class: 'why-hint' }, 'Why did that happen? Click to see') : null));
   glossify(t);
-  toastBox.prepend(t);
-  // Phones keep only the two newest so toasts never bury the map.
-  const keep = window.innerWidth < 700 ? 2 : 4;
-  while (toastBox.children.length > keep) toastBox.lastElementChild?.remove();
+  toastBox.append(t);
+  while (toastBox.children.length > MAX_TOASTS) toastBox.firstElementChild?.remove();
+  let gone = false;
   const kill = (): void => {
+    if (gone) return;
+    gone = true;
     t.classList.add('out');
     setTimeout(() => t.remove(), 350);
   };
   t.addEventListener('click', () => { kill(); onOpen?.(); });
-  setTimeout(kill, ms);
+  setTimeout(kill, Math.min(ms, TOAST_MAX_MS[kind]));
 }
 
 // ---------------------------------------------------------------- floaters

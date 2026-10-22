@@ -28,6 +28,8 @@ export class Clock {
   private wText: HTMLElement;
   private spark: HTMLCanvasElement;
   readonly hazards: HTMLElement;
+  /** Weather icon + the weather-vs-climate sparkline: the app re-hosts it in the Graphs drawer. */
+  readonly weatherEl: HTMLElement;
   private lastSeason = -1;
   private lastHaz = '';
 
@@ -44,11 +46,10 @@ export class Clock {
     this.wText = h('small', null, 'Weather');
     this.spark = h('canvas', { width: 184, height: 68, title: 'Each dot is one year\'s weather; the line is the 30-year climate average' });
     this.hazards = h('div', { class: 'hazards' });
+    this.weatherEl = h('div', { class: 'weather' }, this.wIcon, h('div', null, this.wText, this.spark));
     this.el = h('div', { class: 'clock panel hidden' },
       h('div', { class: 'season' }, h('div', { class: 'season-dial', 'aria-hidden': 'true' }, this.dial), h('div', null, this.yearL, this.label)),
-      h('div', { class: 'speeds' }, sp(0, UI_ICONS.pause, 'Pause'), sp(1, UI_ICONS.play, 'Play 1x'), sp(2, UI_ICONS.fast, 'Fast 2x'), sp(4, UI_ICONS.faster, 'Fastest 4x')),
-      h('div', { class: 'weather' }, this.wIcon, h('div', null, this.wText, this.spark)),
-      this.hazards);
+      h('div', { class: 'speeds', role: 'group', 'aria-label': 'Game speed' }, sp(0, UI_ICONS.pause, 'Pause'), sp(1, UI_ICONS.play, 'Play 1x'), sp(2, UI_ICONS.fast, 'Fast 2x'), sp(4, UI_ICONS.faster, 'Fastest 4x')));
   }
 
   setSpeed(s: Speed): void {

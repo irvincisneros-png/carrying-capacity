@@ -7,6 +7,7 @@ import {
 import { availability } from '../sim/rules';
 import { clear, h, svg } from './dom';
 import { UI_ICONS } from './icons';
+import { getPref, setPref } from './prefs';
 import { sfx } from '../audio/sfx';
 
 // ---------------------------------------------------------------- readouts
@@ -167,7 +168,11 @@ export interface TutorialHooks {
 }
 
 export class TutorialOverlay {
+  /** Wrapper: a small "Guide · step N of M" pill, or the full step card when expanded. */
   el: HTMLElement;
+  private card: HTMLElement;
+  private pill: HTMLButtonElement;
+  private pillText: HTMLElement;
   private title = h('h3');
   private text = h('p');
   private hint = h('p', { class: 'muted hidden', style: 'font-size:12px' });
@@ -178,14 +183,37 @@ export class TutorialOverlay {
   private stepSince = 0;
   private pulsed: HTMLElement | null = null;
   private doneShown = false;
-  private hidden = false;
+  private expanded = true;
+  private autoTimer = 0;
   status: TutorialStatus | null = null;
 
   constructor(private hooks: TutorialHooks) {
-    const toggle = h('button', { class: 'linkbtn', onclick: () => { this.hidden = !this.hidden; this.el.classList.toggle('mini', this.hidden); toggle.textContent = this.hidden ? 'show' : 'hide'; } }, 'hide');
-    this.el = h('div', { class: 'tutorial panel hidden', role: 'status', 'aria-live': 'polite' },
-      h('div', { class: 'panel-head' }, h('span', { class: 'kicker', style: 'margin:0' }, 'Guide'), toggle),
+    const fold = h('button', { class: 'linkbtn', 'aria-label': 'Collapse the guide to a small pill', onclick: () => { setPref('guide', 'pill'); this.setExpanded(false, 0); } }, 'collapse');
+    this.card = h('div', { class: 'tutorial panel', role: 'status', 'aria-live': 'polite' },
+      h('div', { class: 'panel-head' }, h('span', { class: 'kicker', style: 'margin:0' }, 'Guide'), fold),
       this.title, this.text, this.blocker, this.hint, this.dots);
+    this.pillText = h('span', null, 'Guide');
+    this.pill = h('button', { class: 'guidepill panel', type: 'button', 'aria-expanded': 'false', 'aria-label': 'Open the guide', onclick: () => { setPref('guide', 'open'); this.setExpanded(true, 0); } },
+      svg(UI_ICONS.info), this.pillText);
+    this.el = h('div', { class: 'tutorialwrap hidden' }, this.pill, this.card);
+    this.setExpanded(true, 0);
+  }
+
+  /** Show the full card (for `autoMs` milliseconds, then fold to the pill; 0 keeps it until folded) or just the pill. */
+  private setExpanded(on: boolean, autoMs: number): void {
+    window.clearTimeout(this.autoTimer);
+    this.expanded = on;
+    this.card.classList.toggle('hidden', !on);
+    this.pill.classList.toggle('hidden', on);
+    this.pill.setAttribute('aria-expanded', String(on));
+    if (on && autoMs > 0) this.autoTimer = window.setTimeout(() => this.setExpanded(false, 0), autoMs);
+  }
+
+  /** A new step begins: step 1 opens and stays open until it is done; later steps open briefly; a resumed game starts as a pill. */
+  private stepStarted(idx: number, first: boolean): void {
+    if (idx === 0) this.setExpanded(true, 0);
+    else if (first) this.setExpanded(getPref('guide') === 'open', 0);
+    else this.setExpanded(true, 6500);
   }
 
   update(s: GameState, playing: boolean): void {
@@ -193,6 +221,7 @@ export class TutorialOverlay {
     try { st = tutorialStatus(s); } catch { st = { active: false } as TutorialStatus; }
     this.status = st;
     if (!st.active || !playing) {
+      window.clearTimeout(this.autoTimer);
       this.el.classList.add('hidden');
       this.unpulse();
       this.hooks.clearTile();
@@ -204,13 +233,19 @@ export class TutorialOverlay {
       this.hooks.clearTile();
       this.title.textContent = 'Tutorial complete!';
       this.text.textContent = 'You have built a town, faced its consequences and helped the valley heal. Coal Coast is waiting.';
+      this.pillText.textContent = 'Guide · all done';
       if (!this.doneShown) {
         this.doneShown = true;
+        this.setExpanded(true, 9000);
         this.hooks.onComplete();
       }
     } else if (st.index !== this.lastIdx) {
       if (this.lastIdx >= 0) sfx('good');
+      const first = this.lastIdx === -2;
       this.lastIdx = st.index;
+      this.pillText.textContent = `Guide · step ${st.index + 1} of ${st.steps.length}`;
+      this.pill.setAttribute('aria-label', `Open the guide: step ${st.index + 1} of ${st.steps.length}`);
+      this.stepStarted(st.index, first);
       this.stepSince = performance.now();
       const cur = st.current;
       this.title.textContent = cur ? `${st.index + 1}. ${cur.title}` : 'Keep going';
@@ -253,6 +288,8 @@ export class TutorialOverlay {
     if (wait && !blocker) blocker = wait;
     this.blocker.textContent = blocker;
     this.blocker.classList.toggle('hidden', !blocker);
+    // A folded guide still nudges (a soft pulse) when it has something to say: what is blocking the step, or the hint after 40 s.
+    this.pill.classList.toggle('nudge', !this.expanded && (!!blocker || !this.hint.classList.contains('hidden')));
     this.blockedNext = !!blocker && s.phase === 'act1';
     this.applyHighlight(st);
   }
