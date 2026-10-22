@@ -24,7 +24,9 @@ export class Hud {
   private pop: HTMLElement;
   private co2: HTMLElement;
   private temp: HTMLElement;
-  private meters: Record<'environment' | 'society' | 'economy', { bar: HTMLElement; val: HTMLElement; root: HTMLElement; label: string; peek: number }>;
+  private co2b: HTMLElement;
+  private tempb: HTMLElement;
+  private meters: Record<'environment' | 'society' | 'economy', { bar: HTMLElement; val: HTMLElement; num: HTMLElement; root: HTMLElement; label: string; peek: number }>;
   private last: GameState | null = null;
   readonly demand = new DemandBars();
   readonly cap: CapGauge;
@@ -38,13 +40,16 @@ export class Hud {
     this.pop = h('span', null, '0');
     this.co2 = h('span', null, '285');
     this.temp = h('span', null, '+0.0');
+    this.co2b = h('b', null, '285');
+    this.tempb = h('b', null, '+0.0°');
     this.meters = {} as Hud['meters'];
     const meter = (k: 'environment' | 'society' | 'economy', cls: string, label: string, icon: string): HTMLElement => {
       const bar = h('i', { style: 'width:50%' });
       const val = h('b', { class: 'mtip', 'aria-hidden': 'true' }, `${label} 50`);
+      const num = h('b', { class: 'mnum', 'aria-hidden': 'true' }, '50');
       const root = h('div', { class: `meter ${cls}`, tabindex: 0, role: 'group' }, svg(icon),
-        h('div', { class: 'meter-bar', role: 'meter', 'aria-label': label, 'aria-valuemin': 0, 'aria-valuemax': 100 }, bar), val);
-      const m = { bar, val, root, label, peek: 0 };
+        h('div', { class: 'meter-bar', role: 'meter', 'aria-label': label, 'aria-valuemin': 0, 'aria-valuemax': 100 }, bar), num, val);
+      const m = { bar, val, num, root, label, peek: 0 };
       // Touch: tap a meter to read its number for a moment (mouse and keyboard use hover and focus).
       root.addEventListener('click', () => this.peek(m, 2600));
       this.meters[k] = m;
@@ -65,7 +70,10 @@ export class Hud {
         h('div', { class: 'hud-meters panel', 'aria-label': 'Environment, Society and Economy' },
           meter('environment', 'env', 'Environment', UI_ICONS.leaf),
           meter('society', 'soc', 'Society', UI_ICONS.heart),
-          meter('economy', 'eco', 'Economy', UI_ICONS.gear))));
+          meter('economy', 'eco', 'Economy', UI_ICONS.gear),
+          // Compact climate readout (the Graphs drawer has the detail)
+          h('div', { class: 'climate-mini', title: 'CO₂ in the air (ppm) and warming since 1850-1900. Detail is in Graphs.' },
+            h('span', null, h('small', null, 'CO₂'), this.co2b), h('span', null, h('small', null, 'Warm'), this.tempb)))));
   }
 
   /** Show a meter's number under it for `ms` (it is otherwise only shown on hover or focus). */
@@ -104,10 +112,13 @@ export class Hud {
     }
     this.co2.textContent = s.co2.toFixed(0);
     this.temp.textContent = `${s.tempC >= 0 ? '+' : ''}${fmt1(s.tempC)}°`;
+    this.co2b.textContent = this.co2.textContent;
+    this.tempb.textContent = this.temp.textContent;
     for (const k of ['environment', 'society', 'economy'] as const) {
       const m = this.meters[k];
       const v = Math.max(0, Math.min(100, s.meters[k]));
       m.bar.style.width = `${v}%`;
+      m.num.textContent = String(Math.round(v));
       const d = p ? Math.round(v - p.meters[k]) : 0;
       m.val.textContent = `${m.label} ${Math.round(v)}${d !== 0 ? ` (${d > 0 ? '+' : ''}${d})` : ''}`;
       m.root.querySelector('.meter-bar')?.setAttribute('aria-valuenow', String(Math.round(v)));

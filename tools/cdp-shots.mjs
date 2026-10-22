@@ -1,3 +1,5 @@
+// SUPERSEDED for the HUD: this WP8 script predates the sidebar rail (it uses the old Learn menu and HUD selectors).
+// Use tools/declutter-shots.mjs for screenshots and the overlap check.
 // Screenshots and layout checks through the Chrome DevTools Protocol (no Playwright needed).
 // usage: node tools/cdp-shots.mjs [outDir]   (server first: npx vite --port 8475)
 // env: CHROME=/path/to/chrome  URL=http://localhost:8475/carrying-capacity/

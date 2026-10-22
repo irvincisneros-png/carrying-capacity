@@ -8,6 +8,8 @@ export type RailId =
 export interface RailBadge {
   /** Number to show; 0 means a plain dot. */
   n: number;
+  /** What needs attention, for the hover text and screen readers ("2 buildings have no road"). */
+  note: string;
   /** Gentle pulse: something that needs doing soon. */
   urgent: boolean;
 }
@@ -17,7 +19,7 @@ export interface BadgeInput {
   year: number;
   endYear: number;
   /** The town's needs bars (Homes, Jobs, Power, Water). */
-  needs: { urgent: boolean; inactive?: boolean }[];
+  needs: { urgent: boolean; inactive?: boolean; label?: string }[];
   /** Buildings with no connected road. */
   noRoad: number;
   /** Status of each goal currently listed (Act 1 or Act 2). */
@@ -46,26 +48,35 @@ export function goalsNeedAttention(input: Pick<BadgeInput, 'phase' | 'year' | 'e
   return n;
 }
 
+const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
+
 export function computeRailBadges(input: BadgeInput): Partial<Record<RailId, RailBadge>> {
   const out: Partial<Record<RailId, RailBadge>> = {};
   const live = input.phase === 'act1' || input.phase === 'act2';
 
   const goals = goalsNeedAttention(input);
-  if (live && goals > 0) out.goals = { n: goals, urgent: false };
+  if (live && goals > 0) out.goals = { n: goals, urgent: false, note: `${plural(goals, 'goal needs', 'goals need')} attention` };
 
   if (live) {
-    const urgent = input.needs.some((b) => b.urgent && !b.inactive);
-    const count = input.noRoad + (input.capacity === 'over' ? 1 : 0);
-    if (urgent || count > 0) out.needs = { n: urgent && count === 0 ? 0 : count, urgent };
+    const urgentBars = input.needs.filter((b) => b.urgent && !b.inactive);
+    const over = input.capacity === 'over';
+    const count = input.noRoad + (over ? 1 : 0);
+    if (urgentBars.length || count > 0) {
+      const notes: string[] = [];
+      if (urgentBars.length) notes.push(`urgent: ${urgentBars.map((b) => (b.label ?? 'need').toLowerCase()).join(', ')}`);
+      if (input.noRoad > 0) notes.push(`${plural(input.noRoad, 'building has', 'buildings have')} no road`);
+      if (over) notes.push('the town uses more than the land renews');
+      out.needs = { n: urgentBars.length && count === 0 ? 0 : count, urgent: urgentBars.length > 0, note: notes.join('; ') };
+    }
   }
 
-  if (input.phase === 'act2' && input.powerShort) out.power = { n: 0, urgent: true };
-  if (input.unreadVoices > 0) out.voices = { n: input.unreadVoices, urgent: false };
-  if (input.unreadTerms > 0) out.guide = { n: input.unreadTerms, urgent: false };
-  if (input.unreadLog > 0) out.log = { n: 0, urgent: false };
-  if (input.droughtOpen) out.policies = { n: 0, urgent: true };
-  if (input.satWarning) out.sats = { n: 0, urgent: true };
-  if (input.projectsIdle) out.research = { n: 0, urgent: false };
+  if (input.phase === 'act2' && input.powerShort) out.power = { n: 0, urgent: true, note: 'Blackout: power is short' };
+  if (input.unreadVoices > 0) out.voices = { n: input.unreadVoices, urgent: false, note: `${plural(input.unreadVoices, 'new voice', 'new voices')}` };
+  if (input.unreadTerms > 0) out.guide = { n: input.unreadTerms, urgent: false, note: `${plural(input.unreadTerms, 'new term', 'new terms')}` };
+  if (input.unreadLog > 0) out.log = { n: 0, urgent: false, note: 'New events' };
+  if (input.droughtOpen) out.policies = { n: 0, urgent: true, note: 'A drought is declared and the drought plan is off' };
+  if (input.satWarning) out.sats = { n: 0, urgent: true, note: 'Satellite warning waiting' };
+  if (input.projectsIdle) out.research = { n: 0, urgent: false, note: 'Savings could fund a community project' };
   return out;
 }
 
@@ -75,10 +86,28 @@ export function anyBadge(b: Partial<Record<RailId, RailBadge>>): { any: boolean;
   return { any: list.length > 0, urgent: list.some((x) => x?.urgent) };
 }
 
-/** The one-line nudge chip near the Skip button: only when a need is urgent (or buildings have no road). */
-export function urgentChipText(input: Pick<BadgeInput, 'phase' | 'noRoad'> & { urgentLabels: string[] }): string {
+export interface UrgentNeed { id: string; label: string; tip: string }
+
+/** The one-line warning beside the clock: what is short, in the sim's own words ("Not enough jobs: 647 people have no work"). Act 1 only. */
+export function urgentChipText(input: { phase: string; noRoad: number; urgent: UrgentNeed[] }): string {
   if (input.phase !== 'act1') return '';
-  if (input.urgentLabels.length) return `The town needs ${input.urgentLabels.join(' and ').toLowerCase()} now`;
-  if (input.noRoad > 0) return `${input.noRoad} building${input.noRoad === 1 ? ' has' : 's have'} no road`;
+  const first = input.urgent[0];
+  if (first) {
+    const sentence = first.tip.split(/\.\s/)[0]?.replace(/\.$/, '') ?? first.tip;
+    return input.urgent.length > 1 ? `${sentence} (+${input.urgent.length - 1} more)` : sentence;
+  }
+  if (input.noRoad > 0) return `${plural(input.noRoad, 'building has', 'buildings have')} no road`;
   return '';
+}
+
+/** Which build tab "Show me" opens for an urgent need. */
+export const NEED_TAB: Record<string, string> = { homes: 'homes', jobs: 'work', power: 'energy', water: 'waste' };
+
+export interface GoalLite { label: string; status: string; bonus?: boolean; pct: number }
+
+/** The goal worth a one-line chip: the first unmet goal, missed or at risk before merely on track, bonus goals last. */
+export function pickGoalChip(goals: GoalLite[]): GoalLite | null {
+  const open = goals.filter((g) => g.status !== 'met');
+  const rank = (g: GoalLite): number => (g.bonus ? 10 : 0) + (g.status === 'missed' ? 0 : g.status === 'at-risk' ? 1 : g.status === 'on-track' ? 2 : 3);
+  return open.slice().sort((a, b) => rank(a) - rank(b))[0] ?? null;
 }

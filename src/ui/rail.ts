@@ -11,6 +11,8 @@ import { RAIL_ICONS } from './railicons';
 export interface RailItem {
   id: RailId;
   label: string;
+  /** Short text shown beside the icon on screens 1200px wide and up. */
+  short?: string;
   icon: string;
   /** Panels this button hosts (a button can have more than one, such as Goals for Act 1 and Act 2). Omit for a plain action. */
   panels?: HTMLElement[];
@@ -22,7 +24,7 @@ export interface RailItem {
 
 interface Entry { item: RailItem; btn: HTMLButtonElement; badge: HTMLElement; visible: boolean }
 
-const PITCH = 44; // a button plus its gap, in px (the labelled wide layout uses a little more, see layout())
+const PITCH = 46; // a button plus its gap, in px (the labelled wide layout uses a little more, see layout())
 
 export class Rail {
   /** Mount this once: it holds the rail and the drawer host. */
@@ -43,7 +45,7 @@ export class Rail {
 
   constructor() {
     this.toggleBtn = h('button', { class: 'rbtn railtoggle', type: 'button', 'aria-label': 'Hide or show the side menu', 'aria-expanded': 'true', 'data-label': 'Menu', onclick: () => this.setCollapsed(!this.collapsed) },
-      svg(RAIL_ICONS.menu), h('i', { class: 'rbadge' }));
+      svg(RAIL_ICONS.menu), h('span', { class: 'rl' }, 'Menu'), h('i', { class: 'rbadge' }));
     this.rail = h('nav', { class: 'rail panel', 'aria-label': 'Game panels' }, this.toggleBtn);
     this.host = h('div', { class: 'railhost' });
     this.el = h('div', { class: 'railwrap' }, this.rail, this.host);
@@ -51,7 +53,14 @@ export class Rail {
     this.more = h('button', { class: 'morebtn panel', type: 'button', 'aria-label': 'More: open the game panels', 'aria-expanded': 'false', onclick: () => this.setSheet(!this.sheet) }, svg(RAIL_ICONS.more), h('span', null, 'More'), this.moreDot);
     this.rail.classList.toggle('min', this.collapsed);
     this.toggleBtn.setAttribute('aria-expanded', String(!this.collapsed));
-    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => this.layout()).observe(this.el);
+    if (typeof ResizeObserver !== 'undefined') {
+      new ResizeObserver(() => this.layout()).observe(this.el);
+      // The top bar keeps clear of the rail: publish the rail's width so the HUD row stops short of it.
+      new ResizeObserver(() => {
+        const phone = window.matchMedia('(max-width: 700px)').matches;
+        document.documentElement.style.setProperty('--rail-w', phone ? '0px' : `${Math.round(this.rail.getBoundingClientRect().width)}px`);
+      }).observe(this.rail);
+    }
     window.addEventListener('resize', () => this.layout());
     // Tapping the map or anywhere outside closes the phone sheet.
     document.addEventListener('pointerdown', (e) => {
@@ -65,7 +74,7 @@ export class Rail {
   add(item: RailItem): void {
     const badge = h('i', { class: 'rbadge' });
     const btn = h('button', { class: 'rbtn', type: 'button', 'data-rail': item.id, 'data-label': item.label, 'aria-label': item.label, 'aria-pressed': 'false', onclick: () => this.press(item.id) },
-      svg(item.icon), h('span', { class: 'rl' }, item.label), badge);
+      svg(item.icon), h('span', { class: 'rl' }, item.short ?? item.label), badge);
     this.rail.appendChild(btn);
     this.entries.set(item.id, { item, btn, badge, visible: true });
     for (const p of item.panels ?? []) this.hostPanel(p, item.id);
@@ -159,6 +168,9 @@ export class Rail {
       e.btn.classList.toggle('urgent', show && !!x?.urgent);
       e.badge.textContent = show && x && x.n > 0 ? String(x.n > 9 ? '9+' : x.n) : '';
       e.btn.classList.toggle('counted', show && !!x && x.n > 0);
+      // Say what needs attention: hover text and screen readers ("Town needs: 2 buildings have no road").
+      if (show && x) { e.btn.title = `${e.item.label}: ${x.note}`; e.btn.setAttribute('aria-label', `${e.item.label}: ${x.note}`); }
+      else { e.btn.removeAttribute('title'); e.btn.setAttribute('aria-label', e.item.label); }
     }
     const any = anyBadge(Object.fromEntries(Object.entries(b).filter(([id]) => this.current !== id)) as Partial<Record<RailId, RailBadge>>);
     for (const el of [this.toggleBtn, this.more]) {
@@ -209,9 +221,11 @@ export class Rail {
     if (phone) { this.rail.style.removeProperty('--rail-rows'); this.rail.classList.remove('labels'); return; }
     const avail = this.el.clientHeight || window.innerHeight - 260;
     const fits = Math.floor((avail - 14) / PITCH);
-    let rows = Math.max(4, Math.min(n, fits));
-    rows = Math.ceil(n / Math.ceil(n / rows)); // balance the columns (no lone button in a second column)
+    // 1200px and up: one column of icon + label (it scrolls on a short screen). Narrower: icons only, in as many columns as fit.
+    const labels = !this.collapsed && window.innerWidth >= 1200;
+    let rows = labels ? n : Math.max(4, Math.min(n, fits));
+    if (!labels) rows = Math.ceil(n / Math.ceil(n / rows)); // balance the columns (no lone button in a second column)
     this.rail.style.setProperty('--rail-rows', String(this.collapsed ? 1 : rows));
-    this.rail.classList.toggle('labels', !this.collapsed && window.innerWidth >= 1500 && fits >= n);
+    this.rail.classList.toggle('labels', labels);
   }
 }

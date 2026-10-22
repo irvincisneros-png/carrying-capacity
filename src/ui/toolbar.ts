@@ -62,6 +62,33 @@ export class Toolbar {
         e.preventDefault();
       }
     }, { passive: false });
+    // A fade at the edge of the tray says "more cards this way" (cards are clipped on phones and short lists scroll).
+    this.toolsEl.addEventListener('scroll', () => this.scrollCue(), { passive: true });
+    window.addEventListener('resize', () => this.scrollCue());
+  }
+
+  private scrollCue(): void {
+    const t = this.toolsEl;
+    t.classList.toggle('more-r', t.scrollLeft + t.clientWidth < t.scrollWidth - 4);
+    t.classList.toggle('more-l', t.scrollLeft > 4);
+  }
+
+  /** Bring a card fully into view in the tray (used when a tool is picked by key or by the tutorial). */
+  private reveal(card: HTMLElement | undefined): void {
+    if (!card) return;
+    const t = this.toolsEl;
+    const c = card.getBoundingClientRect();
+    const r = t.getBoundingClientRect();
+    if (c.left < r.left + 8) t.scrollTo({ left: t.scrollLeft - (r.left + 8 - c.left), behavior: 'smooth' });
+    else if (c.right > r.right - 8) t.scrollTo({ left: t.scrollLeft + (c.right - r.right + 8), behavior: 'smooth' });
+  }
+
+  /** "Show me": open the tab with this category (homes, work, move, energy, waste, restore). */
+  showCategory(id: string): void {
+    if (this.cat === id) return;
+    this.cat = id;
+    this.sig = '';
+    if (this.state) this.update(this.state);
   }
 
   private visibleIds(s: GameState): BuildingId[] {
@@ -79,6 +106,7 @@ export class Toolbar {
 
   update(s: GameState): void {
     this.state = s;
+    requestAnimationFrame(() => this.scrollCue());
     const ids = this.visibleIds(s);
     const cats = CATS.filter((c) => c.ids.some((id) => ids.includes(id)));
     if (!cats.some((c) => c.id === this.cat)) this.cat = cats[0]?.id ?? 'homes';
@@ -161,6 +189,7 @@ export class Toolbar {
     sfx('click');
     this.tool = t;
     if (this.state) this.update(this.state);
+    if (t) this.reveal(this.cards.get(t));
     this.onTool?.(t);
   }
 

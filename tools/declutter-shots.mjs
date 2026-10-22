@@ -106,7 +106,7 @@ try {
         const bad = [];
         for (const rid of JSON.parse(ids)) {
           if (['frame', 'settings', 'household'].includes(rid)) continue;
-          await run(`if (innerWidth <= 700 && !document.querySelector('.rail.sheet-open')) document.querySelector('.morebtn').click(); document.querySelector('.rail [data-rail="${rid}"]').click(); await new Promise(r => setTimeout(r, 450)); return 1;`);
+          await run(`if (innerWidth <= 700 && !document.querySelector('.rail.sheet-open')) document.querySelector('.morebtn').click(); document.querySelector('.rail [data-rail="${rid}"]').click(); await new Promise(r => setTimeout(r, 750)); return 1;`);
           const o = JSON.parse(await run(OVERLAP));
           const open = await run(`return document.querySelectorAll('.railhost > .open').length;`);
           if (o.overlaps.length || o.offscreen.length || open !== 1) bad.push({ rid, open, ...o });

@@ -12,7 +12,7 @@ import { GameController, type Speed } from '../game/controller';
 import { GameRenderer } from '../render/renderer';
 import { ambientTick, sfx, unlockAudio } from '../audio/sfx';
 import { Clock, EnergyPanel, ObjectivesPanel, hazIcon, type ShowMeKind } from './act2';
-import { computeRailBadges, urgentChipText, type BadgeInput } from './badges';
+import { computeRailBadges, NEED_TAB, pickGoalChip, urgentChipText, type BadgeInput, type GoalLite, type UrgentNeed } from './badges';
 import { Rail } from './rail';
 import { getPref } from './prefs';
 import type { RailId } from './badges';
@@ -74,6 +74,10 @@ export class App {
   private chip: HTMLElement;
   private chipText: HTMLElement;
   private chipDismissed = '';
+  private chipTarget: { kind: 'tab' | 'drawer'; id: string } = { kind: 'drawer', id: 'needs' };
+  private goalChip: HTMLButtonElement;
+  private goalChipText: HTMLElement;
+  private goalChipBar: HTMLElement;
   rail: Rail;
   private unreadVoices = 0;
   private unreadTerms = 0;
@@ -195,15 +199,20 @@ export class App {
     this.chipText = h('span');
     this.chip = h('div', { class: 'urgentchip panel hidden', role: 'status' },
       svg(UI_ICONS.warn),
-      h('button', { class: 'chiptext', type: 'button', title: 'Open what the town needs', onclick: () => this.rail.open('needs') }, this.chipText),
-      h('button', { class: 'chipx', type: 'button', 'aria-label': 'Dismiss this reminder', onclick: () => { this.chipDismissed = this.chipText.textContent ?? ''; this.chip.classList.add('hidden'); } }, svg(UI_ICONS.close)));
+      h('button', { class: 'chiptext', type: 'button', 'aria-label': 'Show the full warning', onclick: () => this.chip.classList.toggle('expanded') }, this.chipText),
+      h('button', { class: 'chipgo', type: 'button', onclick: () => this.showUrgent() }, 'Show me'),
+      h('button', { class: 'chipx', type: 'button', 'aria-label': 'Dismiss this reminder', onclick: () => { this.chipDismissed = this.chipText.textContent ?? ''; this.chip.classList.add('hidden'); this.nextBtn.classList.remove('calm'); } }, svg(UI_ICONS.close)));
+    this.goalChipText = h('span', { class: 'gtext' });
+    this.goalChipBar = h('i');
+    this.goalChip = h('button', { class: 'goalchip hidden', type: 'button', title: 'Open the goals', onclick: () => this.rail.open('goals') },
+      svg(UI_ICONS.target), this.goalChipText, h('span', { class: 'gbar', 'aria-hidden': 'true' }, this.goalChipBar));
     this.undoBtn = h('button', { class: 'btn small undo hidden', onclick: () => this.undo(), title: 'Undo last building (Ctrl+Z)' }, svg(UI_ICONS.undo), 'Undo');
     this.logList = h('div');
     this.logDrawer = h('div', { class: 'side logdrawer panel', 'aria-label': 'Event log' }, h('div', { class: 'panel-head' }, h('h3', null, svg(UI_ICONS.log), 'Event log')), this.logList);
     this.inspectEl = h('div', { class: 'inspect panel hidden' });
     document.body.appendChild(this.inspectEl);
     // Top bar: year / budget / people, the slim meter strip, then the clock (with Skip in Act 1). Everything else lives in the rail.
-    this.clock.el.append(this.nextBtn, this.chip);
+    this.clock.el.append(this.nextBtn, this.chip, this.goalChip);
     this.hud.el.append(this.clock.el);
     // Town needs drawer: the one-line demand text, the demand bars (with "no road" + Locate and the land-limits row) and the scenario readouts.
     this.needsPanel = h('div', { class: 'side needs panel', 'aria-label': 'Town needs' },
@@ -493,27 +502,34 @@ export class App {
     sfx('click');
   }
 
+  /** The warning's "Show me": pick the build tab that fixes the shortage, or open Town needs (where Locate is) for unroaded buildings. */
+  private showUrgent(): void {
+    sfx('click');
+    if (this.chipTarget.kind === 'tab') { this.toolbar.showCategory(this.chipTarget.id); }
+    else this.rail.open('needs');
+  }
+
   // ---------------------------------------------------------------- sidebar rail
   /** Every panel the old HUD showed is a drawer here; the buttons keep the same actions as before. */
   private buildRail(): void {
     const R = this.rail;
     const open = (el: HTMLElement) => (): void => { el.classList.add('open'); };
-    R.add({ id: 'goals', label: 'Goals', icon: UI_ICONS.target, panels: [this.act1Goals.el, this.objectives.el], run: () => { (this.game.state.phase === 'act1' ? this.act1Goals.el : this.objectives.el).classList.add('open'); } });
-    R.add({ id: 'needs', label: 'Town needs', icon: RAIL_ICONS.town, panels: [this.needsPanel], run: open(this.needsPanel) });
-    R.add({ id: 'power', label: 'Power grid', icon: UI_ICONS.bolt, panels: [this.energy.el], run: open(this.energy.el) });
-    R.add({ id: 'voices', label: 'Town voices', icon: UI_ICONS.speech, panels: [this.voices.drawer], run: () => { this.loadVoices(); this.voices.open(); }, onOpen: () => { this.unreadVoices = 0; } });
-    R.add({ id: 'species', label: 'Wildlife', icon: UI_ICONS.paw, panels: [this.species.drawer], run: () => this.species.open() });
-    R.add({ id: 'policies', label: 'Town policies', icon: RAIL_ICONS.sliders, panels: [this.policies.el], run: () => this.policies.open(this.game.state) });
-    R.add({ id: 'research', label: 'Innovations and projects', icon: UI_ICONS.rotate, panels: [this.research.el], run: () => this.research.open(this.game.state) });
-    R.add({ id: 'sats', label: 'Satellites', icon: RAIL_ICONS.satellite, panels: [this.sats.el], run: () => this.sats.open(this.game.state) });
-    R.add({ id: 'country', label: 'Caring for Country', icon: UI_ICONS.sprout, panels: [this.country.el], run: () => this.country.open(this.game.state) });
-    R.add({ id: 'kit', label: 'Water field kit', icon: LEARN_ICONS.flask, panels: [this.kit.el], run: () => this.kit.open(this.game.state) });
-    R.add({ id: 'guide', label: 'Field guide', icon: LEARN_ICONS.book, panels: [this.guide.el], run: () => this.guide.open(), onOpen: () => { this.unreadTerms = 0; } });
-    R.add({ id: 'graphs', label: 'Graphs (G)', icon: UI_ICONS.chart, panels: [this.graphs.el], run: () => { this.graphs.toggle(true); this.graphs.update(this.game.state); } });
-    R.add({ id: 'log', label: 'Event log', icon: UI_ICONS.log, panels: [this.logDrawer], run: () => this.openLog(), onOpen: () => { this.unreadLog = 0; } });
-    R.add({ id: 'household', label: 'My household', icon: LEARN_ICONS.house, run: () => { sfx('click'); this.openHousehold(); } });
-    R.add({ id: 'frame', label: 'Frame map (F)', icon: RAIL_ICONS.frame, run: () => { sfx('click'); this.toggleFrame(); } });
-    R.add({ id: 'settings', label: 'Settings and help', icon: UI_ICONS.gear, run: () => { sfx('click'); showSettings(this.renderer, () => this.resetToTitle()); } });
+    R.add({ id: 'goals', short: 'Goals', label: 'Goals', icon: UI_ICONS.target, panels: [this.act1Goals.el, this.objectives.el], run: () => { (this.game.state.phase === 'act1' ? this.act1Goals.el : this.objectives.el).classList.add('open'); } });
+    R.add({ id: 'needs', short: 'Town needs', label: 'Town needs', icon: RAIL_ICONS.town, panels: [this.needsPanel], run: open(this.needsPanel) });
+    R.add({ id: 'power', short: 'Power', label: 'Power grid', icon: UI_ICONS.bolt, panels: [this.energy.el], run: open(this.energy.el) });
+    R.add({ id: 'voices', short: 'Voices', label: 'Town voices', icon: UI_ICONS.speech, panels: [this.voices.drawer], run: () => { this.loadVoices(); this.voices.open(); }, onOpen: () => { this.unreadVoices = 0; } });
+    R.add({ id: 'species', short: 'Wildlife', label: 'Wildlife', icon: UI_ICONS.paw, panels: [this.species.drawer], run: () => this.species.open() });
+    R.add({ id: 'policies', short: 'Policies', label: 'Town policies', icon: RAIL_ICONS.sliders, panels: [this.policies.el], run: () => this.policies.open(this.game.state) });
+    R.add({ id: 'research', short: 'Projects', label: 'Innovations and projects', icon: UI_ICONS.rotate, panels: [this.research.el], run: () => this.research.open(this.game.state) });
+    R.add({ id: 'sats', short: 'Satellites', label: 'Satellites', icon: RAIL_ICONS.satellite, panels: [this.sats.el], run: () => this.sats.open(this.game.state) });
+    R.add({ id: 'country', short: 'Country', label: 'Caring for Country', icon: UI_ICONS.sprout, panels: [this.country.el], run: () => this.country.open(this.game.state) });
+    R.add({ id: 'kit', short: 'Field kit', label: 'Water field kit', icon: LEARN_ICONS.flask, panels: [this.kit.el], run: () => this.kit.open(this.game.state) });
+    R.add({ id: 'guide', short: 'Field guide', label: 'Field guide', icon: LEARN_ICONS.book, panels: [this.guide.el], run: () => this.guide.open(), onOpen: () => { this.unreadTerms = 0; } });
+    R.add({ id: 'graphs', short: 'Graphs', label: 'Graphs (G)', icon: UI_ICONS.chart, panels: [this.graphs.el], run: () => { this.graphs.toggle(true); this.graphs.update(this.game.state); } });
+    R.add({ id: 'log', short: 'Log', label: 'Event log', icon: UI_ICONS.log, panels: [this.logDrawer], run: () => this.openLog(), onOpen: () => { this.unreadLog = 0; } });
+    R.add({ id: 'household', short: 'Household', label: 'My household', icon: LEARN_ICONS.house, run: () => { sfx('click'); this.openHousehold(); } });
+    R.add({ id: 'frame', short: 'Frame map', label: 'Frame map (F)', icon: RAIL_ICONS.frame, run: () => { sfx('click'); this.toggleFrame(); } });
+    R.add({ id: 'settings', short: 'Settings', label: 'Settings and help', icon: UI_ICONS.gear, run: () => { sfx('click'); showSettings(this.renderer, () => this.resetToTitle()); } });
     R.onChange = () => { this.updateRail(this.game.state); sfx('click'); };
   }
 
@@ -585,11 +601,30 @@ export class App {
     };
     R.setBadges(computeRailBadges(input));
 
-    // The nudge chip beside Skip: only while a need is urgent (or buildings have no road), and the player has not dismissed it.
-    const text = act1 ? urgentChipText({ phase: s.phase, noRoad, urgentLabels: bars.filter((b) => b.urgent && !b.inactive).map((b) => b.label) }) : '';
+    // The warning beside Skip: only while a need is urgent (or buildings have no road) and the player has not dismissed it.
+    const urgent: UrgentNeed[] = bars.filter((b) => b.urgent && !b.inactive).map((b) => ({ id: b.id, label: b.label, tip: b.tip }));
+    const text = act1 ? urgentChipText({ phase: s.phase, noRoad, urgent }) : '';
+    this.chipTarget = urgent[0] ? { kind: 'tab', id: NEED_TAB[urgent[0].id] ?? 'homes' } : { kind: 'drawer', id: 'needs' };
     this.chipText.textContent = text;
-    this.chip.classList.toggle('hidden', !text || text === this.chipDismissed || this.rail.openId === 'needs');
+    const showChip = !!text && text !== this.chipDismissed && this.rail.openId !== 'needs';
+    this.chip.classList.toggle('hidden', !showChip);
+    this.nextBtn.classList.toggle('calm', showChip);
     if (!text) this.chipDismissed = '';
+    // One line for the goal that matters most, with a tiny progress bar. Hidden on phones, and on short screens while the warning shows.
+    let lite: GoalLite[] = [];
+    try {
+      if (act1) lite = act1GoalStatus(s).map((g) => ({ label: g.label, status: g.status, bonus: g.bonus, pct: g.metric === 'powerCovered' ? (g.current >= 1 ? 1 : 0) : Math.max(0, Math.min(1, g.op === '<=' ? (g.current <= g.target ? 1 : g.target / Math.max(1e-6, g.current)) : g.current / Math.max(1e-6, g.target))) }));
+      else if (act2) lite = objectiveStatus(s).map((o) => ({ label: degC(o.label), status: o.status, bonus: o.bonus, pct: o.current === null ? 0 : Math.max(0, Math.min(1, o.op === '<=' ? (o.current <= o.target ? 1 : o.target / Math.max(1e-6, o.current)) : o.current / Math.max(1e-6, o.target))) }));
+    } catch { lite = []; }
+    const g = pickGoalChip(lite);
+    const squeeze = window.innerWidth <= 700 || (showChip && window.innerHeight < 800);
+    this.goalChip.classList.toggle('hidden', !g || !live || squeeze);
+    if (g) {
+      this.goalChipText.textContent = g.label;
+      this.goalChip.title = `Goal: ${g.label}. Click to open the goals.`;
+      this.goalChip.className = `goalchip ${g.status}${this.goalChip.classList.contains('hidden') ? ' hidden' : ''}`;
+      this.goalChipBar.style.width = `${Math.round(g.pct * 100)}%`;
+    }
   }
 
   // ---------------------------------------------------------------- per-frame
