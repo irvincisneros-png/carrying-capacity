@@ -67,6 +67,16 @@ try {
     if (process.env.EVAL) console.log('eval1', await run(process.env.EVAL));
     await run(`document.querySelectorAll('.toast, .bubble').forEach(t => t.remove()); window.__cc.closeModals(); return 1;`);
     await shot(`${PREFIX}-2-growing.png`);
+    // Hover over a waiting tile with the Homes zone tool to read why it is waiting.
+    const hv = await run(`const cc = window.__cc; const s = cc.game.state; const codes = cc.sim.zoneReasons(s); let best = -1; for (let i = 0; i < codes.length; i++) { if (codes[i] === cc.sim.REASON.noDemand || codes[i] === cc.sim.REASON.noPower) { best = i; break; } } if (best < 0) return 'none'; const tx = best % s.grid.w, ty = Math.floor(best / s.grid.w); cc.app.toolbar.select('zonehomes'); const p = cc.app.renderer.tileWorld(tx, ty); const q = cc.app.renderer.project(p.x, p.y, p.z); return JSON.stringify({ x: q.x, y: q.y, code: codes[best] });`);
+    console.log('hover', hv);
+    if (hv !== 'none') {
+      const { x, y } = JSON.parse(hv);
+      await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
+      await sleep(300);
+      await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x + 1, y: y + 1 });
+      await shot(`${PREFIX}-4-hover-reason.png`);
+    }
     console.log('step 2', await run(`return JSON.stringify(window.__cc.zoneDemo(2));`));
     await run(`document.querySelectorAll('.toast, .bubble').forEach(t => t.remove()); window.__cc.closeModals(); return 1;`);
     await shot(`${PREFIX}-3-town.png`);
