@@ -29,7 +29,7 @@ await page.waitForFunction(() => window.__cc && window.__cc.renderer && window._
 const ttfi = Date.now() - t0;
 const gpu = await page.evaluate(() => { const gl = document.createElement('canvas').getContext('webgl2'); const e = gl.getExtension('WEBGL_debug_renderer_info'); return e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : 'n/a'; });
 // start scenario & populate
-const info = await page.evaluate(async (scn) => {
+const info = await page.evaluate(async ([scn, zones]) => {
   const cc = window.__cc;
   cc.start(scn);
   cc.closeModals();
@@ -41,11 +41,33 @@ const info = await page.evaluate(async (scn) => {
   const types = ['road','cottage','suburb','farm','solarfarm','windfarm','battery','nursery','wetland','rooftopsolar','apartment','park','school','market','rail','coalpower','factory','coalmine','carpark','port'];
   for (const t of types) { try { cc.autoPlace(t, 6, 0, 0); } catch {} }
   try { g.debugTick(6); } catch (e) { note += ' tickerr:' + e.message; }
+  // ZONES=n (zoning branch): stress the instanced zoned models with n grown tiles (homes, shops, workshops) on land within 2 tiles of the roads,
+  // nearest the town first. They are added straight to the state (no rules), like the screenshot driver's grown town.
+  if (zones > 0) {
+    const st = g.state, gr = st.grid, W = gr.w;
+    const near = new Uint8Array(W * gr.h);
+    for (const b of st.buildings) if (b.type === 'road') for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const x = b.x + dx, y = b.y + dy; if (x >= 0 && y >= 0 && x < W && y < gr.h) near[y * W + x] = 1; }
+    const cx = st.buildings.reduce((a, b) => a + b.x, 0) / st.buildings.length, cy = st.buildings.reduce((a, b) => a + b.y, 0) / st.buildings.length;
+    const cand = [];
+    for (let i = 0; i < near.length; i++) if (near[i] && (gr.building[i] ?? 0) === 0 && (gr.kind[i] === 4 || gr.kind[i] === 5)) cand.push(i);
+    cand.sort((a, b) => Math.hypot((a % W) - cx, Math.floor(a / W) - cy) - Math.hypot((b % W) - cx, Math.floor(b / W) - cy) || a - b);
+    const kinds = [['zres1', 1], ['zres2', 2], ['zres1', 1], ['zres2', 2], ['zres3', 3], ['zcom', 4], ['zind', 5], ['zres2', 2], ['zcom', 4], ['zres1', 1]];
+    let uid = Math.max(...st.buildings.map((b) => b.uid)) + 1, n = 0;
+    const added = [];
+    for (const i of cand) {
+      if (n >= zones || uid > 65000) break;
+      const [type, z] = kinds[n % kinds.length];
+      added.push({ uid, type, x: i % W, y: Math.floor(i / W), rotation: 0, w: 1, h: 1, builtYear: 1960 + (n % 60), grown: true });
+      gr.building[i] = uid; gr.zoning[i] = z; gr.kind[i] = 4; uid++; n++;
+    }
+    st.buildings = [...st.buildings, ...added]; st.nextUid = uid; st.version++;
+    note += ' zones:' + n;
+  }
   cc.closeModals();
   g.setSpeed(0);
   const s = g.state;
   return { note, phase: s.phase, year: s.year, w: s.grid.w, h: s.grid.h, items: (s.items||s.buildings||[]).length };
-}, scn);
+}, [scn, +(process.env.ZONES || 0)]);
 await page.waitForTimeout(3000); // let deferred rebuilds settle and auto-tier sample
 if (WARM > 0) await warmup(WARM);
 // Profiling aids: LIST=1 prints the scene's named objects with triangle / instance counts; HIDE=a,b,c* takes the named

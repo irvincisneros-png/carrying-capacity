@@ -305,7 +305,7 @@ export class Toolbar {
 
   /** Number-key selection within the current tab. */
   selectIndex(i: number): void {
-    const keys = this.cat === 'zones' ? [...ZONE_TOOLS] : [...this.cards.keys()].filter((k) => !UTIL_TOOLS.includes(k));
+    const keys = this.cat === 'zones' ? ZONE_TOOLS.filter((k) => this.cards.has(k)) : [...this.cards.keys()].filter((k) => !UTIL_TOOLS.includes(k));
     const k = keys[i];
     if (k) this.select(this.tool === k ? null : (k as Tool));
   }
