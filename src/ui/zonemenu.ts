@@ -1,7 +1,7 @@
 // The zone tool's words and picture, as pure functions of the game state (no DOM), so they can be tested:
 // which tiles the soft overlay paints, what the tooltip says over a tile or a dragged rectangle, and whether
 // the placeable cottage and brick suburb still belong in the build menu.
-import { REASON, reasonText, ZONE_NAME, zonePlan, zoneProblem, zoneReasons, zoneTileCost } from '../sim/zoning';
+import { REASON, reasonText, zonableKind, ZONE_NAME, zonePlan, zoneProblem, zoneReasons, zoneTileCost } from '../sim/zoning';
 import type { ZoneKind } from '../sim/zoning';
 import type { BuildingId, GameState } from '../sim/types';
 
@@ -22,6 +22,8 @@ export function zoneOverlayCodes(s: GameState): Uint8Array {
   for (let i = 0; i < codes.length; i++) {
     const z = g.zoning[i] ?? 0;
     if (z === 0) continue;
+    // Water, wetland, beach and rock never show a zone (a tile that was flooded after it was zoned, or an odd save).
+    if (!zonableKind(g.kind[i] ?? 0)) continue;
     const fam = z <= 3 ? 1 : z === 4 ? 2 : 3;
     const r = reasons[i] ?? 0;
     const grown = (g.building[i] ?? 0) !== 0 && r !== REASON.empty;

@@ -32,13 +32,15 @@ export class Overlay {
       polygonOffsetFactor: -2,
       polygonOffsetUnits: -2,
       vertexShader: /* glsl */ `
-        varying vec3 vW;
-        void main(){ vec3 p = position; p.y = max(p.y, 0.0) + 0.03; vec4 w = modelMatrix * vec4(p, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }
+        varying vec3 vW; varying float vH;
+        void main(){ vec3 p = position; vH = p.y; p.y = max(p.y, 0.0) + 0.03; vec4 w = modelMatrix * vec4(p, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }
       `,
       fragmentShader: /* glsl */ `
         uniform sampler2D uOv; uniform float uRamp; uniform vec4 uMap; uniform float uTime; uniform float uAlpha;
-        varying vec3 vW;
+        varying vec3 vW; varying float vH;
         void main(){
+          // Zones never tint water: the shoreline slopes below the water surface inside a land tile, and the wash stops at the waterline.
+          if (uRamp > 5.5 && vH < 0.05) discard;
           float v = texture2D(uOv, clamp((vW.xz + 0.5 * uMap.xy) * uMap.zw, 0.0, 1.0)).r;
           if (v < 0.02) discard;
           vec3 c;

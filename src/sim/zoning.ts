@@ -111,6 +111,9 @@ export function zoneOfType(type: BuildingId): ZoneKind {
   }
 }
 
+/** Only dry land and bush can hold a zone: never water, river, estuary, wetland, beach, rock or pit. */
+export const zonableKind = (k: number): boolean => k === TileKind.Land || k === TileKind.Bush;
+
 const budgetMult = (s: GameState): number => getScenario(s.scenarioId).modifiers.budgetMult;
 /** Money ($k) to zone one tile in this scenario. */
 export const zoneTileCost = (s: GameState): number => ZONE_COST * budgetMult(s);
@@ -427,7 +430,7 @@ function candidates(state: GameState, gt: Gates, year: number): Record<ZoneFamil
   const out: Record<ZoneFamily, Cand[]> = { res: [], com: [], ind: [] };
   for (let i = 0; i < g.zoning.length; i++) {
     const z = g.zoning[i] ?? 0;
-    if (z === 0 || (g.building[i] ?? 0) !== 0) continue;
+    if (z === 0 || (g.building[i] ?? 0) !== 0 || !zonableKind(g.kind[i] ?? 0)) continue;
     const fam = familyOf(z);
     if (!fam || tileGate(state, gt, i, z) !== REASON.none) continue;
     const d = Math.hypot((i % g.w) - c.x, Math.floor(i / g.w) - c.y);
@@ -568,7 +571,7 @@ export function zoneReasons(state: GameState): Uint8Array {
     const byUid = new Map(state.buildings.map((b) => [b.uid, b] as const));
     for (let i = 0; i < g.zoning.length; i++) {
       const z = g.zoning[i] ?? 0;
-      if (z === 0) continue;
+      if (z === 0 || !zonableKind(g.kind[i] ?? 0)) continue;
       const u = g.building[i] ?? 0;
       if (u !== 0) {
         if (byUid.get(u)?.empty) codes[i] = REASON.empty;
