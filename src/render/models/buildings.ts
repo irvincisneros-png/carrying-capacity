@@ -2549,6 +2549,217 @@ function mParkland(k: Kit): void {
   });
 }
 
+// ================================================================== zoned buildings (grown from zones)
+// One tile each, front (+z) toward the road (the renderer turns them). The renderer picks a variant from the building's
+// built year and uid (modelVariant): bit 0 is the era, bit 1 mirrors the garden and layout so a street does not look stamped.
+
+/** Zoned types the renderer builds with a variant. */
+export const ZONED_IDS: readonly BuildingId[] = ['zres1', 'zres2', 'zres3', 'zcom', 'zind'];
+/** How many variants each zoned model has (era x mirror). */
+export const ZONED_VARIANTS = 4;
+
+/** Era split by type: homes change with the housing styles of the 1950s, 1990s and 2000s; shops with the 1980s. */
+const ERA_YEAR: Partial<Record<BuildingId, number>> = { zres1: 1950, zres2: 1990, zres3: 2000, zcom: 1980 };
+
+/** Which variant a grown building uses: era (bit 0, from its built year) and mirror (bit 1, from its uid). */
+export function modelVariant(type: BuildingId, builtYear: number, uid: number): number {
+  const cut = ERA_YEAR[type];
+  const era = cut !== undefined && builtYear >= cut ? 1 : 0;
+  return era | ((((uid * 2654435761) >>> 20) & 1) << 1);
+}
+
+const PALE_RENDER = 0xe6dcc6, SAGE_WALL = 0xc9d3bd, SLATE = 0x6c7a86, BUTTER = 0xe6cf8e;
+const VERGE = 0xcfc7b4;
+
+function lot(k: Kit, tint: ColorLike = LAWN): void {
+  pad(k, 1, 1, tint);
+  // a pale footpath along the road edge
+  k.flat(0, G + 0.002, 0.455, 0.98, 0.07, VERGE);
+}
+
+function picketFront(k: Kit, x0: number, x1: number, z: number, gate: number): void {
+  const seg = (a: number, b: number): void => {
+    k.box((a + b) / 2, G + 0.035, z, b - a, 0.01, 0.008, WHITE, PAINT);
+    if (k.hi) {
+      const n = Math.max(1, Math.round((b - a) / 0.05));
+      for (let i = 0; i <= n; i++) k.box(a + ((b - a) * i) / n, G, z, 0.011, 0.055, 0.008, WHITE, PAINT);
+    } else k.box((a + b) / 2, G, z, b - a, 0.045, 0.006, 0xe8e4da, PAINT);
+  };
+  seg(x0, gate - 0.045);
+  seg(gate + 0.045, x1);
+}
+
+/** Low-density homes: one house on its own lot with a garden. Era 0 weatherboard cottage, era 1 brick-veneer bungalow. */
+function mZres1(k: Kit, v: number): void {
+  const era = v & 1, f = v & 2 ? -1 : 1;
+  lot(k);
+  if (era === 0) {
+    k.flat(0.12 * f, G + 0.002, 0.3, 0.06, 0.3, GRAVEL);
+    k.group(-0.03 * f, G, -0.1, 0, (q) => cottage(q, f > 0 ? CREAM : BUTTER, f > 0 ? ROOF : ROOF_RED, f > 0 ? 0x3f6b4f : 0x8a3a2a, 0.1 * f, false, 0.32, 0.26), 1.2);
+    picketFront(k, -0.46, 0.46, 0.4, 0.12 * f);
+    k.put(buildAmbient('watertank', k.d), -0.38 * f, G, -0.38, 0, 0xffffff, 0.7);
+  } else {
+    k.flat(0.2 * f, G + 0.002, 0.3, 0.2, 0.3, 0xb9b3a6);
+    k.group(-0.08 * f, G, -0.1, 0, (q) => brickHome(q, f > 0 ? BRICK_L : 0xcaa27a, f > 0 ? ROOF : ROOF_RED, f > 0 ? 1 : 2), 1.28);
+    if (k.hi) k.box(0, G, 0.42, 0.9, 0.04, 0.012, 0xc9c1ae, WALL);
+  }
+  k.tree(0.38 * f, 0.18, 0.8, 5 + era);
+  if (k.hi) {
+    k.blobAt(-0.4 * f, G + 0.03, 0.26, 0.05, 41, 0x6f8a4a, 0.4, 0.7);
+    k.blobAt(-0.2 * f, G + 0.03, 0.33, 0.04, 42, 0xd98a9a, 0.4, 0.7);
+  }
+}
+
+/** One townhouse or semi: two storeys, front +z, gable roof with the ridge running front to back. */
+function townhouse(k: Kit, x: number, z: number, w: number, d: number, wall: ColorLike, roof: ColorLike, trim: ColorLike, doorX: number): void {
+  const H = 0.25;
+  k.box(x, 0, z, w, 0.02, d + 0.02, CONC_D, MATTE);
+  const b = k.sbox(x, 0.02, z, w - 0.004, H, d, 1, k.hi ? 4 : 1, 1, wall, WALL);
+  if (k.hi) facets(b, (cx, cy, cz) => (vnoise(cx * 80, cy * 120 + cz * 80) > 0.7 ? 0.9 : undefined));
+  k.gable(x, 0.02 + H, z, d, w, 0.1, roof, IRON, Math.PI / 2, 0.02); // ridge front to back: the gable is built along x, so give it (depth, width) and turn it a quarter
+  const fz = z + d / 2;
+  k.wins('+z', fz, 0.02 + 0.17, x - w / 2 + 0.04, x + w / 2 - 0.04, 2, 0.045, 0.05, GLASSC, WHITE);
+  k.wins('+z', fz, 0.02 + 0.07, x - w / 2 + 0.03, x + w / 2 - 0.03 - 0.05, 1, 0.05, 0.05, GLASSC, WHITE);
+  k.quad(x + doorX, 0.02 + 0.045, fz + 0.003, 0.04, 0.09, '+z', trim, PAINT);
+  k.box(x + doorX, 0.02 + 0.095, fz + 0.012, 0.07, 0.008, 0.03, trim, PAINT);
+  k.wins('+x', x + w / 2, 0.02 + 0.12, z - d / 4, z + d / 4, 1, 0.04, 0.05, GLASSC);
+}
+
+/** Medium-density homes: a row of townhouses (era 0 brick with tiled roofs, era 1 rendered with grey roofs). */
+function mZres2(k: Kit, v: number): void {
+  const era = v & 1, f = v & 2 ? -1 : 1;
+  pad(k, 1, 1, era ? SAGE : LAWN2);
+  k.flat(0, G + 0.002, 0.455, 0.98, 0.07, VERGE);
+  const n = f > 0 ? 3 : 2;
+  const w = 0.88 / n;
+  const walls = era ? [PALE_RENDER, SAGE_WALL, 0xd8cdb5] : [BRICK, BRICK_L, BRICK2];
+  const trims = era ? [TEAL, SLATE, 0x3f6b4f] : [WHITE, CREAM, WHITE];
+  for (let i = 0; i < n; i++) {
+    const x = -0.44 + w * (i + 0.5);
+    townhouse(k, x, -0.12, w, 0.5, walls[i % 3]!, era ? SLATE : ROOF_RED, trims[i % 3]!, i % 2 ? -w * 0.22 : w * 0.22);
+    // a little front garden
+    k.flat(x, G + 0.002, 0.28, w - 0.06, 0.18, i % 2 ? LAWN : LAWN2);
+    if (k.hi && i % 2 === 0) k.blobAt(x - w * 0.25, G + 0.03, 0.3, 0.04, 50 + i, 0x6f8a4a, 0.4, 0.7);
+  }
+  k.tree(0.42 * f, 0.34, 0.55, 7 + era);
+}
+
+/** One floor band of an apartment block: a window row on each face. */
+function floors(k: Kit, w: number, d: number, n: number, storey: number, glass: ColorLike, frame: ColorLike): void {
+  for (let i = 0; i < n; i++) {
+    const y = i * storey + storey * 0.55;
+    const cols = Math.max(2, Math.round(w / 0.1));
+    k.wins('+z', d / 2, y, -w / 2 + 0.04, w / 2 - 0.04, cols, 0.05, storey * 0.5, glass, frame);
+    k.wins('-z', -d / 2, y, -w / 2 + 0.04, w / 2 - 0.04, cols, 0.05, storey * 0.5, glass);
+    k.wins('+x', w / 2, y, -d / 2 + 0.05, d / 2 - 0.05, 2, 0.05, storey * 0.5, glass);
+    k.wins('-x', -w / 2, y, -d / 2 + 0.05, d / 2 - 0.05, 2, 0.05, storey * 0.5, glass);
+  }
+}
+
+/** High-density homes: era 0 a three-storey brick walk-up, era 1 a six-storey apartment building with a rooftop garden. */
+function mZres3(k: Kit, v: number): void {
+  const era = v & 1, f = v & 2 ? -1 : 1;
+  pad(k, 1, 1, era ? CONC_L : LAWN2);
+  k.flat(0, G + 0.002, 0.455, 0.98, 0.07, VERGE);
+  if (era === 0) {
+    const W = 0.7, D = 0.36, S = 0.12, N = 3;
+    k.box(0, G, -0.05, W + 0.02, 0.02, D + 0.02, CONC_D, MATTE);
+    const b = k.sbox(0, G + 0.02, -0.05, W, N * S, D, 1, k.hi ? N * 2 : 1, 1, BRICK, WALL);
+    if (k.hi) facets(b, (cx, cy, cz) => (vnoise(cx * 90, cy * 140 + cz * 90) > 0.7 ? 0.88 : undefined));
+    k.group(0, G + 0.02, -0.05, 0, (q) => floors(q, W, D, N, S, GLASSC, 0xe8e2d4));
+    k.box(0, G + 0.02 + N * S, -0.05, W + 0.04, 0.02, D + 0.04, CONC_L, MATTE);
+    k.box(f * 0.18, G + 0.02 + N * S + 0.02, -0.12, 0.14, 0.07, 0.12, CONC_D, WALL);
+    k.box(0, G + 0.02, -0.05 + D / 2 + 0.004, 0.08, 0.09, 0.01, 0x2b3a46, GLASS);
+    k.flat(0, G + 0.002, 0.3, 0.9, 0.2, LAWN2);
+    k.tree(-0.38 * f, 0.3, 0.7, 11);
+  } else {
+    const W = 0.5, D = 0.38, S = 0.095, N = 6;
+    k.box(0, G, -0.06, 0.9, 0.025, 0.7, CONC_L, MATTE);
+    k.box(0, G + 0.025, -0.06, W + 0.1, 0.07, D + 0.08, CONC, WALL); // podium
+    const b = k.sbox(0, G + 0.095, -0.06, W, N * S, D, 1, k.hi ? N : 1, 1, 0xe9e3d3, WALL);
+    if (k.hi) facets(b, (_x, cy) => (Math.floor((cy - G - 0.095) / S) % 2 ? 0.96 : undefined));
+    k.group(0, G + 0.095, -0.06, 0, (q) => floors(q, W, D, N, S, SKYGLASS, WHITE));
+    k.box(0, G + 0.095 + N * S, -0.06, W + 0.02, 0.018, D + 0.02, CONC_L, MATTE);
+    // rooftop plant room and a strip of planted garden
+    k.box(-f * 0.1, G + 0.095 + N * S + 0.018, -0.1, 0.16, 0.06, 0.12, CONC_D, WALL);
+    k.flat(f * 0.12, G + 0.095 + N * S + 0.022, 0.0, 0.2, 0.14, 0x6f8a4a);
+    k.box(0, G + 0.04, -0.06 + D / 2 + 0.05, 0.2, 0.02, 0.1, TEAL, PAINT); // entrance canopy
+    k.tree(0.38 * f, 0.34, 0.6, 12);
+    k.tree(-0.38 * f, 0.36, 0.5, 13);
+  }
+}
+
+/** Shops and offices: era 0 a row of awning shopfronts, era 1 a glass office block with a carpark in front. */
+function mZcom(k: Kit, v: number): void {
+  const era = v & 1, f = v & 2 ? -1 : 1;
+  pad(k, 1, 1, era ? 0xb9b3a6 : GRAVEL);
+  k.flat(0, G + 0.002, 0.455, 0.98, 0.07, VERGE);
+  if (era === 0) {
+    const n = 3, w = 0.28, H = 0.2;
+    const walls = [CREAM, 0xe3d9b8, SAGE_WALL];
+    const awn = [0xb5523a, TEAL, 0xd9a02a];
+    for (let i = 0; i < n; i++) {
+      const x = (i - 1) * w * 1.02;
+      k.box(x, G, -0.03, w, H + 0.07, 0.5, walls[(i + (f > 0 ? 0 : 1)) % 3]!, WALL);
+      k.box(x, G + H + 0.07, -0.03 + 0.25 + 0.004, w, 0.04, 0.012, i % 2 ? WHITE : 0xf1e6c8, PAINT);
+      // shopfront window + door, striped awning over the footpath
+      k.wins('+z', 0.222, G + 0.07, x - w / 2 + 0.04, x + w / 2 - 0.1, 1, 0.12, 0.1, SKYGLASS, WHITE);
+      k.quad(x + w / 2 - 0.06, G + 0.05, 0.226, 0.04, 0.09, '+z', 0x3f4a52, PAINT);
+      const aw = k.add(T(new BoxGeometry(w - 0.01, 0.01, 0.1, k.hi ? 6 : 1, 1, 1), x, G + 0.155, 0.28, 0.35, 0, 0), awn[i % 3]!, PAINT);
+      if (k.hi) facets(aw, (cx) => (Math.floor((cx + 1) / (w / 6)) % 2 ? WHITE : undefined));
+      k.wins('+z', 0.222, G + H, x - w / 2 + 0.05, x + w / 2 - 0.05, 2, 0.045, 0.05, GLASSC, WHITE);
+    }
+    k.box(0, G + 0.27, -0.03, 0.9, 0.012, 0.52, CONC_D, MATTE);
+    k.box(f * 0.38, G, -0.4, 0.1, 0.1, 0.08, 0x8a9a7a, WALL); // back shed
+  } else {
+    const W = 0.6, D = 0.4, S = 0.1, N = 3;
+    const b = k.sbox(0, G, -0.14, W, N * S + 0.04, D, 1, 1, 1, 0xdfe5e6, WALL);
+    k.group(0, G + 0.02, -0.14, 0, (q) => {
+      for (let i = 0; i < N; i++) q.wins('+z', D / 2, i * S + 0.05, -W / 2 + 0.02, W / 2 - 0.02, 5, 0.1, 0.07, SKYGLASS, 0xc4ccce);
+      q.wins('+x', W / 2, 0.15, -D / 2 + 0.06, D / 2 - 0.06, 3, 0.07, 0.19, SKYGLASS, 0xc4ccce);
+    });
+    if (k.hi) facets(b, (_x, cy, _z, _nx, ny) => (ny > 0.5 ? 0xb8bfc1 : Math.floor((cy - G) / S) % 2 ? 0.96 : undefined));
+    k.box(0, G + N * S + 0.04, -0.14, W + 0.03, 0.018, D + 0.03, CONC, MATTE);
+    k.box(f * 0.15, G + N * S + 0.058, -0.2, 0.18, 0.045, 0.12, CONC_D, WALL);
+    k.box(0, G + 0.09, -0.14 + D / 2 + 0.07, 0.3, 0.015, 0.14, TEAL, PAINT); // entrance canopy
+    for (const px of [-0.12, 0.12]) k.box(px, G, -0.14 + D / 2 + 0.12, 0.01, 0.09, 0.01, WHITE, PAINT);
+    // carpark with bays and a couple of cars
+    k.flat(0, G + 0.003, 0.33, 0.88, 0.2, ASPHALT);
+    if (k.hi) for (let i = -3; i <= 3; i++) k.flat(i * 0.12, G + 0.004, 0.33, 0.006, 0.12, 0xe8e6de);
+    k.put(buildAmbient('car', k.d), -0.18 * f, G, 0.33, Math.PI / 2, 0xd9534f, 0.55);
+    k.put(buildAmbient('car', k.d), 0.18 * f, G, 0.33, Math.PI / 2, 0x4f7fb8, 0.55);
+    k.tree(-0.42 * f, -0.38, 0.5, 14);
+  }
+}
+
+/** Light industry: a sawtooth-roofed workshop with a loading door, an office and a yard of pallets and a skip. */
+function mZind(k: Kit, v: number): void {
+  const f = v & 2 ? -1 : 1;
+  pad(k, 1, 1, GRAVEL);
+  k.flat(0, G + 0.002, 0.455, 0.98, 0.07, VERGE);
+  k.flat(0, G + 0.003, 0.3, 0.86, 0.3, 0xa7a194);
+  const W = 0.62, D = 0.44;
+  const b = k.sbox(-0.1 * f, G, -0.18, W, 0.16, D, 1, 1, 1, 0xd2cdc0, WALL);
+  if (k.hi) facets(b, (cx) => (Math.floor((cx + 1) / 0.07) % 2 ? 0.94 : undefined));
+  sawtooth(k, -0.1 * f, G + 0.16, -0.18, W, D, 3, 0.07, ROOF);
+  k.quad(-0.1 * f - 0.14, G + 0.07, -0.18 + D / 2 + 0.004, 0.16, 0.13, '+z', 0x5a6a74, IRON); // roller door
+  if (k.hi) for (let i = 1; i < 6; i++) k.quad(-0.1 * f - 0.14, G + 0.01 + i * 0.02, -0.18 + D / 2 + 0.006, 0.16, 0.003, '+z', 0x46545c, IRON);
+  k.wins('+z', -0.18 + D / 2, G + 0.095, -0.1 * f, -0.1 * f + W / 2 - 0.03, 2, 0.06, 0.05, GLASSC, WHITE);
+  // small office block with a flat roof
+  k.box(0.32 * f, G, -0.04, 0.2, 0.12, 0.2, CREAM, WALL);
+  k.box(0.32 * f, G + 0.12, -0.04, 0.22, 0.014, 0.22, CONC_D, MATTE);
+  k.wins('+z', 0.06, G + 0.07, 0.32 * f - 0.07, 0.32 * f + 0.07, 2, 0.045, 0.045, GLASSC, WHITE);
+  // yard: pallet stacks, a skip, a ute
+  k.box(-0.3 * f, G, 0.32, 0.12, 0.06, 0.1, TIMBER_L, WALL);
+  k.box(-0.3 * f, G + 0.06, 0.32, 0.1, 0.05, 0.09, TIMBER, WALL);
+  k.box(0.08 * f, G, 0.34, 0.14, 0.07, 0.09, 0x3f6b4f, PAINT); // skip
+  k.put(buildAmbient('truck', k.d), 0.34 * f, G, 0.3, Math.PI / 2, 0xe3b02a, 0.5);
+}
+
+const ZONED_BUILDERS: Partial<Record<BuildingId, (k: Kit, v: number) => void>> = {
+  zres1: mZres1, zres2: mZres2, zres3: mZres3, zcom: mZcom, zind: mZind,
+};
+
 // ------------------------------------------------------------------ public API
 const BUILDERS: Partial<Record<ModelId, (k: Kit) => void>> = {
   cottage: mCottage,
@@ -2599,7 +2810,7 @@ const BUILDERS: Partial<Record<ModelId, (k: Kit) => void>> = {
   datacentre: mDatacentre,
 };
 
-export const MODEL_IDS = Object.keys(BUILDERS) as ModelId[];
+export const MODEL_IDS = [...Object.keys(BUILDERS), 'zres1', 'zres2', 'zres3', 'zcom', 'zind'] as ModelId[];
 
 /** Placeholder for building ids added to the catalogue before a crafted model exists: pad + hall + roof. */
 function genericModel(k: Kit, id: ModelId): void {
@@ -2614,10 +2825,12 @@ function genericModel(k: Kit, id: ModelId): void {
   k.box(-bw * 0.2, 0.08, bd / 2 + 0.005, 0.12, 0.18, 0.01, 0x2b3a46);
 }
 
-export function buildBuildingModel(id: ModelId, detail: 0 | 1, cull = 0): BuildingModel {
+export function buildBuildingModel(id: ModelId, detail: 0 | 1, cull = 0, variant = 0): BuildingModel {
   const k = new Kit(detail, cull);
+  const zoned = ZONED_BUILDERS[id];
   const build = BUILDERS[id];
-  if (build) build(k);
+  if (zoned) zoned(k, variant);
+  else if (build) build(k);
   else genericModel(k, id);
   const geo = k.merge();
   geo.computeBoundingBox();

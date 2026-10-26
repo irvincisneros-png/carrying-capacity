@@ -6,7 +6,7 @@ import { TileKind, type BuildingId, type GameState, type PlacedBuilding } from '
 import { Batch, prepBatchGeo } from './batch';
 import type { MapGeo } from './mapgeo';
 import type { MatLib } from './materials';
-import { SUBURB_STREET_TOP, buildBuildingModel, rotorGeo, wheelGeo, type BuildingModel } from './models/buildings';
+import { SUBURB_STREET_TOP, ZONED_IDS, buildBuildingModel, modelVariant, rotorGeo, wheelGeo, type BuildingModel } from './models/buildings';
 import { RoadMesh } from './roadmesh';
 import { ASPHALT_LIFT, gradeRoads, type RoadPin, type RoadTile } from './roadnet';
 
@@ -21,6 +21,8 @@ export interface Emitter {
 interface Rec {
   uid: number;
   type: BuildingId;
+  /** Model variant (grown zone buildings: era and mirror, see modelVariant) */
+  variant: number;
   ids: number[];
   /** connection mask for road / rail */
   mask: number;
@@ -69,6 +71,22 @@ function autoYaw(s: GameState, b: PlacedBuilding): number | null {
   }
   if (!best || bestScore === -Infinity) return null;
   return b.type === 'seawall' ? Math.atan2(-best[1], best[0]) : Math.atan2(best[0], best[1]);
+}
+
+const ZONED: ReadonlySet<BuildingId> = new Set<BuildingId>(ZONED_IDS);
+
+/** Grown zone buildings face the nearest road (one or two tiles away, straight along an axis), else keep their rotation. */
+function roadFacing(s: GameState, b: PlacedBuilding, typeOf: ReadonlyMap<number, BuildingId>): number | null {
+  const g = s.grid;
+  for (const reach of [1, 2]) {
+    for (const [dx, dz] of DIRS) {
+      const x = b.x + dx * reach, y = b.y + dz * reach;
+      if (x < 0 || y < 0 || x >= g.w || y >= g.h) continue;
+      const u = g.building[y * g.w + x] ?? 0;
+      if (u !== 0 && typeOf.get(u) === 'road') return Math.atan2(dx, dz);
+    }
+  }
+  return null;
 }
 
 const SUBURBS: ReadonlySet<BuildingId> = new Set<BuildingId>(['suburb', 'greensuburb']);
@@ -171,12 +189,12 @@ export class BuildingLayer {
     if (this.batch.outline) this.batch.outline.visible = on;
   }
 
-  model(type: BuildingId): BuildingModel | null {
+  model(type: BuildingId, variant = 0): BuildingModel | null {
     if (type === 'road' || type === 'rail') return null;
-    const key = `${type}:${this.detail}:${this.cull}`;
+    const key = `${type}:${variant}:${this.detail}:${this.cull}`;
     let m = this.models.get(key);
     if (!m) {
-      m = buildBuildingModel(type, this.detail, this.cull);
+      m = buildBuildingModel(type, this.detail, this.cull, variant);
       this.models.set(key, m);
     }
     return m;
@@ -215,6 +233,8 @@ export class BuildingLayer {
       return typeof set === 'string' ? type === set : set.has(type);
     };
     const dirtEra = s.year < 1920;
+    const typeOf = new Map<number, BuildingId>();
+    for (const b of s.buildings) typeOf.set(b.uid, b.type);
     for (const b of s.buildings) {
       seen.add(b.uid);
       let rec = this.recs.get(b.uid);
@@ -226,11 +246,16 @@ export class BuildingLayer {
         const p = this.place(b);
         const auto = autoYaw(s, b);
         if (auto !== null) p.yaw = auto;
-        rec = { uid: b.uid, type: b.type, ids: [], mask: -1, dirt: dirtEra, x: p.x, y: p.y, z: p.z, yaw: p.yaw, b };
+        const variant = ZONED.has(b.type) ? modelVariant(b.type, b.builtYear, b.uid) : 0;
+        if (ZONED.has(b.type)) {
+          const face = roadFacing(s, b, typeOf);
+          if (face !== null) p.yaw = face;
+        }
+        rec = { uid: b.uid, type: b.type, variant, ids: [], mask: -1, dirt: dirtEra, x: p.x, y: p.y, z: p.z, yaw: p.yaw, b };
         this.recs.set(b.uid, rec);
         if (b.type !== 'road' && b.type !== 'rail') {
-          const model = this.model(b.type)!;
-          const gid = this.gid(`${b.type}:${this.detail}:${this.cull}`, () => model.geo);
+          const model = this.model(b.type, rec.variant)!;
+          const gid = this.gid(`${b.type}:${rec.variant}:${this.detail}:${this.cull}`, () => model.geo);
           this.compose(rec, this.initial ? 1 : 0.001, this.initial ? 1 : 0.001);
           const lift = INDUSTRIAL.has(b.type) ? 1.32 : 1.12;
           _c.setRGB(lift - ((b.uid * 0.37) % 1) * 0.06, lift - ((b.uid * 0.53) % 1) * 0.05, lift - ((b.uid * 0.71) % 1) * 0.07);
@@ -352,7 +377,7 @@ export class BuildingLayer {
     }
     if (animate) {
       this.anims.push({ rec, t: 1, dir: -1 });
-      const m = this.model(rec.type);
+      const m = this.model(rec.type, rec.variant);
       this.onPop?.(rec.x, rec.y, rec.z, Math.max(rec.b.w, rec.b.h) * 0.6 + (m ? m.height * 0.1 : 0), true);
       return;
     }
@@ -368,7 +393,7 @@ export class BuildingLayer {
     const util = s.a2?.utilisation ?? {};
     const activeRem = new Set(s.a2?.activeRemediation ?? []);
     for (const rec of this.recs.values()) {
-      const m = this.model(rec.type);
+      const m = this.model(rec.type, rec.variant);
       if (!m) continue;
       const cos = Math.cos(rec.yaw);
       const sin = Math.sin(rec.yaw);
@@ -439,7 +464,7 @@ export class BuildingLayer {
           for (const id of rec.ids) this.batch.remove(id);
           rec.ids.length = 0;
         } else {
-          const m = this.model(rec.type);
+          const m = this.model(rec.type, rec.variant);
           this.onPop?.(rec.x, rec.y, rec.z, Math.max(rec.b.w, rec.b.h) * 0.55 + (m ? m.height * 0.08 : 0), false);
         }
         this.anims.splice(i, 1);
