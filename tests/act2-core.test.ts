@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   advanceDecade, applyAction, consumeEvents, createGame, deserialize, objectiveStatus, SAVE_VERSION, serialize, startAct2,
-  balanceGrid, tick, tickSeasons, yearFraction, climateAt, tempFor, referenceCumulative, eventChances, TileKind,
+  balanceGrid, tick, tickSeasons, yearFraction, climateAt, tempFor, referenceCumulative, eventChances, TileKind, BUILDINGS, getScenario,
 } from '../src/sim';
 import type { GameState } from '../src/sim';
 import { runScript } from './helpers/autoplay';
@@ -43,7 +43,9 @@ describe('phase machine', () => {
     expect(s.year).toBe(2025);
     expect(s.a2.season).toBe(0);
     expect(s.a2.yearly.map((y) => y.year)).toEqual([2021, 2022, 2023, 2024, 2025]);
-    expect(s.budget).toBeGreaterThan(dirtyEnd.budget);
+    // Re-banded (zoning phase 2): zoned homes are cheap, so the scripted dirty town ends Act 1 with more banked than the carry-over cap lets
+    // into Act 2 (the rest becomes the Transition Fund, paid out over the years); Act 2 opens with the cap plus five years of income.
+    expect(s.budget).toBeGreaterThan(getScenario('coal-coast').act2.carryOverCap ?? 0);
     expect(s.grid.stage.some((v) => v === 3)).toBe(true);
   });
   it('startAct2 only works from the turning point', () => {
@@ -54,7 +56,8 @@ describe('phase machine', () => {
   });
   it('place and demolish work in act2 using the Act 2 catalogue', () => {
     const s = startAct2(cautiousEnd);
-    const wanted = s.buildings.find((b) => b.type === 'cottage');
+    // (zoning phase 2: the scripted town's homes are grown buildings now, not cottages)
+    const wanted = s.buildings.find((b) => BUILDINGS[b.type].housing > 0);
     expect(wanted).toBeDefined();
     const d = applyAction(s, { type: 'demolish', x: wanted?.x ?? 0, y: wanted?.y ?? 0 });
     expect(d.result.ok).toBe(true);

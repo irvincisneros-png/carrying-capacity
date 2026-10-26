@@ -8,10 +8,13 @@ import { emptyZoned, housingOf, keepZoned, zonedTiles } from './zoning';
 import { answerPrompts, bestSpot, disposeLegacy, greenGridStep, nearTiles, place, queuePlan } from './scen';
 import type { QueueWant } from './scen';
 
+// Zoned homes only grow where there is power (the grid year has passed), so the power station comes right after the first farm; with the
+// old order (factories first) the valley had no homes at all until the money for a station finally came in 2020.
 const VALLEY_IDLE_QUEUE: QueueWant[] = [
+  { id: 'farm', max: 1 },
+  { id: 'coalpower', max: 1 },
   { id: 'farm', max: 3 },
   { id: 'factory', max: 2 },
-  { id: 'coalpower', max: 1 },
   { id: 'coalmine', max: 1 },
   { id: 'landfill', max: 1 },
   { id: 'carpark', max: 2 },

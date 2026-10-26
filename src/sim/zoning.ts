@@ -42,6 +42,13 @@ export const ZONE_UNLOCK: Readonly<Record<ZoneKind, number>> = { 0: 0, 1: 1850, 
 export const ZONE_COST = 0.3;
 /** Money ($k) per grown tile to raise its density (the new building replaces the old at the next growth tick). */
 export const DENSITY_UPGRADE_COST = 2;
+/**
+ * Streets, pipes and wires: the council pays this ($k, before the scenario's budget multiplier) when a building grows. Low-density
+ * homes cost the most per person (20 people for 6, against 120 for 14), the same lesson as the longer streets. Without it a town
+ * pays almost nothing for its homes and the Act 1 economy runs away (the old cottage cost $10k for 20 people, the brick suburb
+ * $30k for 120).
+ */
+export const GROW_FEE: Readonly<Record<'zres1' | 'zres2' | 'zres3' | 'zcom' | 'zind', number>> = { zres1: 10, zres2: 14, zres3: 28, zcom: 8, zind: 12 };
 /** A zone must be within this many tiles (Chebyshev) of a road tile. Grown buildings count a connected road this close as access. */
 export const ZONE_REACH = 2;
 /** Soil contaminated above this cannot be zoned, and stops growth. */
@@ -70,7 +77,7 @@ export const ACT2_DECLINE_UNMET = 0.15;
 export const AQUIFER_MIN = 40;
 
 /** Why a zoned tile is not growing (zoneReasons). */
-export const REASON = { none: 0, noRoad: 1, noPower: 2, noDemand: 3, noWater: 4, polluted: 5, ready: 6, empty: 7, protected: 8 } as const;
+export const REASON = { none: 0, noRoad: 1, noPower: 2, noDemand: 3, noWater: 4, polluted: 5, ready: 6, empty: 7, protected: 8, noMoney: 9 } as const;
 export type ReasonCode = (typeof REASON)[keyof typeof REASON];
 export const ZONE_REASON_TEXT: readonly string[] = [
   '',
@@ -82,6 +89,7 @@ export const ZONE_REASON_TEXT: readonly string[] = [
   'Ready to grow when it is needed',
   'Empty: no power or road for 3 years',
   'Bushland is protected now: nothing will grow on this zoned bush',
+  'Waiting for money: the council pays for the street, pipes and wires of every new building',
 ];
 
 /** Plain words for one tile's reason, for the zone it holds ("No one needs more shops yet"). */
@@ -117,6 +125,8 @@ export const zonableKind = (k: number): boolean => k === TileKind.Land || k === 
 const budgetMult = (s: GameState): number => getScenario(s.scenarioId).modifiers.budgetMult;
 /** Money ($k) to zone one tile in this scenario. */
 export const zoneTileCost = (s: GameState): number => ZONE_COST * budgetMult(s);
+/** Money ($k) the council pays when one building of this type grows. */
+export const growFee = (s: GameState, type: BuildingId): number => (GROW_FEE[type as keyof typeof GROW_FEE] ?? 0) * budgetMult(s);
 
 // ---------------------------------------------------------------------------------------------------------
 // Where you can zone
@@ -491,6 +501,7 @@ export function growZones(s: GameState, year: number): GrowthReport {
   const demand = zoneDemand(s);
   const need: Record<ZoneFamily, number> = { res: demand.res, com: demand.com, ind: demand.ind };
   let spare = sparePower(s);
+  let funds = s.budget;
   const gt = gates(s);
   const cands = candidates(s, gt, year);
   const grownNow = s.buildings.filter((b) => b.grown).length;
@@ -514,6 +525,8 @@ export function growZones(s: GameState, year: number): GrowthReport {
       const type = ZONE_BUILDING[c.zone as 1 | 2 | 3 | 4 | 5];
       const def = BUILDINGS[type];
       if (spare < -def.power) break;
+      const fee = growFee(s, type);
+      if (funds < fee) break;
       const x = c.i % g.w, y = Math.floor(c.i / g.w);
       const b: PlacedBuilding = { uid: alloc(), type, x, y, rotation: 0, w: 1, h: 1, builtYear: year, grown: true };
       added.push(b);
@@ -528,6 +541,7 @@ export function growZones(s: GameState, year: number): GrowthReport {
       }
       bumpRect(g, x, y, 1, 1);
       spare -= -def.power;
+      funds -= fee;
       need[fam] -= fam === 'res' ? def.housing * (type === 'zres3' ? fill({ ...b, grown: true }) : 1) : def.jobs;
       n++;
     }
@@ -536,6 +550,7 @@ export function growZones(s: GameState, year: number): GrowthReport {
   if (added.length) {
     s.buildings = [...s.buildings, ...added];
     s.nextUid = uid;
+    s.budget = Math.round(funds * 100) / 100;
   }
   s.flags['zg.year'] = year;
   s.flags['zg.res'] = rep.grown.res;
@@ -581,7 +596,7 @@ export function zoneReasons(state: GameState): Uint8Array {
       if (gate !== REASON.none) { codes[i] = gate; continue; }
       const fam = familyOf(z) as ZoneFamily;
       const def = BUILDINGS[ZONE_BUILDING[z as 1 | 2 | 3 | 4 | 5]];
-      codes[i] = demand[fam] <= 0 ? REASON.noDemand : spare < -def.power ? REASON.noPower : REASON.ready;
+      codes[i] = demand[fam] <= 0 ? REASON.noDemand : spare < -def.power ? REASON.noPower : state.budget < growFee(state, ZONE_BUILDING[z as 1 | 2 | 3 | 4 | 5]) ? REASON.noMoney : REASON.ready;
     }
   }
   REASONS.set(state.buildings, { version: state.version, len: state.buildings.length, year: state.year, codes });

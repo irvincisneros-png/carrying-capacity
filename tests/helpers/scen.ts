@@ -8,6 +8,8 @@ import {
 import type { BuildingId, GameState } from '../../src/sim';
 import { bestSpot, count, demolishAll, place, placeUpTo } from './act2play';
 import { gridHoldsWithout } from './goodplay';
+import { pendingHousing, waitingForPower, zoneHomesFor, zoneShopsFor } from './zoning';
+import type { HomeOpts } from './zoning';
 
 export type Plan = (s: GameState) => GameState;
 
@@ -199,7 +201,8 @@ export interface QueueWant {
 const jobsAndHousing = (s: GameState): { housing: number; jobs: number } => {
   let housing = 0, jobs = 0;
   for (const b of s.buildings) { housing += BUILDINGS[b.type].housing; jobs += BUILDINGS[b.type].jobs; }
-  return { housing, jobs };
+  // Home tiles that are zoned but have not grown yet count as homes on the way.
+  return { housing: housing + pendingHousing(s), jobs };
 };
 
 /**
@@ -207,27 +210,27 @@ const jobsAndHousing = (s: GameState): { housing: number; jobs: number } => {
  * first wanted building that is unlocked and not yet at its maximum. If it cannot afford it, it waits for the next decade
  * (so expensive, important buildings are not starved by cheap ones).
  */
-export function queuePlan(queue: readonly QueueWant[], housingRatio = 1.0, maxPerDecade = 30, roadWeight?: number): Plan {
+export function queuePlan(queue: readonly QueueWant[], housingRatio = 1.0, maxPerDecade = 30, roadWeight?: number, homes: HomeOpts = {}): Plan {
   // Wants that could not find a legal spot are dropped for good, so one impossible item never blocks the rest.
   const blocked = new Set<BuildingId>();
   return (state) => {
     let s = state;
     for (let n = 0; n < maxPerDecade; n++) {
-      const { housing, jobs } = jobsAndHousing(s);
+      // Homes are zoned, not placed: top the zones up so the town can house its jobs, then pick the next employer.
+      s = zoneHomesFor(s, Math.max(jobsAndHousing(s).jobs * housingRatio, 20), hubOf(s), homes);
+      if (homes.shops) s = zoneShopsFor(s, hubOf(s), homes);
       let id: BuildingId | null = null;
       let prefer: 'near' | 'far' = 'near';
-      if (housing < jobs * housingRatio || (jobs === 0 && housing < 20)) {
-        id = isUnlockedHere(s, 'suburb') ? 'suburb' : 'cottage';
-      } else {
-        const want = queue.find((w) => !blocked.has(w.id) && isUnlockedHere(s, w.id) && count(s, w.id) < w.max);
-        if (want) { id = want.id; prefer = want.prefer ?? 'near'; }
-      }
+      const want = queue.find((w) => !blocked.has(w.id) && isUnlockedHere(s, w.id) && count(s, w.id) < w.max);
+      if (want) { id = want.id; prefer = want.prefer ?? 'near'; }
+      // Zoned homes wait for power once the town outgrows its power stations: a player who sees "Waiting for power" builds another.
+      const powerId = (['coalpower', 'gaspower'] as const).find((p) => queue.some((w) => w.id === p));
+      if (powerId && !blocked.has(powerId) && isUnlockedHere(s, powerId) && count(s, powerId) < Math.max(3, ...queue.filter((w) => w.id === powerId).map((w) => w.max)) && waitingForPower(s)) { id = powerId; prefer = 'near'; }
       if (!id) break;
       if (s.budget < BUILDINGS[id].cost) break;
       const r = buildNear(s, id, prefer, roadWeight);
       if (r === 'funds') break; // the road to it costs more than is left: wait for next decade
       if (!r) {
-        if (id === 'cottage' || id === 'suburb') break;
         blocked.add(id);
         continue;
       }

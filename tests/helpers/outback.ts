@@ -165,6 +165,10 @@ export function redThoughtfulPlan(): Plan {
           const cx = uncovered.reduce((a, i) => a + (i % s.grid.w), 0) / uncovered.length;
           const cy = uncovered.reduce((a, i) => a + Math.floor(i / s.grid.w), 0) / uncovered.length;
           const before = count(s, 'nursery');
+          // A nursery that cannot go near the uncovered ground (the middle of a pit that is still being reshaped) is not worth buying:
+          // wait for the next rehab step instead of planting seed sources far from the site.
+          const spot = bestSpot(s, 'nursery', (x, y) => -Math.hypot(x - cx, y - cy));
+          if (!spot || Math.hypot(spot.x - cx, spot.y - cy) > 7) break;
           s = buildKeeping(s, 'nursery', before + 1, 0, (x, y) => -Math.hypot(x - cx, y - cy));
           if (count(s, 'nursery') === before) break;
         }

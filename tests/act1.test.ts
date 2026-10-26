@@ -185,13 +185,16 @@ describe('Act 1 goals', () => {
     const greedy = act1Outcome(playAct1(createGame('green-valley'), { queue: GREEDY, cards: 'cash' }));
     expect(greedy.grew).toBe(true);
     expect(greedy.careful).toBe(false);
-    const careful = playAct1(createGame('green-valley'), { queue: CAREFUL, cards: 'evidence', upgrades: true, roadWeight: 3 });
+    const careful = playAct1(createGame('green-valley'), { queue: CAREFUL, cards: 'evidence', upgrades: true, roadWeight: 3, shops: true });
     const o = act1Outcome(careful);
-    expect(o.grew).toBe(true);
+    // Re-banded (zoning phase 2): homes grow only as far as the jobs (demand is jobs plus a small base, and shops add a few more jobs),
+    // so this small careful valley (130 jobs, 147 people) no longer reaches the 200-person goal; its jobs and power goals are met and it
+    // earns the bonus, which is what this test is about. The greedy town above (and the tutorial) meet the growth goal.
+    expect(o.mainMet).toBeGreaterThanOrEqual(2);
     expect(o.careful).toBe(true);
     expect(careful.meters.environment).toBeGreaterThanOrEqual(55);
     // The same town without upgrades or good choices is not careful.
-    const lazy = act1Outcome(playAct1(createGame('green-valley'), { queue: CAREFUL, cards: 'cash' }));
+    const lazy = act1Outcome(playAct1(createGame('green-valley'), { queue: CAREFUL, cards: 'cash', shops: true }));
     expect(lazy.careful).toBe(false);
   });
 
