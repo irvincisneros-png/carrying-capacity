@@ -90,7 +90,13 @@ export type BuildingId =
   | 'transitline'
   | 'greensuburb'
   | 'parkland'
-  | 'datacentre';
+  | 'datacentre'
+  // Grown on zoned land (sim/zoning.ts): never placed by hand
+  | 'zres1'
+  | 'zres2'
+  | 'zres3'
+  | 'zcom'
+  | 'zind';
 
 export type EmissionCategory = 'power' | 'industry' | 'transport' | 'land' | 'waste';
 export const EMISSION_CATEGORIES: readonly EmissionCategory[] = [
@@ -155,6 +161,11 @@ export interface TileGrid {
    * 2 = suburb, 3 = industry, 4 = port. River Town: 1 = irrigated farmland.
    */
   zone: Uint8Array;
+  /**
+   * The player's zoning (sim/zoning.ts): 0 none, 1 homes low density, 2 medium, 3 high, 4 shops and offices, 5 light industry.
+   * Saves made before zoning have none (all 0). Separate from `zone`, which the scenarios use for their own areas.
+   */
+  zoning: Uint8Array;
 }
 
 /** Edge length (tiles) of the chunks tracked by TileGrid.chunkVersion. */
@@ -173,6 +184,12 @@ export interface PlacedBuilding {
   builtYear: number;
   /** Upgrade ids fitted to this building (see sim/upgrades.ts). Optional, so older saves load unchanged. */
   upgrades?: string[];
+  /** Grew by itself on a zoned tile (sim/zoning.ts). */
+  grown?: boolean;
+  /** Grown building with no power or no road for 3 years in a row: empty and boarded up (no homes or jobs) until fixed. */
+  empty?: boolean;
+  /** Years in a row a grown building has had no power or no road (decline counter). */
+  blocked?: number;
 }
 
 export interface HistoryRecord {
@@ -465,6 +482,10 @@ export type Action =
   | { type: 'rehab'; x: number; y: number }
   /** Act 1: fit an upgrade (smoke scrubber, creek buffer, ...) to a building. See sim/upgrades.ts. */
   | { type: 'upgrade'; uid: number; id: string }
+  /** Paint a zone over a rectangle of tiles (zone 0 dezones). See sim/zoning.ts. */
+  | { type: 'zone'; x: number; y: number; w: number; h: number; zone: number }
+  /** Act 2: retrofit the homes in a rectangle (insulation, heat pumps, panels, cool roofs). See sim/zoning.ts. */
+  | { type: 'retrofit'; x: number; y: number; w: number; h: number }
   /** Learning layer: test the water, predict, write a reflection, tick a household idea (see sim/fieldkit.ts). */
   | LearnAction;
 
@@ -497,6 +518,8 @@ export interface ActionResult {
   refund?: number;
   /** uid of the newly placed building. */
   uid?: number;
+  /** Tiles changed by an area action (zoning, retrofitting). */
+  count?: number;
 }
 
 export interface Fact {

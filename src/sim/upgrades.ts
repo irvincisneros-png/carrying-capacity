@@ -32,6 +32,8 @@ export interface UpgradeDef {
   soil?: number;
   /** Multiplier on the building's CO2. Left out where the upgrade does NOT touch greenhouse gas on purpose. */
   co2?: number;
+  /** Multiplier on the electricity the building uses. */
+  power?: number;
   /** What it does, in numbers. */
   effect: string;
   /** What it teaches. */
@@ -66,7 +68,18 @@ export const UPGRADES: readonly UpgradeDef[] = [
   },
 ];
 
-export const UPGRADE_BY_ID: Readonly<Record<string, UpgradeDef>> = Object.fromEntries(UPGRADES.map((u) => [u.id, u]));
+/**
+ * Retrofitted homes (Act 2): insulation, heat pumps, rooftop panels and cool roofs, the effect the old "Retrofitted homes"
+ * building had (half the electricity, a quarter of the CO2). Fitted by the Retrofit homes area action on grown homes and old
+ * cottages (sim/zoning.ts), not from the Inspect panel, so it is not in UPGRADES.
+ */
+export const RETROFIT: UpgradeDef = {
+  id: 'retrofit' as UpgradeId, building: 'zres1', name: 'Retrofitted homes', cost: 0, unlock: 2025, incomePerDecade: 0, co2: 0.25, power: 0.5,
+  effect: 'Electricity used by these homes halved, and their CO2 cut by three quarters.',
+  teach: 'Most homes that will stand in 2050 are already built. Fixing the ones we have (insulation, heat pumps, solar panels, pale roofs) cuts energy use and keeps people safer in a heatwave.',
+};
+
+export const UPGRADE_BY_ID: Readonly<Record<string, UpgradeDef>> = Object.fromEntries([...UPGRADES, RETROFIT].map((u) => [u.id, u]));
 
 export function upgradesFor(type: BuildingId): readonly UpgradeDef[] {
   return UPGRADES.filter((u) => u.building === type);
@@ -93,9 +106,20 @@ export function pollutesOf(b: PlacedBuilding): PollutionProfile {
 
 /** kt CO2-e per decade after upgrades. */
 export function co2Of(b: PlacedBuilding): number {
+  // An empty (declined) grown building is boarded up: nobody there, nothing burned.
+  if (b.empty) return 0;
   let co2 = BUILDINGS[b.type].co2;
   if (b.upgrades) for (const id of b.upgrades) co2 *= UPGRADE_BY_ID[id]?.co2 ?? 1;
   return co2;
+}
+
+/** Power after upgrades: generation as built, use cut by any upgrade that saves electricity (negative = uses power). */
+export function powerOf(b: PlacedBuilding): number {
+  const p = BUILDINGS[b.type].power;
+  if (p >= 0 || !b.upgrades) return p;
+  let m = 1;
+  for (const id of b.upgrades) m *= UPGRADE_BY_ID[id]?.power ?? 1;
+  return p * m;
 }
 
 /**

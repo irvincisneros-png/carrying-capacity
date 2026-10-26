@@ -25,6 +25,7 @@ import { decadeCost, landSnapshot } from './ledger';
 import type { LandSnapshot } from './ledger';
 import { applyUpgrade, choiceIncomePerDecade, co2Of, pollutesOf } from './upgrades';
 import { getScenario, isScenarioId } from './scenarios';
+import { applyRetrofit, applyZone, growZones } from './zoning';
 import { generateTerrain, inBounds } from './terrain';
 import { EMISSION_CATEGORIES, TileKind } from './types';
 import type {
@@ -99,6 +100,9 @@ export function createGame(scenarioId: GameState['scenarioId'], seed?: number): 
   };
   // Every town starts with a road into it on the map edge; buildings must connect to it (see sim/roads.ts).
   ensureEntrance(base);
+  // A zoning game: homes, shops and light industry are zoned and grow by themselves, so cottages, suburbs and the placeable
+  // retrofit leave the build menu (old saves have no flag and keep them).
+  base.flags.zoning = 1;
   let bush = 0;
   for (let i = 0; i < grid.kind.length; i++) if (grid.kind[i] === TileKind.Bush) bush++;
   base.initialBushTiles = bush;
@@ -119,7 +123,7 @@ function startPrebuilt(base: GameState): GameState {
   base.initialBushTiles = bush;
   base.population = Math.round(economySnapshot(base, 0).housing * 0.92);
   const snap = economySnapshot(base);
-  base.lastIncome = Math.round(((snap.filledJobs * INCOME_PER_JOB + BASE_GRANT) * sc.modifiers.budgetMult / 10) * ACT2_INCOME_MULT);
+  base.lastIncome = Math.round(((snap.incomeJobs * INCOME_PER_JOB + BASE_GRANT) * sc.modifiers.budgetMult / 10) * ACT2_INCOME_MULT);
   base.meters = computeMeters(base);
   base.history[0] = record(base, emptyEmissions(), 0);
   enterTurningPoint(base);
@@ -248,6 +252,10 @@ export function applyAction(state: GameState, action: Action): { state: GameStat
     }
     case 'upgrade':
       return applyUpgrade(state, action.uid, action.id);
+    case 'zone':
+      return applyZone(state, action.x, action.y, action.w, action.h, action.zone);
+    case 'retrofit':
+      return applyRetrofit(state, action.x, action.y, action.w, action.h);
     default:
       return applyLayerAction(state, action);
   }
@@ -335,6 +343,8 @@ export function advanceYear(state: GameState): { state: GameState; report: Decad
   if (!final) {
     economyStep();
     stepCapacity(next);
+    // Zoned land grows into the year's demand (buildings that grow now work from next year).
+    growZones(next, state.year + n + 1);
     next.flags[DEC_N] = n + 1;
     next.flags[DEC_POP0] = pop0;
     if (n === 0) {
@@ -374,6 +384,7 @@ export function advanceYear(state: GameState): { state: GameState; report: Decad
   // 3. Economy: the last year's population and income (the other nine arrived as the years went by).
   economyStep();
   stepCapacity(next);
+  growZones(next, state.year + DECADE_YEARS);
   for (const k of Object.keys(next.flags)) if (k.startsWith('dec.')) delete next.flags[k];
 
   // Commuting along the road network is part of the transport total (and reported on its own).

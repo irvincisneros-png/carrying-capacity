@@ -113,6 +113,10 @@ export interface BuildingDef {
   railServed?: boolean;
   /** Works only while a working home is within its `nearBuilding` distance (rooftop solar). */
   hostedOnHomes?: boolean;
+  /** Grows by itself on zoned land (sim/zoning.ts); never placed by hand. */
+  zoned?: boolean;
+  /** A connected road within this many tiles (Chebyshev) counts as access, not only one touching it (a driveway or lane). Default 1. */
+  roadReach?: number;
 }
 
 const { Land, Bush, Beach } = TileKind;
@@ -166,6 +170,11 @@ export const BUILDING_IDS: readonly BuildingId[] = [
   'greensuburb',
   'parkland',
   'datacentre',
+  'zres1',
+  'zres2',
+  'zres3',
+  'zcom',
+  'zind',
 ];
 
 /** Act 1 buildings that may still be built during the transition (everything else dirty is act1 only). */
@@ -281,7 +290,7 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
     energy: { source: 'rooftop-solar', capacity: 5 },
     placement: {
       on: [Land],
-      nearBuilding: { building: 'cottage', or: ['suburb'], dist: 1, reason: 'Rooftop solar goes next to homes (a cottage or brick suburb)' },
+      nearBuilding: { building: 'cottage', or: ['suburb', 'zres1', 'zres2', 'zres3'], dist: 1, reason: 'Rooftop solar goes next to homes' },
     },
     blurb: 'Panels on the homes. Cheap, but only in daylight.',
   },
@@ -537,6 +546,37 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
     blurb: 'A big windowless shed full of computers that runs day and night. Few jobs, a lot of electricity, and cooling that needs water or more power. Only built when a tech company makes an offer you accept.',
   },
 
+  // ---- Grown on zoned land (sim/zoning.ts). Numbers are per tile; the renderer picks the era look from builtYear.
+  zres1: {
+    id: 'zres1', zoned: true, roadReach: 2, name: 'Homes (low density)', w: 1, h: 1, cost: 0, jobs: 0, housing: 20, power: -1,
+    co2: 1, localPollution: 0, pollutes: {}, unlock: 1850, category: 'land',
+    placement: { on: [Land, Bush] },
+    blurb: 'Houses on big blocks with backyards. Each tile houses only about 20 people, so a growing town spreads out over the land.',
+  },
+  zres2: {
+    id: 'zres2', zoned: true, roadReach: 2, name: 'Homes (medium density)', w: 1, h: 1, cost: 0, jobs: 0, housing: 50, power: -2,
+    co2: 2, localPollution: 0, pollutes: {}, unlock: 1950, category: 'land',
+    placement: { on: [Land, Bush] },
+    blurb: 'Semi-detached houses and townhouses. More than twice as many people a tile as big blocks, so less bush is cleared.',
+  },
+  zres3: {
+    id: 'zres3', zoned: true, roadReach: 2, name: 'Homes (high density)', w: 1, h: 1, cost: 0, jobs: 1, housing: 120, power: -4,
+    co2: 4, localPollution: 0, pollutes: {}, unlock: 1970, category: 'land',
+    placement: { on: [Land, Bush] },
+    blurb: 'Flats and apartments. The most people on the least land, but they only fill up past half way with transit (light rail, or a rail line within 4 tiles), and lots of concrete makes a city hotter.',
+  },
+  zcom: {
+    id: 'zcom', zoned: true, roadReach: 2, name: 'Shops and offices', w: 1, h: 1, cost: 0, jobs: 15, housing: 0, power: -2,
+    co2: 3, localPollution: 0, pollutes: {}, unlock: 1850, category: 'land',
+    placement: { on: [Land, Bush] },
+    blurb: 'Corner shops, cafes and offices. They grow where people live, give jobs close to home and earn a little more per job.',
+  },
+  zind: {
+    id: 'zind', zoned: true, roadReach: 2, name: 'Light industry', w: 1, h: 1, cost: 0, jobs: 20, housing: 0, power: -3,
+    co2: 6, localPollution: 0.5, pollutes: { air: 0.5 }, unlock: 1850, category: 'industry',
+    placement: { on: [Land, Bush] },
+    blurb: 'Workshops, depots and small factories. They grow to serve the big industries (factories, mines and the port) and make a little smoke.',
+  },
 };
 
 export function getBuildingDef(id: BuildingId): BuildingDef {

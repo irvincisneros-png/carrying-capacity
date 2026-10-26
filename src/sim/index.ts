@@ -63,3 +63,5 @@ export * from './capacity';
 export * from './fieldkit';
 export * from './learnTypes';
 export * from './causes';
+export * from './zoning';
+export * from './zonefill';

@@ -1,3 +1,4 @@
+import { growZones } from './zoning';
 import { BUILDINGS } from './buildings';
 import { dcLeaseIncome } from './datacentre';
 import { climateAt } from './climate';
@@ -250,7 +251,7 @@ function yearEnd(s: GameState, quiet: boolean): void {
   a2.lastUnmetFrac = unmet;
 
   const snap = economySnapshot(s);
-  const income = ((snap.filledJobs * INCOME_PER_JOB + BASE_GRANT) * sc.modifiers.budgetMult / 10) * ACT2_INCOME_MULT * (1 - 0.8 * unmet);
+  const income = ((snap.incomeJobs * INCOME_PER_JOB + BASE_GRANT) * sc.modifiers.budgetMult / 10) * ACT2_INCOME_MULT * (1 - 0.8 * unmet);
   const incomeAdj = (typeof s.flags['income.adj'] === 'number' ? s.flags['income.adj'] : 0) + dcLeaseIncome(s);
   s.lastIncome = Math.round(income + incomeAdj + mechIncome(s) + (choiceIncomePerDecade(s) + capacityIncomePerDecade(s)) / 10);
   s.budget += s.lastIncome;
@@ -260,6 +261,8 @@ function yearEnd(s: GameState, quiet: boolean): void {
   s.cumulativeKt += total;
   s.year += 1;
   a2.season = 0;
+  // Zoned land grows into the year's demand, by the same rules as in Act 1.
+  growZones(s, s.year);
   const clim = climateAt(s.year, s.cumulativeKt, sc.modifiers.climateSensitivityMult, sc.modifiers.emissionScale ?? 1);
   s.multiplier = clim.m;
   s.co2 = clim.co2;

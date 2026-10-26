@@ -133,6 +133,11 @@ function compute(state: GameState): RoadAccess {
     };
     for (let k = 0; k < b.w && !ok; k++) { touch(b.x + k, b.y - 1); touch(b.x + k, b.y + b.h); }
     for (let k = 0; k < b.h && !ok; k++) { touch(b.x - 1, b.y + k); touch(b.x + b.w, b.y + k); }
+    // Grown homes and shops are reached by a lane or driveway: a connected road within `roadReach` tiles will do.
+    const reach = d.roadReach ?? 1;
+    if (!ok && reach > 1) {
+      for (let yy = b.y - reach; yy < b.y + b.h + reach && !ok; yy++) for (let xx = b.x - reach; xx < b.x + b.w + reach && !ok; xx++) touch(xx, yy);
+    }
     if (ok) { connected.add(b.uid); working.add(b.uid); } else unconnected.push(b.uid);
   }
   // Exempt buildings work, except ones that sit on a home (rooftop solar): those need a working home beside them.
@@ -657,6 +662,8 @@ export function commuteStats(state: GameState, population = state.population): C
     };
     for (let k = 0; k < b.w; k++) { t(b.x + k, b.y - 1); t(b.x + k, b.y + b.h); }
     for (let k = 0; k < b.h; k++) { t(b.x - 1, b.y + k); t(b.x + b.w, b.y + k); }
+    const reach = BUILDINGS[b.type].roadReach ?? 1;
+    if (reach > 1) for (let yy = b.y - reach; yy < b.y + b.h + reach; yy++) for (let xx = b.x - reach; xx < b.x + b.w + reach; xx++) t(xx, yy);
   };
   let jobSites = 0;
   for (const b of acc.workingBuildings) {
