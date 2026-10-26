@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   addFreeRoad, advanceYear, applyAction, BUILDINGS, cloneState, commuteStats, createGame, economySnapshot, getScenario, retrofitPlan, SCENARIO_IDS,
-  tick, TileKind, ZONE, DENSITY_UPGRADE_COST,
+  tick, TileKind, ZONE, DENSITY_UPGRADE_COST, GROW_FEE, growFee, REASON, zoneReasons,
 } from '../src/sim';
 import type { GameState, ScenarioId } from '../src/sim';
 import { co2Of, powerOf } from '../src/sim/upgrades';
 import { highriseHeat, heatDeathsExpected, HEAT } from '../src/sim/mechanics/heatCore';
 import { inspectZone, legacyHomeHidden, zoneDragInfo } from '../src/ui/zonemenu';
-import { addBuilding } from './helpers/fixtures';
+import { act2Sandbox, addBuilding } from './helpers/fixtures';
 import { grow } from './helpers/sprawl';
 import { grownOf, zoneArea } from './helpers/zoning';
 
@@ -244,5 +244,49 @@ describe('the density lesson in numbers (Green Valley)', () => {
     expect(ratio).toBeLessThanOrEqual(1.25);
     // ...and clears at least 30 percent more bush per person.
     expect(sprawl.bushLost / sprawl.s.population).toBeGreaterThanOrEqual(1.3 * (compact.bushLost / compact.s.population));
+  });
+});
+
+describe('the council fee for new buildings', () => {
+  it('charges streets-and-pipes money when a building grows, and waits (with a reason) when the money is short', () => {
+    let s = fieldFor('green-valley', 1960);
+    addBuilding(s, 'factory', 4, 11);
+    addBuilding(s, 'factory', 8, 11);
+    addBuilding(s, 'coalpower', 12, 11);
+    s = zoneArea(s, { x: 0, y: 8, w: 6, h: 2 }, ZONE.rlow);
+    const fee = growFee(s, 'zres1');
+    expect(fee).toBeCloseTo(GROW_FEE.zres1 * getScenario('green-valley').modifiers.budgetMult, 6);
+    const rich = years(cloneState(s), 1);
+    const built = rich.buildings.filter((b) => b.grown).length;
+    expect(built).toBeGreaterThan(0);
+    // Income also arrives, so the bill is checked on the budget the year starts with.
+    const poor = cloneState(s);
+    poor.budget = fee * 1.5;
+    expect(zoneReasons(poor)[8 * poor.grid.w + 0]).toBe(REASON.ready);
+    poor.budget = fee * 0.5;
+    poor.version += 1;
+    expect(zoneReasons(poor)[8 * poor.grid.w + 0]).toBe(REASON.noMoney);
+  });
+});
+
+describe('Act 2 keeps zoning on', () => {
+  it('zones cleared land near a road and grows it at the year end, by the same rules as Act 1', () => {
+    const s = act2Sandbox(TileKind.Land, { scenario: 'green-valley', year: 2025 });
+    const g = s.grid;
+    for (let x = 0; x < 20; x++) addFreeRoad(s, 10 * g.w + x);
+    s.flags['road.entrance'] = 10 * g.w;
+    for (const x of [2, 5, 8]) addBuilding(s, 'farm', x, 11);
+    let t = zoneArea(s, { x: 0, y: 8, w: 8, h: 2 }, ZONE.rmed);
+    t = zoneArea(t, { x: 10, y: 8, w: 4, h: 2 }, ZONE.com);
+    expect(t.grid.zoning.some((z) => z !== 0)).toBe(true);
+    t.budget = 500;
+    for (let i = 0; i < 4; i++) t = tick(t, 1).state;
+    const why = [...zoneReasons(t)].filter((c) => c !== 0).join(',');
+    expect(t.buildings.some((b) => b.grown), `reasons ${why} pop ${t.population} year ${t.year}`).toBe(true);
+    // Zoning bush is refused in Act 2: the bushland is protected.
+    const bush = act2Sandbox(TileKind.Bush, { scenario: 'green-valley', year: 2025 });
+    for (let x = 0; x < 20; x++) addFreeRoad(bush, 10 * bush.grid.w + x);
+    bush.flags['road.entrance'] = 10 * bush.grid.w;
+    expect(applyAction(bush, { type: 'zone', x: 2, y: 8, w: 2, h: 2, zone: ZONE.rlow }).result.ok).toBe(false);
   });
 });

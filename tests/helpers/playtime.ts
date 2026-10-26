@@ -9,7 +9,7 @@
  *   - turning point: 3, epilogue and report card: 5;
  *   - Act 2: one year is 15 seconds at 1x and a typical player runs it at 2x with pauses, so 7.5 seconds a year;
  *   - each sitting of placing buildings (one type in one year) is about 15 seconds, and each extra building in it 3 more;
- *   - every other action (a lever, a consultation, a repurposing, a rehab step) is about 15 seconds, the fourth to eighth of the same kind 5;
+ *   - every other action (a lever, a consultation, a repurposing, a rehab step, one drag of retrofits) is about 15 seconds, the fourth to eighth of the same kind 5;
  *   - every dilemma card or story question answered is about 55 seconds (reading, the evidence button, deciding);
  *   - every story line read in Town Voices is about 5 seconds, a wildlife line 2; the lines that only report an action already
  *     counted (Caring for Country, the circular economy) or sit inside a card's 55 seconds are not counted again;
@@ -73,7 +73,7 @@ export function estimatePlayTime(s: GameState): PlayTime {
   const decades = (sc.endYear - sc.startYear) / 10;
   const placed = s.buildings.filter((b) => b.builtYear > sc.endYear);
   const sittings = new Set(placed.map((b) => `${b.type}:${b.builtYear}`)).size;
-  const otherActions = sumActs(s, ['policy.', 'consulted', 'comanaged', 'burned', 'researched.', 'subscribed.', 'rehab.', 'repurposed.', 'recycled.']);
+  const otherActions = sumActs(s, ['policy.', 'consulted', 'comanaged', 'burned', 'researched.', 'subscribed.', 'rehab.', 'repurposed.', 'recycled.', 'retrofitted']);
   const decisions = s.dilemmas.decisions.filter((d) => d.optionId !== 'ignored').length + Object.values(s.residents.choices).filter((c) => c !== 'ignored').length;
   // Story lines worth reading. Country and circular lines are the feedback for actions already counted, a dilemma's offer and outcome
   // are inside its 55 seconds, and wildlife lines (returns, heat deaths, nests) are skimmed in 2 seconds.

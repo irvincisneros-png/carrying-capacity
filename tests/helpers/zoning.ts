@@ -130,6 +130,8 @@ export const homeKind = (s: GameState, compact = false): ZoneKind => (compact &&
 export type HomeOpts = Pick<ZoneOpts, 'tileOk'> & {
   /** Also zone shops and offices as the town grows (they give jobs, and the jobs give homes a reason to grow). */
   shops?: boolean;
+  /** Where homes are wanted (higher is better); the default is nearest the hub. A boom town can put them beside the beach. */
+  score?: (s: GameState, x: number, y: number) => number;
   /** Zone flats (high density) from 1970 instead of townhouses: the most people on the least land. */
   compact?: boolean;
 };
