@@ -1,5 +1,5 @@
 /** Scripted players for Net Zero City. */
-import { applyAction, BUILDINGS, createGame, TileKind } from '../../src/sim';
+import { applyAction, BUILDINGS, createGame, retrofitPlan, TileKind } from '../../src/sim';
 import type { BuildingId, GameState } from '../../src/sim';
 import {
   answerPrompts, bestSpot, burnPatches, comanageBush, consultAll, count, disposeLegacy, greenGridStep, nearTiles, place, playAct2, retireFossil,
@@ -43,13 +43,23 @@ function parkScore(s: GameState): (x: number, y: number) => number {
   };
 }
 
+/**
+ * Retrofit homes is an area action now: drag a box over the homes (old brick suburbs become Retrofitted homes, grown homes get the retrofit
+ * upgrade). The player takes the next few unretrofitted homes in reading order and drags one box round them, as far as the money goes.
+ */
 function retrofit(s0: GameState, max: number, reserve: number): GameState {
   let s = s0;
-  let n = 0;
-  for (const b of s.buildings.filter((o) => o.type === 'suburb')) {
-    if (n >= max || s.budget < BUILDINGS.greensuburb.cost + reserve) break;
-    const r = applyAction(s, { type: 'place', building: 'greensuburb', x: b.x, y: b.y, rotation: b.rotation });
-    if (r.result.ok) { s = r.state; n++; }
+  const todo = s.buildings
+    .filter((b) => (b.type === 'suburb' || b.type === 'zres1' || b.type === 'zres2' || b.type === 'zres3') && !b.upgrades?.includes('retrofit'))
+    .sort((a, b) => a.y - b.y || a.x - b.x);
+  for (let n = Math.min(max, todo.length); n >= 1; n--) {
+    const batch = todo.slice(0, n);
+    const x0 = Math.min(...batch.map((b) => b.x)), y0 = Math.min(...batch.map((b) => b.y));
+    const x1 = Math.max(...batch.map((b) => b.x + b.w)), y1 = Math.max(...batch.map((b) => b.y + b.h));
+    const plan = retrofitPlan(s, x0, y0, x1 - x0, y1 - y0);
+    if (!plan.ok || s.budget - plan.cost < reserve) continue;
+    const r = applyAction(s, { type: 'retrofit', x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
+    if (r.result.ok) { s = r.state; break; }
   }
   return s;
 }

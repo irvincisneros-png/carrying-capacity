@@ -28,7 +28,14 @@ export const COMMUTE_CAP = 24;
  * kt CO2 per decade for one person commuting one tile of road each way every working day. Calibrated (see
  * tests/balance-seeds.test.ts and docs/GAMEPLAY.md) so the scripted towns' cumulative emissions move by under 5 percent.
  */
-export const COMMUTE_KT = 0.0004;
+export const COMMUTE_KT = 0.0006;
+/**
+ * Every person also makes short everyday trips (school, shops, the doctor) that a compact town keeps short and a sprawling one
+ * does not: this many tiles of road are added to the commute before it is turned into CO2. It is why a town of all low-density
+ * homes has 15 to 25 percent more transport CO2 per person than a compact, mixed one (tests/zoning-density.test.ts), where the
+ * commute alone would give a gap several times as big as the town's other transport makes believable.
+ */
+export const COMMUTE_OVERHEAD = 3;
 /** Each working light-rail line cuts commute emissions by this share, up to TRANSIT_MAX. */
 export const TRANSIT_CUT = 0.12;
 export const TRANSIT_MAX = 0.6;
@@ -133,6 +140,11 @@ function compute(state: GameState): RoadAccess {
     };
     for (let k = 0; k < b.w && !ok; k++) { touch(b.x + k, b.y - 1); touch(b.x + k, b.y + b.h); }
     for (let k = 0; k < b.h && !ok; k++) { touch(b.x - 1, b.y + k); touch(b.x + b.w, b.y + k); }
+    // Grown homes and shops are reached by a lane or driveway: a connected road within `roadReach` tiles will do.
+    const reach = d.roadReach ?? 1;
+    if (!ok && reach > 1) {
+      for (let yy = b.y - reach; yy < b.y + b.h + reach && !ok; yy++) for (let xx = b.x - reach; xx < b.x + b.w + reach && !ok; xx++) touch(xx, yy);
+    }
     if (ok) { connected.add(b.uid); working.add(b.uid); } else unconnected.push(b.uid);
   }
   // Exempt buildings work, except ones that sit on a home (rooftop solar): those need a working home beside them.
@@ -657,6 +669,8 @@ export function commuteStats(state: GameState, population = state.population): C
     };
     for (let k = 0; k < b.w; k++) { t(b.x + k, b.y - 1); t(b.x + k, b.y + b.h); }
     for (let k = 0; k < b.h; k++) { t(b.x - 1, b.y + k); t(b.x + b.w, b.y + k); }
+    const reach = BUILDINGS[b.type].roadReach ?? 1;
+    if (reach > 1) for (let yy = b.y - reach; yy < b.y + b.h + reach; yy++) for (let xx = b.x - reach; xx < b.x + b.w + reach; xx++) t(xx, yy);
   };
   let jobSites = 0;
   for (const b of acc.workingBuildings) {
@@ -687,5 +701,5 @@ export function commuteStats(state: GameState, population = state.population): C
   let lines = 0;
   for (const b of acc.workingBuildings) if (b.type === 'transitline') lines++;
   const transitCut = Math.min(TRANSIT_MAX, lines * TRANSIT_CUT);
-  return { meanDist, transitCut, ktPerDecade: population * meanDist * COMMUTE_KT * (1 - transitCut) };
+  return { meanDist, transitCut, ktPerDecade: population * (meanDist + COMMUTE_OVERHEAD) * COMMUTE_KT * (1 - transitCut) };
 }

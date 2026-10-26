@@ -22,7 +22,7 @@ export function townVoices(s: GameState, limit = 20): SimEvent[] {
   const out: SimEvent[] = [];
   for (let i = s.eventLog.length - 1; i >= 0 && out.length < limit; i--) {
     const e = s.eventLog[i] as SimEvent;
-    if (e.type === 'story' && e.story && e.story.channel !== 'research') out.push(e);
+    if (e.type === 'story' && e.story && e.story.channel !== 'research' && e.story.channel !== 'growth') out.push(e);
   }
   return out;
 }

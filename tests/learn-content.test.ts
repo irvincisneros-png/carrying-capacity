@@ -116,6 +116,22 @@ describe('who wins, who loses (WP8d)', () => {
     }
   });
 
+  it('never names the same party or thing as both a win and a loss in one line', () => {
+    const parties = (txt: string): string[] => txt.split(/[,;]| and /).map((x) => x.replace(/\(.*?\)/g, '').replace(/^\s*(a little|:)?\s*/i, '').trim().toLowerCase()).filter((x) => x.length > 2);
+    for (const c of all) {
+      for (const o of c.options) {
+        for (const [k, v] of Object.entries(winLoseFor(c.id, o, name))) {
+          const w = /Wins(?: a little)?:([^]*?)(?:Loses|$)/.exec(v)?.[1] ?? '';
+          const l = /Loses(?: a little)?:([^]*)$/.exec(v)?.[1] ?? '';
+          if (!w || !l) continue;
+          const lp = new Set(parties(l.split(/\.\s/)[0]!));
+          for (const p of parties(w.split(/\.\s/)[0]!)) expect(lp.has(p), `${c.id}/${o.id} ${k}: ${v}`).toBe(false);
+          expect(/the budget/.test(w) && /the budget/.test(l), `${c.id}/${o.id} ${k}: ${v}`).toBe(false);
+        }
+      }
+    }
+  });
+
   it('derives the lines from the option itself: a dirty-creek choice loses for animals, a clean-up wins', () => {
     const dirty = GREEN_VALLEY_DILEMMAS[0]!.options.find((o) => o.id === 'creek')!;
     const d = deriveWinLose(dirty, name);

@@ -3,8 +3,9 @@ import { applyAction, BUILDINGS, canPlace, startAct2, TileKind } from '../../src
 import { seededGame } from './seeds';
 import { wouldFlood } from '../../src/sim/mechanics/reefCore';
 import type { BuildingId, GameState } from '../../src/sim';
-import { runScript } from './autoplay';
+import { hubOf, runScript } from './autoplay';
 import { CAREFUL_ROADS } from './scripts';
+import { homeFloods, housingOf, pendingHousing, zoneHomesFor } from './zoning';
 import {
   answerPrompts, bestSpot, buildEnergy, comanageBush, consultAll, count, disposeLegacy, nearTiles, place, placeUpTo, playAct2, queuePlan,
   retireFossil, setPolicy, treatSewage, burnPatches,
@@ -34,12 +35,23 @@ export const REEF_THOUGHTFUL_WANTS: Want[] = [
   { id: 'landfill', max: 1 },
 ];
 
+/** The tourism boom builds its homes beside the beach (the view, the resort life), where the street lights shine on the nesting sand. */
+const beachScore = (s: GameState, x: number, y: number): number => {
+  const g = s.grid;
+  let best = 99;
+  for (let i = 0; i < g.kind.length; i++) {
+    if (g.kind[i] !== TileKind.Beach) continue;
+    best = Math.min(best, Math.hypot((i % g.w) - x, Math.floor(i / g.w) - y));
+  }
+  return -best;
+};
+
 export function reefAct1Idle(seed: number | null = null): GameState {
-  return runScript(seededGame('reef-island', seed), queuePlan(REEF_BOOM_WANTS, 1.0)).state;
+  return runScript(seededGame('reef-island', seed), queuePlan(REEF_BOOM_WANTS, 1.0, 30, undefined, { score: beachScore })).state;
 }
 
 export function reefAct1Thoughtful(seed: number | null = null): GameState {
-  const inner = queuePlan(REEF_THOUGHTFUL_WANTS, 1.0, 30, CAREFUL_ROADS);
+  const inner = queuePlan(REEF_THOUGHTFUL_WANTS, 1.0, 30, CAREFUL_ROADS, { tileOk: (s, x, y) => !homeFloods(s, x, y, 1.3) });
   return runScript(seededGame('reef-island', seed), (s) => inner(answerPrompts(consultAll(s), {}, 25))).state;
 }
 
@@ -126,6 +138,14 @@ export function relocateLowHomes(state: GameState): GameState {
   for (const b of s.buildings.filter((o) => BUILDINGS[o.type].housing > 0)) {
     if (!wouldFlood(s, b, design)) continue;
     if (s.budget < 40) break;
+    if (b.grown) {
+      // Grown homes cannot be placed again: take the zone off the flooded tile and zone the same housing on higher ground.
+      const want = housingOf(s) + pendingHousing(s);
+      const gone = applyAction(s, { type: 'zone', x: b.x, y: b.y, w: 1, h: 1, zone: 0 });
+      if (!gone.result.ok) continue;
+      s = zoneHomesFor(gone.state, want, hubOf(gone.state), { tileOk: (st, x, y) => !homeFloods(st, x, y, design + 0.6) });
+      continue;
+    }
     const type = b.type;
     const g = s.grid;
     const lvl = (x: number, y: number): number => g.elevation[y * g.w + x] ?? 0;

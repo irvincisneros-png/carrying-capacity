@@ -7,7 +7,7 @@ import {
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { BUILDINGS } from '../../sim/buildings';
-import { MODEL_IDS, buildBuildingModel, rotorGeo, wheelGeo, type ModelId } from './buildings';
+import { MODEL_IDS, ZONED_IDS, ZONED_VARIANTS, buildBuildingModel, rotorGeo, wheelGeo, type ModelId } from './buildings';
 import { AMBIENT_IDS, buildAmbient, type AmbientId } from './ambient';
 import { mulgaGeo, palmGeo, redGumGeo, reedsGeo, saltbushGeo, spinifexGeo, streetTreeGeo } from './biomeveg';
 
@@ -50,13 +50,15 @@ sun.shadow.normalBias = 0.02;
 scene.add(sun, sun.target);
 
 // ---------------------------------------------------------------- layout
-interface Item { id: string; w: number; h: number; kind: 'b' | 'a' }
+interface Item { id: string; w: number; h: number; kind: 'b' | 'a'; v?: number }
 const items: Item[] = [];
 const ids = (only ?? MODEL_IDS) as string[];
 for (const id of ids) {
   if ((MODEL_IDS as string[]).includes(id)) {
     const d = BUILDINGS[id as ModelId];
-    items.push({ id, w: d.w, h: d.h, kind: 'b' });
+    // Grown zone buildings have era and mirror variants: show all four.
+    if (ZONED_IDS.includes(id as ModelId)) for (let v = 0; v < ZONED_VARIANTS; v++) items.push({ id, w: d.w, h: d.h, kind: 'b', v });
+    else items.push({ id, w: d.w, h: d.h, kind: 'b' });
   } else if ((AMBIENT_IDS as string[]).includes(id)) items.push({ id, w: 1, h: 1, kind: 'a' });
 }
 const ROW_W = Number(q.get('row') ?? (only ? 9 : 26));
@@ -126,8 +128,8 @@ for (const { it, x, z } of placed) {
   if (it.kind !== 'b') continue;
   const id = it.id as ModelId;
   const t0 = performance.now();
-  const m1 = buildBuildingModel(id, 1);
-  const m0 = buildBuildingModel(id, 0);
+  const m1 = buildBuildingModel(id, 1, 0, it.v ?? 0);
+  const m0 = buildBuildingModel(id, 0, 0, it.v ?? 0);
   const ms = performance.now() - t0;
   const m = detail ? m1 : m0;
   stats.push(`${id.padEnd(17)} ${String(Math.round(triCount(m1.geo))).padStart(5)} / ${String(Math.round(triCount(m0.geo))).padStart(5)} tris  h=${m.height.toFixed(2)}  stacks=${m.stacks.length} rotors=${m.rotors.length}  ${ms.toFixed(1)}ms`);
@@ -162,7 +164,7 @@ for (const { it, x, z } of placed) {
   if (showLabels) {
     const el = document.createElement('div');
     el.className = 'lbl';
-    el.textContent = id;
+    el.textContent = it.v === undefined ? id : `${id} v${it.v}`;
     document.body.appendChild(el);
     labels.push({ el, pos: new Vector3(x, m.height + 0.15, z) });
   }

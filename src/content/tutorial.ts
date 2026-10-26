@@ -8,10 +8,15 @@ import type { ScenarioId } from '../sim/types';
  */
 const GREEN_VALLEY_STEPS: readonly TutorialStep[] = [
   {
-    id: 'homes', title: 'Build some homes', phase: ['act1'], highlight: 'build:cottage',
-    instruction: 'Welcome to Green Valley! Open the build menu, pick Cottage, and place three homes on open ground a few tiles back from the creek. People need somewhere to live before anything else grows.',
-    hint: 'Click the Cottage button, then click an open tile. Bush tiles need clearing first.',
-    done: { all: [t('acts.built.cottage', '>=', 3)] },
+    id: 'homes', title: 'Zone some homes', phase: ['act1'], highlight: 'tool:zonehomes',
+    instruction: 'Welcome to Green Valley! Open the Zones tab, pick Homes, and drag a patch of open ground right beside the road. You only paint the land. Homes grow there by themselves when the town needs people.',
+    hint: 'Click Homes in the Zones tab, then hold the mouse and drag a box next to the road. Zones must be within 2 tiles of a road. Bush tiles are cleared only when a home really grows on them.',
+    done: { all: [t('zoned.res', '>=', 6)] },
+  },
+  {
+    id: 'shops', title: 'Zone a few shops', phase: ['act1'], highlight: 'tool:zoneshops',
+    instruction: 'People need somewhere to shop and work. Pick Shops and offices in the Zones tab and drag a small patch beside the road, near your homes. Shops grow as more people move in.',
+    done: { all: [t('zoned.com', '>=', 3)] },
   },
   {
     id: 'farm', title: 'Grow some food', phase: ['act1'], highlight: 'build:farm',
@@ -20,9 +25,9 @@ const GREEN_VALLEY_STEPS: readonly TutorialStep[] = [
   },
   {
     id: 'roads', title: 'Connect to the road', phase: ['act1'], highlight: 'build:road',
-    instruction: 'Connect your homes and farm to the road from the edge of the valley. A building only works when a road reaches it, so homes stay empty and farms stay idle until you do. Roads cost $1k a tile and also split up bushland, which will matter for animals later.',
-    hint: 'Find the road tile on the edge of the map. Click Road, then lay tiles from it to a tile beside each home and the farm. Buildings with no road show nothing in the town numbers. Roads can cross the creek too: lay the Road tool over up to 3 tiles of water, in a straight line, to build a bridge ($6k a tile).',
-    done: { all: [t('connected.cottage', '>=', 3), t('connected.farm', '>=', 1)] },
+    instruction: 'Connect your farm to the road from the edge of the valley. A building only works when a road reaches it. Roads cost $1k a tile and also split up bushland, which will matter for animals later.',
+    hint: 'Find the road tile on the edge of the map. Click Road, then lay tiles from it to a tile beside the farm. Roads can cross the creek too: lay the Road tool over up to 3 tiles of water, in a straight line, to build a bridge ($6k a tile).',
+    done: { all: [t('connected.farm', '>=', 1)] },
   },
   {
     id: 'clear', title: 'Clear a little bush', phase: ['act1'], highlight: 'tool:clear',
@@ -30,9 +35,10 @@ const GREEN_VALLEY_STEPS: readonly TutorialStep[] = [
     done: { all: [t('acts.cleared', '>=', 1)] },
   },
   {
-    id: 'decade', title: 'Let a decade pass', phase: ['act1'], highlight: 'button:next-decade',
-    instruction: 'Press the play button on the clock (or Skip to end of decade). Ten years go by, one every few seconds, money comes in each year, and the graphs begin to draw two lines: yours, and the real world\'s.',
-    done: { all: [t('year', '>=', 1970)] },
+    id: 'watch', title: 'Watch them grow', phase: ['act1'], highlight: 'button:next-decade',
+    instruction: 'Now press play on the clock (or Skip to end of decade). Each year the town grows into your zones, nearest the road first, and the graphs begin to draw two lines: yours, and the real world\'s. Hover over a zoned tile to see why it is waiting.',
+    hint: 'Homes grow when there are jobs for the new people, and the town needs power from 1950. If tiles stay empty, hover over one to read the reason.',
+    done: { all: [t('grown.res', '>=', 1)] },
   },
   {
     id: 'factory', title: 'Make some jobs', phase: ['act1'], highlight: 'build:factory',
@@ -51,7 +57,7 @@ const GREEN_VALLEY_STEPS: readonly TutorialStep[] = [
   },
   {
     id: 'grow', title: 'Grow until 2020', phase: ['act1'], highlight: 'button:next-decade',
-    instruction: 'Keep adding homes and jobs and let the clock run (pause any time, or Skip to end of decade) after each round of building. Check the graphs: CO2 and temperature are climbing. Around 2020 something will happen that changes everything.',
+    instruction: 'Keep zoning more homes and shops, add jobs, and let the clock run (pause any time, or Skip to end of decade) after each round. Check the graphs: CO2 and temperature are climbing. Around 2020 something will happen that changes everything.',
     done: { all: [t('year', '>=', 2020)] },
   },
   {

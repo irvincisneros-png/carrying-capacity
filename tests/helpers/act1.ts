@@ -35,11 +35,15 @@ export interface Act1Style {
   reserve?: number;
   /** How strongly the builder prefers sites beside existing roads (fewer new roads, less bush paved over). */
   roadWeight?: number;
+  /** Also zone shops and offices (jobs for the people the homes bring). */
+  shops?: boolean;
+  /** Zone flats from 1970 (the compact choice). */
+  compact?: boolean;
 }
 
 /** A whole Act 1 under a style: each decade answers the cards, fits upgrades, builds, then presses Next decade. */
 export function playAct1(start: GameState, style: Act1Style): GameState {
-  const build: Plan = queuePlan(style.queue, style.housingRatio ?? 1.0, 30, style.roadWeight);
+  const build: Plan = queuePlan(style.queue, style.housingRatio ?? 1.0, 30, style.roadWeight, { shops: style.shops === true, compact: style.compact === true });
   let s = start;
   while (s.phase === 'act1' && s.status === 'playing') {
     const picks: Record<string, string> = {};

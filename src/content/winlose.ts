@@ -126,6 +126,20 @@ const PEOPLE = /(farm|family|home|job|worker|town|school|health|neighbour|people
 const list = (xs: string[]): string => (xs.length <= 1 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 const short = (t: string): string => t.replace(/\.$/, '').replace(/^./, (c) => c.toLowerCase());
 
+const whoOf = (x: string): string => x.replace(/ \(.*$/, '');
+/** If one party appears on both sides, it becomes a single entry under Loses that keeps the upside as a "though". */
+function netParties(win: string[], lose: string[]): void {
+  for (let i = win.length - 1; i >= 0; i--) {
+    const who = whoOf(win[i]!);
+    const j = lose.findIndex((x) => whoOf(x) === who);
+    if (j < 0) continue;
+    const up = /\((.*)\)$/.exec(win[i]!)?.[1];
+    const down = /\((.*)\)$/.exec(lose[j]!)?.[1];
+    lose[j] = up && down ? `${who} (${down}, though ${up})` : lose[j]!;
+    win.splice(i, 1);
+  }
+}
+
 /** Works out the three lines from an option's preview and effects. */
 export function deriveWinLose(opt: DilemmaOption, nameOf: NameOf): WinLose {
   const helps = (opt.preview?.helps ?? []) as readonly Target[];
@@ -140,9 +154,27 @@ export function deriveWinLose(opt: DilemmaOption, nameOf: NameOf): WinLose {
   // Residents: named people, the town and the budget.
   const isPeople = (t: Target): boolean => t.type === 'resident' || t.type === 'town' || t.type === 'economy' || (t.type === 'planet' && PEOPLE.test(t.why) && !NATURE.test(t.why));
   const rWin = side(helps, isPeople), rLose = side(hurts, isPeople);
-  const money = (fx.budget ?? 0) < 0 || (fx.incomePerDecade ?? 0) < 0 || (fx.incomePerYear ?? 0) < 0;
-  if (money && !rLose.some((x) => x.startsWith('the budget'))) rLose.push('the budget (it costs money)');
-  if (((fx.budget ?? 0) > 0 || (fx.incomePerDecade ?? 0) > 0 || (fx.incomePerYear ?? 0) > 0) && !rWin.some((x) => x.startsWith('the budget'))) rWin.push('the budget (it brings in money)');
+  // The budget is netted: an option never lists it as both a win and a loss. A cost now that pays back later (or the reverse) is one entry.
+  const upfront = fx.budget ?? 0;
+  const rate = (fx.incomePerDecade ?? 0) + (fx.incomePerYear ?? 0) * 10;
+  const isBudget = (x: string): boolean => x.startsWith('the budget');
+  const mixed = (upfront < 0 && rate > 0) || (upfront > 0 && rate < 0);
+  if (mixed || (rWin.some(isBudget) && rLose.some(isBudget))) {
+    for (const arr of [rWin, rLose]) for (let i = arr.length - 1; i >= 0; i--) if (isBudget(arr[i]!)) arr.splice(i, 1);
+    const k = (n: number): string => `$${Math.round(Math.abs(n))}k`;
+    if (mixed) {
+      const entry = upfront < 0
+        ? `the budget (${k(upfront)} now, then about ${k(rate)} a decade coming back)`
+        : `the budget (${k(upfront)} now, then about ${k(rate)} a decade less)`;
+      (upfront < 0 ? rLose : rWin).push(entry);
+    } else if (upfront !== 0 || rate !== 0) {
+      (upfront + rate < 0 ? rLose : rWin).push('the budget');
+    }
+  } else {
+    if (((upfront < 0) || rate < 0) && !rLose.some(isBudget) && !rWin.some(isBudget)) rLose.push('the budget (it costs money)');
+    if (((upfront > 0) || rate > 0) && !rWin.some(isBudget) && !rLose.some(isBudget)) rWin.push('the budget (it brings in money)');
+  }
+  netParties(rWin, rLose);
   const residents = [rWin.length ? `Wins: ${list(rWin)}.` : '', rLose.length ? `Loses: ${list(rLose)}.` : ''].filter(Boolean).join(' ') || 'No clear winners or losers among the residents.';
 
   // Animals: creatures, and anything that touches habitat or water.
@@ -154,6 +186,7 @@ export function deriveWinLose(opt: DilemmaOption, nameOf: NameOf): WinLose {
   if (tiles.some((t) => t.op === 'water' && ((t.mult ?? 1) < 1))) { if (!aWin.length) aWin.push('creek fish and bugs (cleaner water)'); }
   if (tiles.some((t) => t.op === 'health' && ((t.add ?? 0) > 0 || (t.mult ?? 1) > 1))) { if (!aWin.length) aWin.push('wildlife (more habitat)'); }
   if (tiles.some((t) => t.op === 'soil' && ((t.mult ?? 1) < 1))) { if (!aWin.length) aWin.push('soil life (less contamination)'); }
+  netParties(aWin, aLose);
   const animals = [aWin.length ? `Wins: ${list(aWin)}.` : '', aLose.length ? `Loses: ${list(aLose)}.` : ''].filter(Boolean).join(' ') || 'No big change for wildlife.';
 
   // Future generations: climate, long-lived habitat and lasting harm.
@@ -167,6 +200,7 @@ export function deriveWinLose(opt: DilemmaOption, nameOf: NameOf): WinLose {
     else if (aLose.length) fLose.push('people not yet born (lost habitat takes a long time to return)');
     else if (aWin.length) fWin.push('people not yet born (a healthier place to inherit)');
   }
+  netParties(fWin, fLose);
   const future = [fWin.length ? `Wins: ${list(fWin)}.` : '', fLose.length ? `Loses: ${list(fLose)}.` : ''].filter(Boolean).join(' ') || 'Mostly a choice for today, with little lasting effect.';
   return { residents, animals, future };
 }

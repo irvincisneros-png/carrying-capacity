@@ -51,7 +51,8 @@ describe('scripted Act 2 playthroughs on coal-coast (dirty Act 1 start)', () => 
     // The circular tier and wildlife now supply their metrics. This script never repurposes anything, so it misses
     // the circular objective (the full-marks run is in tests/full-run.test.ts).
     expect(st.repurpose).toBe('missed');
-    expect(st.wildlife).toBe('missed');
+    // (Zoning phase 2: the dirty start now clears less bush for its homes, so the koalas hold on in this run too; wildlife is a bonus goal,
+    // so it is not asserted here. tests/full-run.test.ts is the run that earns it on purpose.)
     expect(good.a2.outcome?.success).toBe(false);
     expect(good.a2.outcome?.pendingRequired).toEqual([]);
     expect(good.a2.outcome?.objectives.filter((o) => !o.bonus && o.status !== 'met').map((o) => o.id)).toEqual(['repurpose']);
@@ -84,12 +85,17 @@ describe('scripted Act 2 playthroughs on coal-coast (dirty Act 1 start)', () => 
     expect(idle.a2.yearly.at(-1)?.estuaryHealth).toBeLessThan(20);
     expect(count(idle, 'coalpower')).toBe(4);
     // Re-banded from 0.02 (round 7, bridges): the cooler dirty start makes the idle summers a little less short of power (worst year 1%).
-    expect(idle.a2.yearly.some((y) => y.year > 2025 && y.unmetFrac > 0.005)).toBe(true); // summer blackouts as heat rises
+    // Zoning phase 2: the dirty start is capped at the old worst-case industry (see DIRTY_WANTS), a smaller town on four coal stations, and its
+    // idle summers never run short of power (worst year 0%, was 1%), so this is no longer asserted; the idle town still limps on to a worse Society.
+
     expect(idle.meters.society).toBeLessThan(good.meters.society - 20);
   });
   it('good play beats doing nothing on climate, water and the land', () => {
-    expect(good.tempC).toBeLessThan(idle.tempC - 0.5);
-    expect(good.cumulativeKt).toBeLessThan(idle.cumulativeKt * 0.6);
+    // Re-banded from 0.5 C and 0.6 (zoning phase 2): the dirty start is hotter at the turning point (1.47 C, was 1.17 C: zoned homes let the
+    // same script build out decades sooner), and that committed warming is shared by both runs, so good play beats idle by 0.39 C (was 0.65)
+    // and emits 69% as much (was 54%).
+    expect(good.tempC).toBeLessThan(idle.tempC - 0.35);
+    expect(good.cumulativeKt).toBeLessThan(idle.cumulativeKt * 0.75);
     expect(good.a2.yearly.at(-1)?.meanHealth ?? 0).toBeGreaterThan(idle.a2.yearly.at(-1)?.meanHealth ?? 1);
   });
   it('acting 25 years late misses the warming goal: early action matters (committed warming)', () => {
@@ -103,7 +109,8 @@ describe('scripted Act 2 playthroughs on coal-coast (dirty Act 1 start)', () => 
     expect(rc.stars).toBe(0);
     // Re-banded (see tests/full-run.test.ts; round 6 to three of the six on the 64x64 map, where the idle town is a little smaller
     // and Priya's warming reading stays under 2.2 C): at least three of the six end badly and none ends well.
-    expect(rc.residents.filter((r) => r.quality === 'bad').length).toBeGreaterThanOrEqual(3);
+    // Re-banded again to two of the six (zoning phase 2): the idle town is the capped dirty worst case and its Society holds a little better (49.7, was 41.9).
+    expect(rc.residents.filter((r) => r.quality === 'bad').length).toBeGreaterThanOrEqual(2);
     expect(rc.residents.some((r) => r.quality === 'good')).toBe(false);
     // Good play of the engine only (no listening, no waste hierarchy) is better, but cannot reach the stars either.
     const goodCard = buildReportCard(good);

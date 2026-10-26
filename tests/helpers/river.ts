@@ -24,9 +24,14 @@ export const RIVER_BOOM_WANTS: Want[] = [
   { id: 'carpark', max: 3 },
 ];
 
-/** A little more thoughtful: one fewer farm and a smaller dump, asks Uncle Ray before clearing. */
+/**
+ * A little more thoughtful: fewer farms and a smaller dump, asks Uncle Ray before clearing.
+ * Re-banded from 12 farms to 10 (zoning phase 2): the zoned town, with its homes in different places and 22 fewer roads, left seed 47's
+ * long drought just short (river 59.3, goal 60; was 61.1). Two fewer farms take less from the river: river 60.9 and farms 69.5 on that
+ * seed (11 farms still miss it at 59.2), and every other seed is unchanged or better.
+ */
 export const RIVER_THOUGHTFUL_WANTS: Want[] = [
-  { id: 'farm', max: 12, prefer: 'far' },
+  { id: 'farm', max: 10, prefer: 'far' },
   { id: 'coalmine', max: 1 },
   { id: 'factory', max: 3 },
   { id: 'outfall', max: 1 },

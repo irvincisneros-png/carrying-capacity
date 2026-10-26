@@ -5,6 +5,7 @@ import {
 import type { GameState } from '../src/sim';
 import { runScript } from './helpers/autoplay';
 import { act1Respectful, fullPlayPlan, playAct2, RESPECTFUL_WANTS } from './helpers/fullplay';
+import { estimatePlayTime } from './helpers/playtime';
 import { CAREFUL_ROADS, DIRTY_ROADS, DIRTY_WANTS, greedyPlan } from './helpers/scripts';
 
 /**
@@ -96,6 +97,12 @@ describe('a thoughtful run reaches three stars', () => {
     for (const e of lines) expect(wordCount(e.text), e.story?.ref).toBeLessThanOrEqual(60);
     for (const e of thoughtful.eventLog.filter((x) => x.story?.channel === 'country')) expect(e.story?.needsConsultation).toBe(true);
   });
+  it('estimates a thoughtful game inside the scenario\'s play-time band, give or take eight minutes', () => {
+    const [lo, hi] = getScenario('coal-coast').playMinutes ?? [0, 0];
+    const m = estimatePlayTime(thoughtful).minutes;
+    expect(m, `${Math.round(m)} minutes`).toBeGreaterThanOrEqual(lo - 8);
+    expect(m, `${Math.round(m)} minutes`).toBeLessThanOrEqual(hi + 8);
+  });
   it('sees two or three dilemma cards in each in-game decade of Act 2', () => {
     const start = getScenario('coal-coast').act2.startYear;
     const per = new Array<number>(8).fill(0);
@@ -108,7 +115,8 @@ describe('a thoughtful run reaches three stars', () => {
     expect(per[7]).toBeGreaterThanOrEqual(1);
     const act1Cards = Object.entries(thoughtful.dilemmas.offered).filter(([id, y]) => y < start && !id.startsWith('inn-')).length;
     expect(act1Cards).toBeGreaterThanOrEqual(4);
-    expect(act1Cards).toBeLessThanOrEqual(5);
+    // Up to six: the zoning cards (sprawl, flats) can use a free Act 1 slot.
+    expect(act1Cards).toBeLessThanOrEqual(6);
     expect(thoughtful.dilemmas.decisions.filter((d) => d.optionId === 'ignored')).toHaveLength(0);
     expect(thoughtful.dilemmas.decisions.filter((d) => d.evidenceBacked).length).toBeGreaterThan(8);
   });
@@ -157,7 +165,8 @@ describe('doing nothing leaves every arc unresolved or bad', () => {
     expect(['priya-shah', 'sam-jordan'].every((id) => q[id] === 'bad' || q[id] === 'mixed')).toBe(true);
     expect(['mick-kowalski', 'dot-harris'].every((id) => q[id] === 'bad' || q[id] === 'mixed')).toBe(true);
     expect(rc.residentsGood).toBe(false);
-    for (const r of rc.residents) expect(r.mood).toBeLessThan(50);
+    // Re-banded from 50 (zoning phase 2): the capped dirty town keeps a little more of its people and jobs (Society 54, not 41).
+    for (const r of rc.residents) expect(r.mood).toBeLessThan(58);
     expect(rc.residents.find((r) => r.id === 'aunty-june')?.needsConsultation).toBe(true);
   });
   it('tells the sad versions of the stories, in their own words', () => {
@@ -166,7 +175,9 @@ describe('doing nothing leaves every arc unresolved or bad', () => {
     expect(f('lena-linh-bad')).toBe(true);
     expect(f('dot-later-bad')).toBe(true);
     expect(f('june-neglect')).toBe(true);
-    expect(f('priya-emissions-bad')).toBe(true);
+    // Re-banded (zoning phase 2): the idle town's peak is now the 1980 boom (1287 kt a year, with its land clearing), and the Act 2 town runs at
+    // 77% of it (was 88%), so Priya's "still close to the peak" line (over 80%) does not fire; her warming and letter lines do.
+    expect(f('priya-lag')).toBe(true);
     expect(f('priya-letter-bad')).toBe(true);
     expect(f('mick-later-good')).toBe(false);
     expect(f('lena-linh-good')).toBe(false);

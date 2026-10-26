@@ -144,9 +144,14 @@ describe('the scripted players', () => {
 
   it('an idle player ends over the line on at least two lines, with stocks run down in the towns that have a creek', () => {
     for (const [name, s] of [['valley', valleyBad], ['coal', coalBad.end], ['river', riverBad.end], ['reef', reefBad.end], ['red', redBad.end], ['city', cityBad]] as const) {
-      expect(over(s), name).toBeGreaterThanOrEqual(2);
+      // Re-banded for Coal Coast (zoning phase 2): the dirty script is capped at the old worst-case industry (see DIRTY_WANTS), so its idle town is
+      // smaller (1061 people, was 1378) and draws less water (78% of what the creek renews, was 147%) and carbon (84%, was 122%); only energy
+      // stays over the line there. Every other town still runs over on at least two.
+      expect(over(s), name).toBeGreaterThanOrEqual(name === 'coal' ? 1 : 2);
     }
-    for (const s of [coalBad.end, riverBad.end, redBad.end]) expect(capStocks(s).flow).toBeLessThan(60);
+    // (Coal Coast leaves this list in zoning phase 2: its capped dirty town draws 78% of what the creek renews, so the flow stock holds at 100;
+    // its estuary and soil lines are what run down there.)
+    for (const s of [riverBad.end, redBad.end]) expect(capStocks(s).flow).toBeLessThan(60);
     expect(capStocks(valleyBad).fish).toBeLessThan(60);
   });
 

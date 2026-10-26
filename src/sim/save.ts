@@ -38,6 +38,7 @@ interface SerialGrid {
   chunkVersion: number[];
   significant: number[];
   zone?: number[];
+  zoning?: number[];
 }
 type SerialState = Omit<GameState, 'grid'> & { grid: SerialGrid };
 
@@ -58,6 +59,7 @@ export function serialize(state: GameState): string {
     chunkVersion: Array.from(g.chunkVersion),
     significant: Array.from(g.significant),
     zone: Array.from(g.zone),
+    zoning: Array.from(g.zoning),
   };
   const out: SerialState = { ...state, grid };
   return JSON.stringify(out);
@@ -144,6 +146,7 @@ export function deserialize(text: string | null): GameState | null {
     }
     if (ver >= 3 && !finArr(g.significant, n)) return null;
     if (g.zone !== undefined && !finArr(g.zone, n)) return null;
+    if (g.zoning !== undefined && (!finArr(g.zoning, n) || g.zoning.some((z) => !Number.isInteger(z) || z < 0 || z > 5))) return null;
     if (g.kind.some((k) => !Number.isInteger(k) || k < 0 || k > 9)) return null;
     if (!fin(raw.seed) || !fin(raw.year) || !fin(raw.budget) || !fin(raw.population) || !fin(raw.lastIncome)) return null;
     if (!fin(raw.nextUid) || !fin(raw.pendingLandKt) || !fin(raw.cumulativeKt) || !fin(raw.co2) || !fin(raw.tempC)) return null;
@@ -200,6 +203,8 @@ export function deserialize(text: string | null): GameState | null {
       chunkVersion: ver >= 2 ? Uint32Array.from(g.chunkVersion as number[]) : new Uint32Array(nChunks),
       significant: ver >= 3 ? Uint8Array.from(g.significant as number[]) : new Uint8Array(n),
       zone: g.zone !== undefined ? Uint8Array.from(g.zone as number[]) : new Uint8Array(n),
+      // Saves from before zoning have no zones.
+      zoning: g.zoning !== undefined ? Uint8Array.from(g.zoning as number[]) : new Uint8Array(n),
     };
     if (ver < 3) markSignificant(grid);
 

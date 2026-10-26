@@ -1,6 +1,7 @@
 import { BUILDINGS } from './buildings';
 import { dcLoad } from './datacentre';
 import { workingBuildings } from './roads';
+import { powerOf } from './upgrades';
 import { getScenario } from './scenarios';
 import { seasonIndexOf, seasonWeather } from './season';
 import type { Weather } from './season';
@@ -72,7 +73,7 @@ export function baseDemand(state: GameState): SectorDemand {
   const out: SectorDemand = { homes: 0, industry: 0, transport: 0 };
   for (const b of workingBuildings(state)) {
     const d = BUILDINGS[b.type];
-    if (d.power < 0 && b.type !== 'datacentre') out[sectorOf(b.type)] -= d.power;
+    if (d.power < 0 && b.type !== 'datacentre') out[sectorOf(b.type)] -= powerOf(b);
   }
   // Data centres run flat out day and night; their load (after any PPA and the cooling type) is added to industry.
   out.industry += dcLoad(state);

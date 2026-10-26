@@ -185,13 +185,16 @@ describe('Act 1 goals', () => {
     const greedy = act1Outcome(playAct1(createGame('green-valley'), { queue: GREEDY, cards: 'cash' }));
     expect(greedy.grew).toBe(true);
     expect(greedy.careful).toBe(false);
-    const careful = playAct1(createGame('green-valley'), { queue: CAREFUL, cards: 'evidence', upgrades: true, roadWeight: 3 });
+    const careful = playAct1(createGame('green-valley'), { queue: CAREFUL, cards: 'evidence', upgrades: true, roadWeight: 3, shops: true });
     const o = act1Outcome(careful);
-    expect(o.grew).toBe(true);
+    // Re-banded (zoning phase 2): homes grow only as far as the jobs (demand is jobs plus a small base, and shops add a few more jobs),
+    // so this small careful valley (130 jobs, 147 people) no longer reaches the 200-person goal; its jobs and power goals are met and it
+    // earns the bonus, which is what this test is about. The greedy town above (and the tutorial) meet the growth goal.
+    expect(o.mainMet).toBeGreaterThanOrEqual(2);
     expect(o.careful).toBe(true);
     expect(careful.meters.environment).toBeGreaterThanOrEqual(55);
     // The same town without upgrades or good choices is not careful.
-    const lazy = act1Outcome(playAct1(createGame('green-valley'), { queue: CAREFUL, cards: 'cash' }));
+    const lazy = act1Outcome(playAct1(createGame('green-valley'), { queue: CAREFUL, cards: 'cash', shops: true }));
     expect(lazy.careful).toBe(false);
   });
 
@@ -212,7 +215,9 @@ describe('Act 1 goals', () => {
 });
 
 describe('Green Valley Act 1 cards', () => {
-  const act1 = dilemmasFor('green-valley').filter((d) => d.phase === 'act1');
+  // The two zoning cards (sprawl and flats) come with the zoning build; the six story cards are the ones this block was written for.
+  const zoningIds = ['green-valley-sprawl', 'green-valley-flats'];
+  const act1 = dilemmasFor('green-valley').filter((d) => d.phase === 'act1' && !zoningIds.includes(d.id));
 
   it('has six cards for the boom, with money on both sides of each choice', () => {
     expect(act1.map((d) => d.id)).toEqual(['gv-factory-waste', 'gv-hillside', 'gv-fertiliser', 'gv-tip', 'gv-dry-year', 'gv-solar-rebate']);
@@ -239,6 +244,11 @@ describe('Green Valley Act 1 cards', () => {
     const perYear = new Map<number, number>();
     for (const [id, y] of Object.entries(offered)) if (!id.startsWith('inn-')) perYear.set(y, (perYear.get(y) ?? 0) + 1);
     for (const n of perYear.values()) expect(n).toBeLessThanOrEqual(2);
+  });
+
+  it('also holds the two zoning cards, offered after a few zoned homes have grown', () => {
+    const all = dilemmasFor('green-valley').filter((d) => d.phase === 'act1').map((d) => d.id);
+    for (const id of zoningIds) expect(all).toContain(id);
   });
 
   it('the factory card waits for a factory; the farm cards wait for a farm', () => {

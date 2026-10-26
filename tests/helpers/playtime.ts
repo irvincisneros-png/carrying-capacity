@@ -9,7 +9,7 @@
  *   - turning point: 3, epilogue and report card: 5;
  *   - Act 2: one year is 15 seconds at 1x and a typical player runs it at 2x with pauses, so 7.5 seconds a year;
  *   - each sitting of placing buildings (one type in one year) is about 15 seconds, and each extra building in it 3 more;
- *   - every other action (a lever, a consultation, a repurposing, a rehab step) is about 15 seconds, the fourth to eighth of the same kind 5;
+ *   - every other action (a lever, a consultation, a repurposing, a rehab step, one drag of retrofits) is about 15 seconds, the fourth to eighth of the same kind 5;
  *   - every dilemma card or story question answered is about 55 seconds (reading, the evidence button, deciding);
  *   - every story line read in Town Voices is about 5 seconds, a wildlife line 2; the lines that only report an action already
  *     counted (Caring for Country, the circular economy) or sit inside a card's 55 seconds are not counted again;
@@ -54,8 +54,17 @@ export function minMargin(s: GameState): number {
  * Repeated identical actions (the tenth cool burn, the sixth recycled rail siding) are routine: the first three of a kind take the
  * full time, later ones a third of it (the same tool, the same menu, a different tile), and a kind counts at most 8 times.
  */
-const sumActs = (s: GameState, prefixes: readonly string[]): number =>
-  Object.entries(s.residents.actions).filter(([k]) => prefixes.some((p) => k.startsWith(p))).reduce((a, [, v]) => a + Math.min(3, v) + Math.max(0, Math.min(8, v) - 3) / 3, 0);
+const sumActs = (s: GameState, prefixes: readonly string[]): number => {
+  // Recycling and repurposing are one menu with a different building each time (a Coal Coast game does two dozen of them): all the
+  // kinds of one menu share the first-three-in-full rule, so the dozenth repurposing is the routine click it is, not a new decision.
+  const grouped = new Map<string, number>();
+  for (const [k, v] of Object.entries(s.residents.actions)) {
+    if (!prefixes.some((p) => k.startsWith(p))) continue;
+    const key = /^(recycled|repurposed)\./.test(k) ? k.split('.')[0]! : k;
+    grouped.set(key, (grouped.get(key) ?? 0) + v);
+  }
+  return [...grouped.values()].reduce((a, v) => a + Math.min(3, v) + Math.max(0, Math.min(8, v) - 3) / 3, 0);
+};
 
 export interface PlayTime {
   act1: number;
@@ -73,12 +82,13 @@ export function estimatePlayTime(s: GameState): PlayTime {
   const decades = (sc.endYear - sc.startYear) / 10;
   const placed = s.buildings.filter((b) => b.builtYear > sc.endYear);
   const sittings = new Set(placed.map((b) => `${b.type}:${b.builtYear}`)).size;
-  const otherActions = sumActs(s, ['policy.', 'consulted', 'comanaged', 'burned', 'researched.', 'subscribed.', 'rehab.', 'repurposed.', 'recycled.']);
+  const otherActions = sumActs(s, ['policy.', 'consulted', 'comanaged', 'burned', 'researched.', 'subscribed.', 'rehab.', 'repurposed.', 'recycled.', 'retrofitted']);
   const decisions = s.dilemmas.decisions.filter((d) => d.optionId !== 'ignored').length + Object.values(s.residents.choices).filter((c) => c !== 'ignored').length;
   // Story lines worth reading. Country and circular lines are the feedback for actions already counted, a dilemma's offer and outcome
   // are inside its 55 seconds, and wildlife lines (returns, heat deaths, nests) are skimmed in 2 seconds.
   const lines = (ch: string): number => s.eventLog.filter((e) => e.type === 'story' && e.story?.channel === ch).length;
-  const skipped = ['research', 'country', 'circular', 'dilemma', 'wildlife'];
+  // The yearly growth line is a calm Log entry nobody stops to read.
+  const skipped = ['research', 'country', 'circular', 'dilemma', 'wildlife', 'growth'];
   const stories = s.eventLog.filter((e) => e.type === 'story' && !skipped.includes(e.story?.channel ?? '')).length + (lines('wildlife') * 2) / 5;
   const years = sc.act2.endYear - sc.act2.startYear;
   const extraMap = Math.max(0, s.grid.w * s.grid.h / 1024 - 1) * (years / 10) * 0.5;

@@ -132,7 +132,7 @@ export const STATIC_METRICS: readonly string[] = [
   'research', 'evidence', 'decisions', 'cumulativeKt', 'noRoad', ...MECH_METRIC_KEYS,
 ];
 export const METRIC_PREFIXES: readonly string[] = [
-  'pop', 'streak', 'mood', 'flag', 'count', 'connected', 'acts', 'recent', 'beat', 'chose', 'asked', 'research',
+  'pop', 'streak', 'mood', 'flag', 'count', 'connected', 'acts', 'recent', 'beat', 'chose', 'asked', 'research', 'zoned', 'grown',
 ];
 
 /** True for a key that metric() understands (used by the content tests to catch typos). */
@@ -169,6 +169,17 @@ export function metric(state: GameState, key: MetricKey): number {
       }
       case 'asked': return state.dilemmas.offered[rest] !== undefined ? 1 : 0;
       case 'research': return state.circular.research.includes(rest) ? 1 : 0;
+      // Zoning: tiles zoned for homes / shops / industry (grown or not), and buildings grown in each.
+      case 'zoned': {
+        const want = rest === 'res' ? [1, 2, 3] : rest === 'com' ? [4] : rest === 'ind' ? [5] : [];
+        let n = 0;
+        for (const z of state.grid.zoning ?? []) if (want.includes(z)) n++;
+        return n;
+      }
+      case 'grown': {
+        const want: readonly string[] = rest === 'res' ? ['zres1', 'zres2', 'zres3'] : rest === 'com' ? ['zcom'] : rest === 'ind' ? ['zind'] : [];
+        return state.buildings.filter((b) => b.grown && want.includes(b.type)).length;
+      }
       default: return 0;
     }
   }

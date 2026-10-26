@@ -27,7 +27,7 @@ import { buildPipeline, type Pipeline } from './post';
 import { AutoTier, loadPref, savePref, softwareRenderer, START_TIER, TIERS, type GraphicsPref, type OutlineMode, type Tier } from './quality';
 import { dirtArmGeo, dirtHubGeo, railArmGeo, railHubGeo, roadArmGeo, roadHubGeo } from './roadgeo';
 import { Smoke } from './smoke';
-import { Overlay, makeGrid, type Ramp } from './overlay';
+import { Overlay, ZONE_OVERLAY_SCALE, makeGrid, type Ramp } from './overlay';
 import { buildTerrain } from './terrain';
 import { TileData } from './tiledata';
 import { Vegetation } from './vegetation';
@@ -60,6 +60,8 @@ interface World {
   cursor: Cursor;
   rig: CameraRig;
   overlay: Overlay;
+  /** Soft zone wash (shown while a zone tool is active). */
+  zoneOverlay: Overlay;
   grid: Mesh;
   /** The ground, one mesh per chunk (see buildTerrain); `terrainGeo` is the whole surface that edits are written to. */
   terrainChunks: Group;
@@ -243,6 +245,8 @@ export class GameRenderer {
     const cursor = new Cursor(map, this.lib.get({ key: 'ghost', kind: 'ghost', transparent: true }));
     const overlay = new Overlay(tb.terrain, s.grid.w, s.grid.h, this.shared as unknown as Record<string, IUniform>);
     group.add(overlay.mesh);
+    const zoneOverlay = new Overlay(tb.terrain, s.grid.w, s.grid.h, this.shared as unknown as Record<string, IUniform>, true);
+    group.add(zoneOverlay.mesh);
     const gridMesh = makeGrid(tb.terrain, this.shared as unknown as Record<string, IUniform>);
     group.add(gridMesh);
     group.add(cursor.group);
@@ -281,7 +285,7 @@ export class GameRenderer {
     this.scene.add(this.clouds.mesh);
     this.clouds.setFraction(TIERS[this.tier]!.clouds);
     this.world = {
-      key, map, group, tiles, veg, bld, amb, smoke, fx, cursor, rig, overlay, grid: gridMesh, terrainChunks: terrain, terrainGeo: tb.terrain, slabMesh: slab, waterMesh, waterSide, heightTex: tb.heightTex, wu,
+      key, map, group, tiles, veg, bld, amb, smoke, fx, cursor, rig, overlay, zoneOverlay, grid: gridMesh, terrainChunks: terrain, terrainGeo: tb.terrain, slabMesh: slab, waterMesh, waterSide, heightTex: tb.heightTex, wu,
       sig: terrainSignature(s.grid), seaLevel: (getScenario(s.scenarioId).mechanics ?? []).includes('reef'), level: 0,
       dispose: () => {
         this.scene.remove(group);
@@ -393,6 +397,7 @@ export class GameRenderer {
     w.group.add(w.terrainChunks);
     w.terrainGeo = tb.terrain;
     w.overlay.mesh.geometry = tb.terrain;
+    w.zoneOverlay.mesh.geometry = tb.terrain;
     w.grid.geometry = tb.terrain;
     oldT.dispose();
     for (const g of oldChunks) g.dispose();
@@ -579,6 +584,15 @@ export class GameRenderer {
     else w.cursor.hideRing();
   }
 
+  /** A zone rectangle being dragged out or hovered: green when it can be zoned, red when it cannot. */
+  showZoneRect(x: number, y: number, w: number, h: number, ok: boolean): void {
+    const wd = this.world;
+    if (!wd) return;
+    wd.cursor.showRect(x, y, w, h, ok ? 'ok' : 'bad');
+    wd.cursor.hideGhost();
+    wd.cursor.hideRing();
+  }
+
   private marker: Group | null = null;
   private markerAt: { x: number; y: number } | null = null;
 
@@ -621,6 +635,14 @@ export class GameRenderer {
   /** Show a per-tile data layer (0..1 values) over the map, or hide it with null. */
   setOverlay(values: ArrayLike<number> | null, ramp: Ramp = 'heat'): void {
     this.world?.overlay.set(values, ramp);
+  }
+
+  /** Show the zone wash: per tile 0 none, 1 homes, 2 shops, 3 industry, +3 hatched (cannot grow yet); null hides it. */
+  setZones(codes: ArrayLike<number> | null): void {
+    if (!codes) { this.world?.zoneOverlay.set(null, 'zones'); return; }
+    const v = new Float32Array(codes.length);
+    for (let i = 0; i < codes.length; i++) v[i] = (codes[i] ?? 0) * ZONE_OVERLAY_SCALE;
+    this.world?.zoneOverlay.set(v, 'zones');
   }
 
   hideCursor(): void {
@@ -781,6 +803,7 @@ export class GameRenderer {
     w.fx.update(dt);
     w.cursor.update(dt);
     w.overlay.update(dt);
+    w.zoneOverlay.update(dt);
     if (this.marker?.visible) {
       const k = 1 + 0.15 * Math.sin(time * 5);
       this.marker.children[0]!.scale.set(k, k, k);

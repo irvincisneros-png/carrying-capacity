@@ -15,6 +15,8 @@ import { realTemp } from './realData';
 import { getScenario } from './scenarios';
 import { hash32 } from './season';
 import { census } from './wildlife';
+import { landPerPerson } from './ledger';
+import type { LandPerPerson } from './ledger';
 import type { CensusEntry } from './wildlife';
 import type { EmissionsBySource, GameState, ObjectiveResult } from './types';
 import { EMISSION_CATEGORIES } from './types';
@@ -68,6 +70,31 @@ export interface ReportCard {
   reflections: string[];
   letterPrompt: string;
   epilogue: string;
+  /** How much land the town took per person, against a compact town (null when no one lives here). */
+  footprint: Footprint | null;
+}
+
+export interface Footprint {
+  land: LandPerPerson;
+  /** Grade for the report card: A as compact as medium-density homes, then B, C, D as the homes spread out. */
+  grade: 'A' | 'B' | 'C' | 'D';
+  /** Plain-words line for the report card and the print page. */
+  line: string;
+}
+
+/** The town's footprint line: land under homes and cleared land per person, against a town of medium-density homes. */
+export function footprintOf(s: GameState): Footprint | null {
+  const land = landPerPerson(s);
+  if (land.people <= 0 || land.homeTiles <= 0) return null;
+  const r = land.ratio;
+  const grade = r <= 1.4 ? 'A' : r <= 2.2 ? 'B' : r <= 3.5 ? 'C' : 'D';
+  const fmt = (n: number): string => n.toLocaleString('en-AU');
+  const how = r <= 1.4 ? 'about as compact as a town of townhouses'
+    : r <= 2.2 ? `${r} times the land of a compact town`
+      : `${r} times the land of a compact town, so more bush, more street and longer drives`;
+  const line = `Homes covered ${fmt(land.homeM2)} m² for each person (a compact town of townhouses needs about ${fmt(land.compactHomeM2)} m²): ${how}. `
+    + `The town has cleared ${fmt(land.clearedM2)} m² of land and built ${fmt(land.roadM)} m of road for each resident.`;
+  return { land, grade, line };
 }
 
 const zero = (): EmissionsBySource => ({ power: 0, industry: 0, transport: 0, land: 0, waste: 0 });
@@ -223,5 +250,6 @@ export function buildReportCard(s: GameState): ReportCard {
     reflections: pickReflections(s, kind),
     letterPrompt: LETTER_PROMPT,
     epilogue,
+    footprint: footprintOf(s),
   };
 }

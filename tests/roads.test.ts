@@ -3,8 +3,10 @@ import {
   addFreeRoad, advanceDecade, applyAction, assumeRoads, BUILDINGS, canPlace, cloneState, COMMUTE_CAP, commuteStats, createGame, deserialize,
   economySnapshot, entranceList, projectedEmissions, roadAccess, roadRoute, SCENARIO_IDS, serialize, TileKind, tutorialStatus,
 } from '../src/sim';
+import { ZONE } from '../src/sim';
 import type { BuildingId, GameState } from '../src/sim';
 import { connectAll, connectToEntrance } from './helpers/roads';
+import { keepZoned } from './helpers/zoning';
 
 /**
  * A flat 20 x 20 field of open land with one entrance road at the west edge (0, 10) and a country road running in to (5, 10).
@@ -302,7 +304,7 @@ describe('saves from before roads mattered', () => {
 });
 
 describe('the Green Valley tutorial road step', () => {
-  it('asks the player to connect homes and the farm to the road from the edge, and checks roadAccess', () => {
+  it('asks the player to connect the farm to the road from the edge, and checks roadAccess', () => {
     let s = createGame('green-valley');
     s = { ...s, budget: 1000 };
     const g = s.grid;
@@ -318,11 +320,12 @@ describe('the Green Valley tutorial road step', () => {
       }
       return out;
     };
-    for (const [x, y] of free('cottage', 3)) s = put(s, 'cottage', x, y).state;
+    s = keepZoned(s, ZONE.rlow, 6);
+    s = keepZoned(s, ZONE.com, 3);
     for (const [x, y] of free('farm', 1)) s = put(s, 'farm', x, y).state;
     const st = tutorialStatus(s);
     expect(st.current?.id).toBe('roads');
-    expect(st.current?.instruction).toMatch(/Connect your homes and farm to the road from the edge of the valley/);
+    expect(st.current?.instruction).toMatch(/Connect your farm to the road from the edge of the valley/);
     s = connectAll(s);
     expect(tutorialStatus(s).current?.id).not.toBe('roads');
     expect(tutorialStatus(s).steps.find((x) => x.id === 'roads')?.done).toBe(true);

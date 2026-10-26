@@ -18,7 +18,8 @@ describe('Act 1 cards', () => {
       // The innovation timeline (inn- cards, WP9) has its own scheduler and is tested in innovations.test.ts.
       const years = Object.entries(s.dilemmas.offered).filter(([id]) => !id.startsWith('inn-')).map(([, y]) => y).sort((a, b) => a - b);
       expect(years.length).toBeGreaterThanOrEqual(4);
-      expect(years.length).toBeLessThanOrEqual(5);
+      // Zoning build: the two zoning cards (sprawl, flats) can use a free slot, so up to six.
+      expect(years.length).toBeLessThanOrEqual(6);
       for (let i = 1; i < years.length; i++) expect((years[i] ?? 0) - (years[i - 1] ?? 0)).toBeGreaterThanOrEqual(ACT1_MIN_GAP);
       for (const id of Object.keys(s.dilemmas.offered).filter((x) => !x.startsWith('inn-'))) expect(getDilemma('coal-coast', id)?.phase).toBe('act1');
     }

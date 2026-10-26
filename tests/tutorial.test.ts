@@ -1,14 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
-  advanceDecade, applyAction, buildReportCard, canPlace, createGame, isKnownMetric, objectiveStatus, startAct2, suggestTile, tick, TUTORIAL_STEPS,
+  advanceDecade, applyAction, ZONE, buildReportCard, canPlace, createGame, isKnownMetric, objectiveStatus, startAct2, suggestTile, tick, TUTORIAL_STEPS,
   tutorialStatus, tutorialStepsFor, wordCount,
 } from '../src/sim';
 import type { GameState } from '../src/sim';
 import { connectAll } from './helpers/roads';
 import { followTutorial } from './helpers/valley';
+import { keepZoned } from './helpers/zoning';
 
 const steps = tutorialStepsFor('green-valley');
-const HIGHLIGHT = /^(build:[a-z]+|tool:(demolish|clear|inspect|dispose|comanage|burn)|button:[a-z-]+|panel:[a-z-]+|tile:\d+,\d+|tile:@[a-z]+)$/;
+const HIGHLIGHT = /^(build:[a-z]+|tool:(demolish|clear|inspect|dispose|comanage|burn|zonehomes|zoneshops)|button:[a-z-]+|panel:[a-z-]+|tile:\d+,\d+|tile:@[a-z]+)$/;
 
 describe('tutorial data', () => {
   it('has guided steps only for Green Valley, each with a title, a short instruction, a highlight key and a condition', () => {
@@ -42,42 +43,37 @@ describe('tutorialStatus', () => {
     const t = tutorialStatus(createGame('coal-coast'));
     expect(t).toEqual({ active: false, steps: [], index: -1, current: null, highlight: null, doneCount: 0, total: 0, completed: false });
   });
-  it('starts at the first step, pointing at the cottage button', () => {
+  it('starts at the first step, pointing at the Homes zone tool', () => {
     const t = tutorialStatus(createGame('green-valley'));
     expect(t.active).toBe(true);
     expect(t.index).toBe(0);
     expect(t.current?.id).toBe('homes');
-    expect(t.highlight).toBe('build:cottage');
+    expect(t.highlight).toBe('tool:zonehomes');
     expect(t.doneCount).toBe(0);
     expect(t.completed).toBe(false);
     expect(t.steps.filter((s) => s.current)).toHaveLength(1);
   });
-  it('moves on when the condition is met by the player\'s actions, and stays done after the building is gone', () => {
+  it('moves on when the player zones homes, and stays done after the zone is cleared', () => {
     let s = createGame('green-valley');
-    for (let n = 0; n < 3; n++) {
-      const spot = suggestTile(s, 'cottage');
-      expect(spot).not.toBeNull();
-      const r = applyAction(s, { type: 'place', building: 'cottage', x: spot?.x ?? 0, y: spot?.y ?? 0 });
-      expect(r.result.ok).toBe(true);
-      s = r.state;
-    }
+    s = keepZoned(s, ZONE.rlow, 6);
     const t = tutorialStatus(s);
-    expect(t.current?.id).toBe('farm');
+    expect(t.current?.id).toBe('shops');
+    expect(t.highlight).toBe('tool:zoneshops');
     expect(t.doneCount).toBe(1);
-    // Demolishing does not undo "built three homes".
-    const b = s.buildings[0];
-    const demolished = applyAction(s, { type: 'demolish', x: b?.x ?? 0, y: b?.y ?? 0 }).state;
-    expect(tutorialStatus(demolished).steps[0]?.done).toBe(true);
+    // Dezoning does not undo "zoned some homes".
+    const cleared = applyAction(s, { type: 'zone', x: 0, y: 0, w: s.grid.w, h: s.grid.h, zone: 0 }).state;
+    expect(tutorialStatus(cleared).steps[0]?.done).toBe(true);
+    expect(cleared.flags['tut.done.homes']).toBe(true);
   });
-  it('waits for the player to press next decade, and notices the clearing tool', () => {
+  it('asks for shops, a farm, roads and a little clearing, then waits for the player to let the town grow', () => {
     let s = createGame('green-valley');
     s.budget = 500;
-    // Get through the first steps by hand.
-    for (const id of ['cottage', 'cottage', 'cottage', 'farm'] as const) {
-      const spot = suggestTile(s, id);
-      s = applyAction(s, { type: 'place', building: id, x: spot?.x ?? 0, y: spot?.y ?? 0, rotation: spot?.rotation ?? 0 }).state;
-    }
-    // Homes and a farm with no road to them do not count as connected: the step waits until a road joins them to the edge.
+    s = keepZoned(s, ZONE.rlow, 6);
+    s = keepZoned(s, ZONE.com, 3);
+    expect(tutorialStatus(s).current?.id).toBe('farm');
+    const spot = suggestTile(s, 'farm');
+    s = applyAction(s, { type: 'place', building: 'farm', x: spot?.x ?? 0, y: spot?.y ?? 0, rotation: spot?.rotation ?? 0 }).state;
+    // A farm with no road to it does not count as connected: the step waits until a road joins it to the edge.
     expect(tutorialStatus(s).current?.id).toBe('roads');
     expect(tutorialStatus(s).highlight).toBe('build:road');
     s = connectAll(s);
@@ -85,9 +81,10 @@ describe('tutorialStatus', () => {
     expect(tutorialStatus(s).highlight).toBe('tool:clear');
     const bush = Array.from(s.grid.kind).findIndex((k) => k === 5);
     s = applyAction(s, { type: 'clear', x: bush % s.grid.w, y: Math.floor(bush / s.grid.w) }).state;
-    expect(tutorialStatus(s).current?.id).toBe('decade');
+    expect(tutorialStatus(s).current?.id).toBe('watch');
     expect(tutorialStatus(s).highlight).toBe('button:next-decade');
     s = advanceDecade(s).state;
+    expect(s.buildings.some((b) => b.grown)).toBe(true);
     expect(tutorialStatus(s).current?.id).toBe('factory');
   });
   it('resolves a "tile:@building" highlight to a real tile where that building can go', () => {
@@ -113,7 +110,7 @@ describe('tutorialStatus', () => {
 function runToTurningPoint(): GameState {
   let s = createGame('green-valley');
   s.budget = 5000;
-  for (const id of ['cottage', 'cottage', 'cottage', 'farm', 'factory', 'coalpower', 'coalmine'] as const) {
+  for (const id of ['farm', 'factory', 'coalpower', 'coalmine'] as const) {
     const spot = suggestTile(s, id);
     s = connectAll(applyAction(s, { type: 'place', building: id, x: spot?.x ?? 0, y: spot?.y ?? 0, rotation: spot?.rotation ?? 0 }).state);
   }
@@ -174,7 +171,6 @@ describe('tutorial steps latch', () => {
   it('the road step stays done after a connected farm is demolished', async () => {
     const { buildN } = await import('./helpers/autoplay');
     let s = createGame('green-valley');
-    s = buildN(s, 'cottage', 3).state;
     s = buildN(s, 'farm', 1).state;
     const road = (st: GameState) => tutorialStatus(st).steps.find((x) => x.id === 'roads')!.done;
     expect(road(s)).toBe(true);

@@ -18,7 +18,29 @@ export const HEAT = {
   centreCapacity: 2500,
   blackoutFactor: 1.5,
   warmFactor: 0.2,
+  /** Extra heat risk for each high-density home tile (concrete, dark roofs, little shade), before parks cut it. */
+  highriseFactor: 0.012,
+  /** Most the concrete can add (a share of the risk). */
+  highriseMax: 0.4,
 } as const;
+
+/** Grown high-density home tiles that are lived in (zoning, sim/zoning.ts). */
+export function highriseTiles(s: GameState): number {
+  let n = 0;
+  for (const b of s.buildings) if (b.type === 'zres3' && !b.empty) n++;
+  return n;
+}
+
+/**
+ * How much hotter the heatwave is on the town's high-rise, as a multiplier (1 = none). A little, and street trees and parks win it
+ * back: at full canopy (HEAT.canopyFull) it is gone.
+ */
+export function highriseHeat(s: GameState, canopy: number = canopyShare(s)): number {
+  const n = highriseTiles(s);
+  if (n === 0) return 1;
+  const extra = Math.min(HEAT.highriseMax, HEAT.highriseFactor * n);
+  return 1 + extra * (1 - clamp01(canopy / HEAT.canopyFull));
+}
 
 /** Tree canopy as a share (0..1) of the open ground and street space that could hold trees. */
 export function canopyShare(s: GameState): number {
@@ -55,7 +77,7 @@ export function heatDeathsExpected(s: GameState, severity: number, blackout: boo
   const centres = 1 - HEAT.coolingBenefit * coolingCoverage(s);
   const power = blackout ? HEAT.blackoutFactor : 1;
   const warm = 1 + HEAT.warmFactor * Math.max(0, s.tempC - 1);
-  return (s.population / 1000) * spec.deathsPer1000 * severity * trees * centres * power * warm * dcHeatFactor(s);
+  return (s.population / 1000) * spec.deathsPer1000 * severity * trees * centres * power * warm * dcHeatFactor(s) * highriseHeat(s);
 }
 
 /** The same heatwave with no trees and no cooling centres. */
@@ -64,7 +86,7 @@ export function heatDeathsUnprotected(s: GameState, severity: number, blackout: 
   if (!spec) return 0;
   const power = blackout ? HEAT.blackoutFactor : 1;
   const warm = 1 + HEAT.warmFactor * Math.max(0, s.tempC - 1);
-  return (s.population / 1000) * spec.deathsPer1000 * severity * power * warm * dcHeatFactor(s);
+  return (s.population / 1000) * spec.deathsPer1000 * severity * power * warm * dcHeatFactor(s) * highriseHeat(s, 0);
 }
 
 export function heatDeathsTotal(s: GameState): number {

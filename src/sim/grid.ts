@@ -18,6 +18,7 @@ export function createGrid(w: number, h: number): TileGrid {
     chunkVersion: new Uint32Array(chunkCount(w, h)),
     significant: new Uint8Array(n),
     zone: new Uint8Array(n),
+    zoning: new Uint8Array(n),
   };
 }
 
@@ -43,6 +44,7 @@ export function cloneGrid(g: TileGrid): TileGrid {
     chunkVersion: g.chunkVersion.slice(),
     significant: g.significant.slice(),
     zone: g.zone.slice(),
+    zoning: g.zoning ? g.zoning.slice() : new Uint8Array(g.w * g.h),
   };
 }
 

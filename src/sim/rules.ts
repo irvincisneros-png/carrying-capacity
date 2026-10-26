@@ -139,6 +139,9 @@ export function canPlace(
       fp, av.cost,
     );
   }
+  if (def.zoned) {
+    return fail('locked', `${def.name} grow by themselves on zoned land: use the Zones tools`, fp, av.cost);
+  }
   if (def.repurposeOnly) {
     return fail('locked', `${def.name} can only be made by repurposing an old industrial site`, fp, av.cost);
   }

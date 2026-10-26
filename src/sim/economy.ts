@@ -2,6 +2,8 @@ import { BUILDINGS } from './buildings';
 import { reefHealth } from './climate';
 import { mechEnvScore, mechMetric } from './mechanics';
 import { workingBuildings } from './roads';
+import { powerOf } from './upgrades';
+import { fillFn } from './zonefill';
 import { estuaryHealth, hasReef, meanHealth, meanReefHealth } from './metrics';
 import { getScenario } from './scenarios';
 import { TileKind } from './types';
@@ -48,6 +50,8 @@ export interface EconomySnapshot {
   housing: number;
   population: number;
   filledJobs: number;
+  /** Filled jobs as the income counts them: shops and offices earn COMMERCIAL_BONUS more per job (see sim/zoning.ts). */
+  incomeJobs: number;
   unfilledJobs: number;
   unemployed: number;
   powerSupply: number;
@@ -57,20 +61,29 @@ export interface EconomySnapshot {
   gridActive: boolean;
 }
 
-export function totals(buildings: readonly PlacedBuilding[]): { jobs: number; housing: number; supply: number; demand: number } {
-  let jobs = 0, housing = 0, supply = 0, demand = 0;
+/** Shops and offices earn this much more per filled job than the base job value. */
+export const COMMERCIAL_BONUS = 0.1;
+
+/**
+ * Jobs, homes and power of a set of buildings. Grown buildings count as full as they are (sim/zonefill.ts: an empty one gives
+ * nothing, a high-rise with no transit half); power is what the buildings would draw, full or not.
+ */
+export function totals(buildings: readonly PlacedBuilding[], fill: (b: PlacedBuilding) => number = () => 1): { jobs: number; housing: number; supply: number; demand: number; comJobs: number } {
+  let jobs = 0, housing = 0, supply = 0, demand = 0, comJobs = 0;
   for (const b of buildings) {
     const d = BUILDINGS[b.type];
-    jobs += d.jobs;
-    housing += d.housing;
+    const f = d.zoned ? fill(b) : 1;
+    jobs += d.jobs * f;
+    housing += d.housing * f;
+    if (b.type === 'zcom') comJobs += d.jobs * f;
     if (d.power > 0) supply += d.power;
-    else demand -= d.power;
+    else demand -= powerOf(b);
   }
-  return { jobs, housing, supply, demand };
+  return { jobs, housing, supply, demand, comJobs };
 }
 
 export function economySnapshot(state: GameState, population = state.population): EconomySnapshot {
-  const t = totals(workingBuildings(state));
+  const t = totals(workingBuildings(state), fillFn(state));
   const gridActive = state.year >= GRID_YEAR;
   const filled = Math.min(t.jobs, population);
   return {
@@ -78,6 +91,7 @@ export function economySnapshot(state: GameState, population = state.population)
     housing: t.housing,
     population,
     filledJobs: filled,
+    incomeJobs: filled + (t.jobs > 0 ? COMMERCIAL_BONUS * t.comJobs * (filled / t.jobs) : 0),
     unfilledJobs: Math.max(0, t.jobs - population),
     unemployed: Math.max(0, population - t.jobs),
     powerSupply: t.supply,
@@ -93,7 +107,7 @@ export function growPopulation(pop: number, housing: number): number {
 }
 
 export function decadeIncome(snap: EconomySnapshot, budgetMult: number): number {
-  let income = (snap.filledJobs * INCOME_PER_JOB + BASE_GRANT) * budgetMult;
+  let income = (snap.incomeJobs * INCOME_PER_JOB + BASE_GRANT) * budgetMult;
   if (snap.powerDeficit > 0) {
     // A power deficit cuts the economy proportionally to the share of demand unmet.
     income *= Math.max(0.3, 1 - snap.powerDeficit / Math.max(1, snap.powerDemand));
@@ -234,14 +248,14 @@ export function computeDemand(state: GameState): Demand {
   const items: string[] = [];
   const homesNeeded = Math.max(0, s.jobs - s.housing);
   if (s.unfilledJobs > 0 && s.housing < s.jobs) {
-    items.push(`${Math.ceil(homesNeeded / 10) * 10} new workers' homes (${s.unfilledJobs} jobs are unfilled)`);
+    items.push(`homes: zone more Residential, about ${Math.ceil(homesNeeded / 10) * 10} people's worth (${s.unfilledJobs} jobs are unfilled)`);
   }
   if (s.gridActive && s.powerDeficit > 0) {
     items.push(`power for the factories and homes (${s.powerDeficit} units short)`);
   } else if (state.year >= GRID_YEAR - 10 && !s.gridActive && s.powerDemand > 0) {
     items.push('plan for electricity - the grid starts in 1920');
   }
-  if (s.unemployed > 20) items.push(`work for ${s.unemployed} people without jobs`);
+  if (s.unemployed > 20) items.push(`work for ${s.unemployed} people without jobs (zone shops and offices, or build a farm or factory)`);
   const text = items.length ? `Your town needs: ${items.join('; ')}.` : 'Your town needs: nothing urgent right now. What will you build next?';
   return { text, items };
 }
@@ -295,17 +309,17 @@ export function demandBars(state: GameState): DemandBar[] {
   bars.push(mkBar('homes', 'Homes',
     (wanted - s.housing) / Math.max(wanted, s.housing, 1),
     s.population > s.housing
-      ? `Not enough homes: ${s.population} people but room for ${s.housing}. Build more homes.`
-      : `Not enough homes: ${s.jobs} jobs but room for only ${s.housing} people. Build homes so the jobs get filled.`,
+      ? `Homes needed: ${s.population} people but room for ${s.housing}. Zone more Residential (Zones tab) and homes will grow.`
+      : `Homes needed: ${s.jobs} jobs but room for only ${s.housing} people. Zone more Residential so the jobs get filled.`,
     'Homes and jobs are about even. Nice.',
     `Plenty of homes: room for ${s.housing} people and only ${wanted} wanted. Some will sit empty until you add jobs.`));
 
   // Jobs: people without work against jobs nobody is here to do.
   bars.push(mkBar('jobs', 'Jobs',
     (s.unemployed - s.unfilledJobs) / Math.max(s.jobs, s.population, 1),
-    `Not enough jobs: ${s.unemployed} people have no work. Build farms, shops or factories.`,
+    `Not enough jobs: ${s.unemployed} people have no work. Zone shops and offices, or build farms or factories.`,
     'Jobs and workers are about even. Nice.',
-    `Too many jobs: ${s.unfilledJobs} jobs have nobody to do them. Build homes so more people move in.`));
+    `Too many jobs: ${s.unfilledJobs} jobs have nobody to do them. Zone more Residential so more people move in.`));
 
   // Power: Act 2 reads the last season's grid (worst of day and night); Act 1 reads building supply and demand.
   const gr = state.phase === 'act2' ? state.a2.lastGrid : null;

@@ -59,7 +59,9 @@ describe('the order of difficulty', () => {
     // Round 6 (72x72 map): the city has far more hinterland and a 60% plan still reaches 2050, so the scripted city forgives two more
     // versions than the hard scenarios; it is still stricter than River Town and the tightest in margin (tests/scenario-play.test.ts).
     expect(city.passes).toBeLessThan(river.passes);
-    expect(city.passes).toBeLessThanOrEqual(red.passes + 2);
+    // Re-banded to +3 (zoning phase 2): Red Dirt is now stricter (only the full-effort run earns a star: 1 of 6, was 2) because its new homes wait
+    // for water and power, so the unchanged city is two more forgiving than it used to be relative to it.
+    expect(city.passes).toBeLessThanOrEqual(red.passes + 3);
     expect(city.stars.slice(4)).toEqual([0, 0]);
   });
 });
