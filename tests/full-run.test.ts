@@ -5,6 +5,7 @@ import {
 import type { GameState } from '../src/sim';
 import { runScript } from './helpers/autoplay';
 import { act1Respectful, fullPlayPlan, playAct2, RESPECTFUL_WANTS } from './helpers/fullplay';
+import { estimatePlayTime } from './helpers/playtime';
 import { CAREFUL_ROADS, DIRTY_ROADS, DIRTY_WANTS, greedyPlan } from './helpers/scripts';
 
 /**
@@ -95,6 +96,12 @@ describe('a thoughtful run reaches three stars', () => {
     expect(lines.length).toBeGreaterThan(15);
     for (const e of lines) expect(wordCount(e.text), e.story?.ref).toBeLessThanOrEqual(60);
     for (const e of thoughtful.eventLog.filter((x) => x.story?.channel === 'country')) expect(e.story?.needsConsultation).toBe(true);
+  });
+  it('estimates a thoughtful game inside the scenario\'s play-time band, give or take eight minutes', () => {
+    const [lo, hi] = getScenario('coal-coast').playMinutes ?? [0, 0];
+    const m = estimatePlayTime(thoughtful).minutes;
+    expect(m, `${Math.round(m)} minutes`).toBeGreaterThanOrEqual(lo - 8);
+    expect(m, `${Math.round(m)} minutes`).toBeLessThanOrEqual(hi + 8);
   });
   it('sees two or three dilemma cards in each in-game decade of Act 2', () => {
     const start = getScenario('coal-coast').act2.startYear;

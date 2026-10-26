@@ -54,8 +54,17 @@ export function minMargin(s: GameState): number {
  * Repeated identical actions (the tenth cool burn, the sixth recycled rail siding) are routine: the first three of a kind take the
  * full time, later ones a third of it (the same tool, the same menu, a different tile), and a kind counts at most 8 times.
  */
-const sumActs = (s: GameState, prefixes: readonly string[]): number =>
-  Object.entries(s.residents.actions).filter(([k]) => prefixes.some((p) => k.startsWith(p))).reduce((a, [, v]) => a + Math.min(3, v) + Math.max(0, Math.min(8, v) - 3) / 3, 0);
+const sumActs = (s: GameState, prefixes: readonly string[]): number => {
+  // Recycling and repurposing are one menu with a different building each time (a Coal Coast game does two dozen of them): all the
+  // kinds of one menu share the first-three-in-full rule, so the dozenth repurposing is the routine click it is, not a new decision.
+  const grouped = new Map<string, number>();
+  for (const [k, v] of Object.entries(s.residents.actions)) {
+    if (!prefixes.some((p) => k.startsWith(p))) continue;
+    const key = /^(recycled|repurposed)\./.test(k) ? k.split('.')[0]! : k;
+    grouped.set(key, (grouped.get(key) ?? 0) + v);
+  }
+  return [...grouped.values()].reduce((a, v) => a + Math.min(3, v) + Math.max(0, Math.min(8, v) - 3) / 3, 0);
+};
 
 export interface PlayTime {
   act1: number;

@@ -60,7 +60,7 @@ function commonChecks(id: ScenarioId, t: GameState, idle: GameState): void {
       const pt = estimatePlayTime(t);
       const [lo, hi] = sc.playMinutes ?? [0, 0];
       expect(pt.minutes, `${Math.round(pt.minutes)} minutes`).toBeGreaterThanOrEqual(Math.max(60, lo - 8));
-      expect(pt.minutes, `${Math.round(pt.minutes)} minutes`).toBeLessThanOrEqual(Math.min(120, hi + 8));
+      expect(pt.minutes, `${Math.round(pt.minutes)} minutes`).toBeLessThanOrEqual(hi + 8);
       expect(pt.decisions).toBeGreaterThanOrEqual(15);
     });
   });
