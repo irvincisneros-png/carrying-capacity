@@ -8,6 +8,7 @@ import type { MapGeo } from './mapgeo';
 import type { MatLib } from './materials';
 import { SUBURB_STREET_TOP, ZONED_IDS, buildBuildingModel, modelVariant, rotorGeo, wheelGeo, type BuildingModel } from './models/buildings';
 import { RoadMesh } from './roadmesh';
+import { ZoneChunks } from './zonechunks';
 import { ASPHALT_LIFT, gradeRoads, type RoadPin, type RoadTile } from './roadnet';
 
 export interface Emitter {
@@ -31,6 +32,9 @@ interface Rec {
   b: PlacedBuilding;
   /** Brick suburb: street mouths as (suburb tile index * 4 + direction a road enters from), see STREETS */
   mouths?: Set<number>;
+  /** Grown zone buildings settle into a merged chunk mesh (see zonechunks.ts); until then (growing, demolishing) they are batch instances. */
+  chunked?: boolean;
+  tint?: Color;
 }
 
 interface Anim {
@@ -111,6 +115,9 @@ const _c = new Color();
 
 export class BuildingLayer {
   batch: Batch;
+  /** Settled grown zone buildings, merged per chunk. */
+  private zc: ZoneChunks;
+  private prepped = new Map<string, import('three').BufferGeometry>();
   private recs = new Map<number, Rec>();
   private anims: Anim[] = [];
   private models = new Map<string, BuildingModel>();
@@ -135,6 +142,7 @@ export class BuildingLayer {
 
   constructor(private map: MapGeo, private lib: MatLib, private group: Group) {
     this.batch = this.makeBatch();
+    this.zc = this.makeChunks();
     this.roads = new RoadMesh(map, lib.get({ key: 'building', kind: 'prop' }), group);
     const rotorMat = lib.get({ key: 'rotor', kind: 'prop', noSmog: true });
     this.rotors = new InstancedMesh(prepBatchGeo(rotorGeo(1)), rotorMat, 128);
@@ -162,6 +170,10 @@ export class BuildingLayer {
     return b;
   }
 
+  private makeChunks(): ZoneChunks {
+    return new ZoneChunks(this.group, this.lib.get({ key: 'building', kind: 'prop' }), this.lib.outlineMat);
+  }
+
   setDetail(detail: 0 | 1, s: GameState | null, cull = 0): void {
     if (detail === this.detail && cull === this.cull) return;
     this.detail = detail;
@@ -173,6 +185,10 @@ export class BuildingLayer {
     if (this.batch.outline) this.group.remove(this.batch.outline);
     this.batch.dispose();
     this.batch = this.makeBatch();
+    this.zc.dispose();
+    this.zc = this.makeChunks();
+    for (const g of this.prepped.values()) g.dispose();
+    this.prepped.clear();
     this.recs.clear();
     this.anims.length = 0;
     this.initial = true;
@@ -187,6 +203,7 @@ export class BuildingLayer {
 
   setOutlines(on: boolean): void {
     if (this.batch.outline) this.batch.outline.visible = on;
+    this.zc.setOutlines(on);
   }
 
   model(type: BuildingId, variant = 0): BuildingModel | null {
@@ -255,11 +272,16 @@ export class BuildingLayer {
         this.recs.set(b.uid, rec);
         if (b.type !== 'road' && b.type !== 'rail') {
           const model = this.model(b.type, rec.variant)!;
-          const gid = this.gid(`${b.type}:${rec.variant}:${this.detail}:${this.cull}`, () => model.geo);
-          this.compose(rec, this.initial ? 1 : 0.001, this.initial ? 1 : 0.001);
           const lift = INDUSTRIAL.has(b.type) ? 1.32 : 1.12;
           _c.setRGB(lift - ((b.uid * 0.37) % 1) * 0.06, lift - ((b.uid * 0.53) % 1) * 0.05, lift - ((b.uid * 0.71) % 1) * 0.07);
-          rec.ids.push(this.batch.add(gid, _m, _c));
+          rec.tint = _c.clone();
+          if (ZONED.has(b.type) && this.initial) {
+            this.toChunk(rec);
+          } else {
+          const gid = this.gid(`${b.type}:${rec.variant}:${this.detail}:${this.cull}`, () => model.geo);
+          this.compose(rec, this.initial ? 1 : 0.001, this.initial ? 1 : 0.001);
+          rec.ids.push(this.batch.add(gid, _m, rec.tint));
+          }
           if (!this.initial) {
             this.anims.push({ rec, t: 0, dir: 1 });
             this.onPop?.(rec.x, rec.y, rec.z, Math.max(b.w, b.h) * 0.45, false);
@@ -320,7 +342,35 @@ export class BuildingLayer {
       this.regradeRoads(tiles, pins);
     }
     this.initial = false;
+    this.zc.rebuild();
     this.rebuildRotorsAndEmitters(s);
+  }
+
+  /** Prepped (batch-ready) geometry for a model, cached per detail level. */
+  private preppedGeo(rec: Rec): import('three').BufferGeometry {
+    const key = `${rec.type}:${rec.variant}:${this.detail}:${this.cull}`;
+    let g = this.prepped.get(key);
+    if (!g) {
+      g = prepBatchGeo(this.model(rec.type, rec.variant)!.geo);
+      this.prepped.set(key, g);
+    }
+    return g;
+  }
+
+  /** A settled grown building joins its chunk's merged mesh (and leaves the animated batch). */
+  private toChunk(rec: Rec): void {
+    this.compose(rec, 1, 1);
+    this.zc.set(rec.uid, rec.b.x, rec.b.y, this.preppedGeo(rec), _m, rec.tint ?? _c.setRGB(1.12, 1.12, 1.12));
+    rec.chunked = true;
+  }
+
+  /** A grown building about to be demolished leaves its chunk and becomes a batch instance again, so it can shrink away. */
+  private toBatch(rec: Rec): void {
+    this.zc.remove(rec.uid);
+    rec.chunked = false;
+    const gid = this.gid(`${rec.type}:${rec.variant}:${this.detail}:${this.cull}`, () => this.model(rec.type, rec.variant)!.geo);
+    this.compose(rec, 1, 1);
+    rec.ids.push(this.batch.add(gid, _m, rec.tint));
   }
 
   /** Mark the baked roads stale (terrain was rebuilt under them): the next sync regrades and redraws them. */
@@ -374,6 +424,10 @@ export class BuildingLayer {
     if (rec.type === 'road' || rec.type === 'rail') {
       this.roadsStale = true;
       return;
+    }
+    if (rec.chunked) {
+      if (animate) this.toBatch(rec);
+      else { this.zc.remove(rec.uid); rec.chunked = false; }
     }
     if (animate) {
       this.anims.push({ rec, t: 1, dir: -1 });
@@ -464,12 +518,18 @@ export class BuildingLayer {
           for (const id of rec.ids) this.batch.remove(id);
           rec.ids.length = 0;
         } else {
+          if (ZONED.has(rec.type) && this.recs.get(rec.uid) === rec) {
+            for (const id of rec.ids) this.batch.remove(id);
+            rec.ids.length = 0;
+            this.toChunk(rec);
+          }
           const m = this.model(rec.type, rec.variant);
           this.onPop?.(rec.x, rec.y, rec.z, Math.max(rec.b.w, rec.b.h) * 0.55 + (m ? m.height * 0.08 : 0), false);
         }
         this.anims.splice(i, 1);
       }
     }
+    this.zc.rebuild();
     // rotors (turbines) and pump wheels (windmills): spin speed follows the Act 2 wind multiplier, a gentle constant in Act 1
     const n = this.rotorInfo.length;
     let ri = 0;

@@ -29,7 +29,7 @@ await page.waitForFunction(() => window.__cc && window.__cc.renderer && window._
 const ttfi = Date.now() - t0;
 const gpu = await page.evaluate(() => { const gl = document.createElement('canvas').getContext('webgl2'); const e = gl.getExtension('WEBGL_debug_renderer_info'); return e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : 'n/a'; });
 // start scenario & populate
-const info = await page.evaluate(async ([scn, zones]) => {
+const info = await page.evaluate(async ([scn, zones, ztype]) => {
   const cc = window.__cc;
   cc.start(scn);
   cc.closeModals();
@@ -56,7 +56,7 @@ const info = await page.evaluate(async ([scn, zones]) => {
     const added = [];
     for (const i of cand) {
       if (n >= zones || uid > 65000) break;
-      const [type, z] = kinds[n % kinds.length];
+      const [type0, z] = kinds[n % kinds.length]; const type = ztype || type0;
       added.push({ uid, type, x: i % W, y: Math.floor(i / W), rotation: 0, w: 1, h: 1, builtYear: 1960 + (n % 60), grown: true });
       gr.building[i] = uid; gr.zoning[i] = z; gr.kind[i] = 4; uid++; n++;
     }
@@ -67,7 +67,7 @@ const info = await page.evaluate(async ([scn, zones]) => {
   g.setSpeed(0);
   const s = g.state;
   return { note, phase: s.phase, year: s.year, w: s.grid.w, h: s.grid.h, items: (s.items||s.buildings||[]).length };
-}, [scn, +(process.env.ZONES || 0)]);
+}, [scn, +(process.env.ZONES || 0), process.env.ZTYPE || ""]);
 await page.waitForTimeout(3000); // let deferred rebuilds settle and auto-tier sample
 if (WARM > 0) await warmup(WARM);
 // Profiling aids: LIST=1 prints the scene's named objects with triangle / instance counts; HIDE=a,b,c* takes the named
@@ -78,6 +78,10 @@ if (process.env.TRIS) console.error(JSON.stringify(await page.evaluate(() => { c
 if (process.env.HIDE) await page.evaluate((names) => { window.__cc.renderer.scene.traverse((o) => { if (names.some((n) => o.name === n || (n.endsWith('*') && o.name.startsWith(n.slice(0, -1))))) o.layers.set(31); }); }, process.env.HIDE.split(','));
 // NODEF=CC_SWAY,CC_ANIM: experiment, drops those shader defines from every material (forces a recompile) to price a shader feature.
 if (process.env.NODEF) await page.evaluate((defs) => { for (const m of window.__cc.renderer.lib.all()) { for (const d of defs) if (m.defines && d in m.defines) delete m.defines[d]; m.needsUpdate = true; } }, process.env.NODEF.split(','));
+// EVAL='js' runs a snippet in the page after setup and prints its result (ad-hoc probes).
+if (process.env.EVAL) console.error('EVAL', JSON.stringify(await page.evaluate(process.env.EVAL)));
+// CALLS=1 prints the draw calls of one frame grouped by scene-object name (shadow pass and main pass counted apart).
+if (process.env.CALLS) console.error(JSON.stringify(await page.evaluate(async () => { const r = window.__cc.renderer.renderer; const orig = r.renderBufferDirect.bind(r); const by = {}; r.renderBufferDirect = (cam, scene, geo, mat, obj, grp) => { const k = (obj.name || obj.type) + (cam.isOrthographicCamera && cam.userData?.shadow ? '' : '') + (mat && mat.isShadowMaterial ? '' : '') + '|' + (obj.isInstancedMesh ? 'inst' : obj.isBatchedMesh ? 'batch' : 'mesh') + '|' + (mat && mat.type); by[k] = (by[k] || 0) + 1; return orig(cam, scene, geo, mat, obj, grp); }; await new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res))); r.renderBufferDirect = orig; return Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, 25); })));
 const tierAfterSettle = await page.evaluate(() => window.__cc.renderer.stats.tier);
 const auto0 = await page.evaluate(() => window.__cc.renderer.stats.auto);
 async function warmup(secs) {
@@ -110,7 +114,28 @@ async function measure(speed) {
     return { fps: +(dts.length / (total / 1000)).toFixed(1), low1: +low1.toFixed(1), worstMs: +sorted[0].toFixed(0), frames: dts.length, calls: maxCalls, tris: maxTris, tier: r.stats.tier, dpr: r.renderer.getPixelRatio(), cpuMs: +r.stats.cpuMs.toFixed(1) };
   }, { secs: SECS, speed });
 }
-const pan = await measure(1);
+// PROFILE=1 samples the main thread during the pan window and prints the top self-time functions (CPU profile, throttled like the run).
+if (process.env.PROFILE) await cdp.send('Profiler.enable').then(() => cdp.send('Profiler.setSamplingInterval', { interval: 500 })).then(() => cdp.send('Profiler.start'));
+// CPU seconds the browser's processes used (SwiftShader draws on the GPU process's CPU threads), by process type. Wall-clock fps swings with
+// other load on the machine; cpu-ms per frame does not, so report both.
+const bcdp = await browser.newBrowserCDPSession();
+async function cpuNow() { const { processInfo } = await bcdp.send('SystemInfo.getProcessInfo'); const o = {}; for (const p of processInfo) o[p.type] = (o[p.type] || 0) + p.cpuTime; return o; }
+const cpuBefore = await cpuNow();
+const pan = await measure(+(process.env.PANSPEED ?? 1));
+const cpuAfter = await cpuNow();
+pan.cpuPerFrameMs = Object.fromEntries(Object.keys(cpuAfter).map((k) => [k, +(((cpuAfter[k] - (cpuBefore[k] || 0)) * 1000) / pan.frames).toFixed(1)]));
+if (process.env.PROFILE) {
+  const { profile } = await cdp.send('Profiler.stop');
+  const self = new Map(); const dt = profile.timeDeltas; const byId = new Map(profile.nodes.map((n) => [n.id, n]));
+  profile.samples.forEach((id, i) => { const n = byId.get(id); const k = `${n.callFrame.functionName || '(anon)'} ${n.callFrame.url.split('/').pop()}:${n.callFrame.lineNumber}`; self.set(k, (self.get(k) || 0) + (dt[i] || 0)); });
+  const tot = [...self.values()].reduce((a, b) => a + b, 0);
+  // inclusive time (a function plus everything it called), the better view for "which system is slow"
+  const selfById = new Map(); profile.samples.forEach((id, i) => selfById.set(id, (selfById.get(id) || 0) + (dt[i] || 0)));
+  const incl = new Map(); const walk = (n) => { let t = selfById.get(n.id) || 0; for (const c of n.children || []) t += walk(byId.get(c)); const k = `${n.callFrame.functionName || '(anon)'} ${n.callFrame.url.split('/').pop()}:${n.callFrame.lineNumber}`; if (!n.__seen) incl.set(k, Math.max(incl.get(k) || 0, t)); return t; };
+  walk(profile.nodes[0]);
+  console.error('INCLUSIVE', JSON.stringify([...incl.entries()].filter(([k]) => /main-|N8AO/.test(k)).sort((a, b) => b[1] - a[1]).slice(0, 28).map(([k, v]) => `${(v / tot * 100).toFixed(1)}% ${k}`), null, 1));
+  console.error(JSON.stringify([...self.entries()].sort((a, b) => b[1] - a[1]).slice(0, 18).map(([k, v]) => `${(v / tot * 100).toFixed(1)}% ${k}`), null, 1));
+}
 const fast = await measure(4);
 const res = { scn, tierArg, gpu, ttfiMs: ttfi, info, tierAfterSettle, auto: auto0, pan, fast, errs };
 console.log(JSON.stringify(res));

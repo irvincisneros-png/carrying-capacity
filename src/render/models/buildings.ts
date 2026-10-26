@@ -2756,6 +2756,38 @@ function mZind(k: Kit, v: number): void {
   k.put(buildAmbient('truck', k.d), 0.34 * f, G, 0.3, Math.PI / 2, 0xe3b02a, 0.5);
 }
 
+/**
+ * Very low (Kit.cull > 0): a zoned tile is a flat lot, one coloured block and a simple roof, about 20 triangles, so
+ * hundreds of grown tiles stay cheap on a school Chromebook. Same palette and era split as the full models, so the town
+ * does not change colour when the quality tier does.
+ */
+function liteZone(k: Kit, id: BuildingId, v: number): void {
+  const era = v & 1, f = v & 2 ? -1 : 1;
+  const lawn = id === 'zind' ? GRAVEL : id === 'zcom' ? (era ? 0xb9b3a6 : GRAVEL) : id === 'zres3' ? (era ? CONC_L : LAWN2) : id === 'zres2' ? (era ? SAGE : LAWN2) : LAWN;
+  k.flat(0, G + 0.002, 0, 0.96, 0.96, lawn, MATTE);
+  switch (id) {
+    case 'zres1':
+      k.box(-0.05 * f, G, -0.1, 0.4, 0.2, 0.3, era ? BRICK_L : CREAM, WALL);
+      k.gable(-0.05 * f, G + 0.2, -0.1, 0.4, 0.3, 0.1, era ? ROOF : ROOF_RED, IRON, 0, 0.02);
+      break;
+    case 'zres2':
+      k.box(0, G, -0.12, 0.84, 0.25, 0.46, era ? PALE_RENDER : BRICK, WALL);
+      k.gable(0, G + 0.25, -0.12, 0.46, 0.84, 0.1, era ? SLATE : ROOF_RED, IRON, Math.PI / 2, 0.02);
+      break;
+    case 'zres3':
+      if (era) k.box(0, G, -0.06, 0.5, 0.57, 0.38, 0xe9e3d3, WALL);
+      else k.box(0, G, -0.05, 0.7, 0.36, 0.36, BRICK, WALL);
+      break;
+    case 'zcom':
+      if (era) k.box(0, G, -0.14, 0.6, 0.34, 0.4, 0xdfe5e6, WALL);
+      else k.box(0, G, -0.03, 0.84, 0.25, 0.5, CREAM, WALL);
+      break;
+    default:
+      k.box(-0.1 * f, G, -0.18, 0.62, 0.16, 0.44, 0xd2cdc0, WALL);
+      k.gable(-0.1 * f, G + 0.16, -0.18, 0.62, 0.44, 0.07, ROOF, IRON, 0, 0.02);
+  }
+}
+
 const ZONED_BUILDERS: Partial<Record<BuildingId, (k: Kit, v: number) => void>> = {
   zres1: mZres1, zres2: mZres2, zres3: mZres3, zcom: mZcom, zind: mZind,
 };
@@ -2829,7 +2861,8 @@ export function buildBuildingModel(id: ModelId, detail: 0 | 1, cull = 0, variant
   const k = new Kit(detail, cull);
   const zoned = ZONED_BUILDERS[id];
   const build = BUILDERS[id];
-  if (zoned) zoned(k, variant);
+  if (zoned && k.cull > 0) liteZone(k, id as BuildingId, variant);
+  else if (zoned) zoned(k, variant);
   else if (build) build(k);
   else genericModel(k, id);
   const geo = k.merge();

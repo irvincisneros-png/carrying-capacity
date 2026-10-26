@@ -1,6 +1,6 @@
 // A small floating "no road" marker over each building the road network does not reach: a cream painted token with a
 // road that stops short of the door. Gentle, warm colours (this is a hint, not an alarm).
-import { CanvasTexture, Group, Sprite, SpriteMaterial, SRGBColorSpace, type Texture } from 'three';
+import { CanvasTexture, Group, InstancedMesh, Matrix4, MeshBasicMaterial, PlaneGeometry, SRGBColorSpace, Vector3, type Camera, type Texture } from 'three';
 import { roadAccess } from '../sim/roads';
 import type { GameState } from '../sim/types';
 import type { MapGeo } from './mapgeo';
@@ -42,16 +42,56 @@ function tokenTexture(): Texture {
   return t;
 }
 
+const _m = new Matrix4();
+const _one = new Vector3(0.5, 0.5, 1);
+const _pos = new Vector3();
+
+/**
+ * One InstancedMesh for every token (a single draw call however many buildings lack a road; they used to be one Sprite,
+ * so one draw call, each). The quads are turned to face the camera in onBeforeRender, like sprites.
+ */
 export class RoadMarkers {
   readonly group = new Group();
-  private sprites = new Map<number, { s: Sprite; y: number }>();
+  private mesh: InstancedMesh | null = null;
   private tex: Texture | null = null;
-  private mat: SpriteMaterial | null = null;
+  private mat: MeshBasicMaterial | null = null;
+  private pts: { x: number; y: number; z: number }[] = [];
+  private time = 0;
   private sig = '';
 
   constructor(private map: MapGeo, parent: Group) {
     this.group.name = 'road-markers';
     parent.add(this.group);
+  }
+
+  private ensure(n: number): InstancedMesh {
+    if (this.mesh && this.mesh.instanceMatrix.count >= n) return this.mesh;
+    if (!this.tex) {
+      this.tex = tokenTexture();
+      this.mat = new MeshBasicMaterial({ map: this.tex, transparent: true, depthWrite: false, toneMapped: false, fog: false });
+    }
+    const old = this.mesh;
+    const cap = Math.max(64, n, (old?.instanceMatrix.count ?? 0) * 2);
+    const m = new InstancedMesh(old?.geometry ?? new PlaneGeometry(1, 1), this.mat!, cap);
+    m.name = 'road-markers';
+    m.frustumCulled = false;
+    m.renderOrder = 6;
+    m.onBeforeRender = (_r, _s, cam: Camera) => this.face(m, cam);
+    if (old) { this.group.remove(old); old.dispose(); }
+    this.group.add(m);
+    this.mesh = m;
+    return m;
+  }
+
+  private face(m: InstancedMesh, cam: Camera): void {
+    const q = cam.quaternion;
+    for (let i = 0; i < this.pts.length; i++) {
+      const p = this.pts[i]!;
+      _pos.set(p.x, p.y + Math.sin(this.time * 1.8 + i) * 0.04, p.z);
+      _m.compose(_pos, q, _one);
+      m.setMatrixAt(i, _m);
+    }
+    m.instanceMatrix.needsUpdate = true;
   }
 
   sync(s: GameState): void {
@@ -61,41 +101,29 @@ export class RoadMarkers {
     const sig = list.join(',');
     if (sig === this.sig) return;
     this.sig = sig;
-    const want = new Set(list);
-    for (const [uid, m] of this.sprites) {
-      if (!want.has(uid)) { this.group.remove(m.s); this.sprites.delete(uid); }
-    }
-    if (!list.length) return;
-    if (!this.tex) {
-      this.tex = tokenTexture();
-      this.mat = new SpriteMaterial({ map: this.tex, transparent: true, depthWrite: false, toneMapped: false, fog: false });
-    }
+    this.pts = [];
     const byUid = new Map(s.buildings.map((b) => [b.uid, b] as const));
     for (const uid of list) {
-      if (this.sprites.has(uid)) continue;
       const b = byUid.get(uid);
       if (!b) continue;
-      const spr = new Sprite(this.mat!);
       const x = this.map.cx(b.x) + (b.w - 1) / 2;
       const z = this.map.cz(b.y) + (b.h - 1) / 2;
       const y = Math.max(this.map.heightAt(x, z), 0) + 0.55 + Math.max(b.w, b.h) * 0.3;
-      spr.position.set(x, y, z);
-      spr.scale.set(0.5, 0.5, 1);
-      spr.renderOrder = 6;
-      this.group.add(spr);
-      this.sprites.set(uid, { s: spr, y });
+      this.pts.push({ x, y, z });
     }
+    const m = this.pts.length ? this.ensure(this.pts.length) : this.mesh;
+    if (m) { m.count = this.pts.length; m.visible = this.pts.length > 0; }
   }
 
   update(time: number): void {
-    let i = 0;
-    for (const m of this.sprites.values()) m.s.position.y = m.y + Math.sin(time * 1.8 + i++) * 0.04;
+    this.time = time;
   }
 
   dispose(): void {
     this.mat?.dispose();
     this.tex?.dispose();
+    this.mesh?.dispose();
     this.group.removeFromParent();
-    this.sprites.clear();
+    this.pts = [];
   }
 }
