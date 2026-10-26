@@ -108,7 +108,8 @@ describe('a thoughtful run reaches three stars', () => {
     expect(per[7]).toBeGreaterThanOrEqual(1);
     const act1Cards = Object.entries(thoughtful.dilemmas.offered).filter(([id, y]) => y < start && !id.startsWith('inn-')).length;
     expect(act1Cards).toBeGreaterThanOrEqual(4);
-    expect(act1Cards).toBeLessThanOrEqual(5);
+    // Up to six: the zoning cards (sprawl, flats) can use a free Act 1 slot.
+    expect(act1Cards).toBeLessThanOrEqual(6);
     expect(thoughtful.dilemmas.decisions.filter((d) => d.optionId === 'ignored')).toHaveLength(0);
     expect(thoughtful.dilemmas.decisions.filter((d) => d.evidenceBacked).length).toBeGreaterThan(8);
   });

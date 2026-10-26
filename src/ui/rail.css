@@ -98,6 +98,19 @@
 .railhost .capbar .cap-text { white-space: normal; }
 .railhost .readouts { position: static; inset: auto; margin-top: 8px; flex-wrap: wrap; gap: 6px 2px; }
 
+/* Town needs: land per person, and the zones that are waiting (with Locate) */
+.zoneneeds { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.landstat, .zwait { background: var(--paper-2, #f4ecdc); border-radius: 12px; padding: 8px 10px; }
+.landstat h4, .zwait h4 { margin: 0 0 4px; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); }
+.ls-row { display: flex; flex-wrap: wrap; gap: 0 8px; align-items: baseline; font-size: 13px; padding: 3px 0; border-bottom: 1px dashed var(--line); }
+.ls-row:last-of-type { border-bottom: 0; }
+.ls-row span { flex: 1 1 110px; font-weight: 700; }
+.ls-row em { flex-basis: 100%; font-style: normal; font-size: 11.5px; color: var(--ink-3); }
+.ls-lesson { margin: 6px 0 0; font-size: 12.5px; }
+.zw-row { display: flex; gap: 8px; align-items: center; font-size: 12.5px; padding: 4px 0; border-bottom: 1px dashed var(--line); }
+.zw-row:last-child { border-bottom: 0; }
+.zw-row span { flex: 1; }
+
 /* Graphs drawer: climate chips, weather line and the hazard chances sit at the top */
 .climate { margin: 6px 0 2px; display: flex; flex-direction: column; gap: 8px; }
 .climate .hud-climate { display: flex; gap: 2px; padding: 4px 6px; background: var(--paper-2); border-radius: 12px; }

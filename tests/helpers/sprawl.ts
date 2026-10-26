@@ -33,6 +33,8 @@ export function grow(compact: boolean): { s: GameState; bushLost: number } {
   for (const b of s.buildings) for (let y = b.y; y < b.y + b.h; y++) for (let x = b.x; x < b.x + b.w; x++) g.kind[y * g.w + x] = TileKind.Land;
   let bush0 = 0;
   for (const k of g.kind) if (k === TileKind.Bush) bush0++;
+  // The plain is the starting bush, so cleared land (landPerPerson) counts from it.
+  s.initialBushTiles = bush0;
   if (compact) {
     s = zoneArea(s, { x: 7, y: row - 2, w: 10, h: 2 }, ZONE.rhigh);
     s = zoneArea(s, { x: 7, y: row + 1, w: 4, h: 2 }, ZONE.com);

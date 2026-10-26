@@ -16,6 +16,7 @@ export type StoryChannel =
   | 'country'
   | 'circular'
   | 'research'
+  | 'growth'
   | 'satellite'
   | 'town';
 

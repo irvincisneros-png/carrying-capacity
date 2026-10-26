@@ -215,7 +215,9 @@ describe('Act 1 goals', () => {
 });
 
 describe('Green Valley Act 1 cards', () => {
-  const act1 = dilemmasFor('green-valley').filter((d) => d.phase === 'act1');
+  // The two zoning cards (sprawl and flats) come with the zoning build; the six story cards are the ones this block was written for.
+  const zoningIds = ['green-valley-sprawl', 'green-valley-flats'];
+  const act1 = dilemmasFor('green-valley').filter((d) => d.phase === 'act1' && !zoningIds.includes(d.id));
 
   it('has six cards for the boom, with money on both sides of each choice', () => {
     expect(act1.map((d) => d.id)).toEqual(['gv-factory-waste', 'gv-hillside', 'gv-fertiliser', 'gv-tip', 'gv-dry-year', 'gv-solar-rebate']);
@@ -242,6 +244,11 @@ describe('Green Valley Act 1 cards', () => {
     const perYear = new Map<number, number>();
     for (const [id, y] of Object.entries(offered)) if (!id.startsWith('inn-')) perYear.set(y, (perYear.get(y) ?? 0) + 1);
     for (const n of perYear.values()) expect(n).toBeLessThanOrEqual(2);
+  });
+
+  it('also holds the two zoning cards, offered after a few zoned homes have grown', () => {
+    const all = dilemmasFor('green-valley').filter((d) => d.phase === 'act1').map((d) => d.id);
+    for (const id of zoningIds) expect(all).toContain(id);
   });
 
   it('the factory card waits for a factory; the farm cards wait for a farm', () => {

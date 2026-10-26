@@ -78,7 +78,8 @@ export function estimatePlayTime(s: GameState): PlayTime {
   // Story lines worth reading. Country and circular lines are the feedback for actions already counted, a dilemma's offer and outcome
   // are inside its 55 seconds, and wildlife lines (returns, heat deaths, nests) are skimmed in 2 seconds.
   const lines = (ch: string): number => s.eventLog.filter((e) => e.type === 'story' && e.story?.channel === ch).length;
-  const skipped = ['research', 'country', 'circular', 'dilemma', 'wildlife'];
+  // The yearly growth line is a calm Log entry nobody stops to read.
+  const skipped = ['research', 'country', 'circular', 'dilemma', 'wildlife', 'growth'];
   const stories = s.eventLog.filter((e) => e.type === 'story' && !skipped.includes(e.story?.channel ?? '')).length + (lines('wildlife') * 2) / 5;
   const years = sc.act2.endYear - sc.act2.startYear;
   const extraMap = Math.max(0, s.grid.w * s.grid.h / 1024 - 1) * (years / 10) * 0.5;

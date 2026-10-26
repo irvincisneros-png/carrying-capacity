@@ -120,6 +120,8 @@ export function ledgerView(r: DecadeReport, onWhy?: (key: ChainKey, what: string
         h('div', { class: `ledger-row ${c.bushLost > 0 ? 'worse' : 'same'}` }, h('span', null, 'Bush lost'), h('b', null, c.bushLost > 0 ? `${fmtInt(c.bushLost)} tiles` : 'none'), h('em', null, `${fmtInt(c.bushLeft)} tiles left`)),
         trade('Creek health', c.creekBefore, c.creekAfter, '%', 'good-up'),
         trade('Air quality', c.airBefore, c.airAfter, '%', 'good-up'),
+        c.clearedM2After !== undefined ? trade('Cleared land per person', c.clearedM2Before ?? c.clearedM2After, c.clearedM2After, ' m²', 'good-down', 'less land for each person is gentler') : null,
+        c.roadMAfter !== undefined ? trade('Road per person', c.roadMBefore ?? c.roadMAfter, c.roadMAfter, ' m', 'good-down', 'spread-out towns need more street') : null,
         h('div', { class: 'ledger-row' }, h('span', null, 'CO₂ added'), h('b', null, `${fmtInt(c.co2Kt)} kt`), h('em', null, `${r.deltaCo2 >= 0 ? '+' : ''}${r.deltaCo2.toFixed(1)} ppm in the air`)),
         trade('Bush birds', c.birdsBefore, c.birdsAfter, ' pairs', 'good-up', 'a rough guide'),
         trade('Creek fish', c.fishBefore, c.fishAfter, ' schools', 'good-up', 'a rough guide'))),

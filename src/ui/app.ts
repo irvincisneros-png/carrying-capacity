@@ -11,6 +11,7 @@ import { TILE_KIND_NAMES, TileKind, type BuildingId, type GameState, type Rotati
 import { GameController, type Speed } from '../game/controller';
 import { GameRenderer } from '../render/renderer';
 import { ambientTick, sfx, unlockAudio } from '../audio/sfx';
+import { ZoneNeeds } from './townzones';
 import { Clock, EnergyPanel, ObjectivesPanel, hazIcon, type ShowMeKind } from './act2';
 import { computeRailBadges, NEED_TAB, pickGoalChip, urgentChipText, type BadgeInput, type GoalLite, type UrgentNeed } from './badges';
 import { Rail } from './rail';
@@ -221,7 +222,7 @@ export class App {
     // Town needs drawer: the one-line demand text, the demand bars (with "no road" + Locate and the land-limits row) and the scenario readouts.
     this.needsPanel = h('div', { class: 'side needs panel', 'aria-label': 'Town needs' },
       h('div', { class: 'panel-head' }, h('h3', null, svg(RAIL_ICONS.town), 'Town needs')),
-      this.demand, this.hud.demand.el, this.readouts.el);
+      this.demand, this.hud.demand.el, this.zoneNeeds.el, this.readouts.el);
     // Climate chips, the weather-vs-climate line and this season's hazard chances sit at the top of the Graphs drawer.
     this.climateBlock = h('div', { class: 'climate' }, this.hud.climate, this.clock.weatherEl, this.clock.hazards);
     this.graphs.el.querySelector(':scope > .panel-head')?.after(this.climateBlock);
@@ -438,6 +439,8 @@ export class App {
       this.log(e);
       if (e.type !== 'story' && this.rail.openId !== 'log') this.unreadLog++;
       if (e.type === 'story') {
+        // The yearly growth line is for the Log only: no voice, no bubble, no toast.
+        if (e.story?.channel === 'growth') continue;
         const card = dilemmaCard(s, e);
         if (card) { this.dilemmaQueue.push({ card, kind: 'dilemma' }); continue; }
         if (s.phase === 'turning-point') continue; // told on the turning-point card
@@ -648,6 +651,17 @@ export class App {
     }
   }
 
+  /** Land per person and the zones that are waiting (Town needs). */
+  private zoneNeeds = new ZoneNeeds((tile) => this.locateTile(tile));
+
+  private locateTile(i: number): void {
+    const g = this.game.state.grid;
+    const tx = i % g.w, ty = Math.floor(i / g.w);
+    const p = this.renderer.tileWorld(tx, ty, 1, 1);
+    this.renderer.rig?.focus(p.x, p.z, 22);
+    this.renderer.sparkle(tx, ty, 1, 1, false);
+  }
+
   private noRoadEl: HTMLElement | null = null;
   private noRoadText: HTMLElement | null = null;
   private noRoadList: number[] = [];
@@ -714,6 +728,7 @@ export class App {
     this.hud.update(s);
     this.kit.refresh(s);
     this.updateNoRoad(s);
+    this.zoneNeeds.update(s);
     this.toolbar.update(s);
     this.graphs.update(s);
     const act1 = s.phase === 'act1';

@@ -11,10 +11,11 @@ import { act2Sandbox } from './helpers/fixtures';
  * consultation, dilemma cards with previews and evidence blurbs.
  */
 const SCENARIOS: { id: ScenarioId; residents: [number, number]; cards: [number, number]; act1Cards: [number, number] }[] = [
-  { id: 'green-valley', residents: [2, 2], cards: [8, 8], act1Cards: [6, 6] },
-  { id: 'river-town', residents: [5, 6], cards: [8, 15], act1Cards: [2, 4] },
-  { id: 'reef-island', residents: [5, 6], cards: [8, 15], act1Cards: [2, 4] },
-  { id: 'red-dirt', residents: [5, 6], cards: [8, 15], act1Cards: [2, 4] },
+  // Re-banded for zoning: every town with an Act 1 also has the two zoning cards (sprawl and flats), so +2 cards.
+  { id: 'green-valley', residents: [2, 2], cards: [10, 10], act1Cards: [8, 8] },
+  { id: 'river-town', residents: [5, 6], cards: [8, 17], act1Cards: [2, 6] },
+  { id: 'reef-island', residents: [5, 6], cards: [8, 17], act1Cards: [2, 6] },
+  { id: 'red-dirt', residents: [5, 6], cards: [8, 17], act1Cards: [2, 6] },
   { id: 'net-zero-city', residents: [5, 6], cards: [8, 15], act1Cards: [0, 0] },
 ];
 

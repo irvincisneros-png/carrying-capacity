@@ -2,7 +2,7 @@
 // which tiles the soft overlay paints, what the tooltip says over a tile or a dragged rectangle, and whether
 // the placeable cottage and brick suburb still belong in the build menu.
 import { BUILDINGS } from '../sim/buildings';
-import { DENSITY_UPGRADE_COST, familyOf, REASON, reasonText, retrofitPlan, zonableKind, ZONE_NAME, ZONE_UNLOCK, zoneOfType, zonePlan, zoneProblem, zoneReasons, zoneTileCost } from '../sim/zoning';
+import { DENSITY_UPGRADE_COST, familyOf, REASON, reasonTextFor, retrofitPlan, zonableKind, ZONE_NAME, ZONE_UNLOCK, zoneOfType, zonePlan, zoneProblem, zoneReasons, zoneTileCost } from '../sim/zoning';
 import type { ZoneKind } from '../sim/zoning';
 import type { BuildingId, GameState, PlacedBuilding } from '../sim/types';
 
@@ -56,7 +56,7 @@ export function zoneTileInfo(s: GameState, tx: number, ty: number, kind: number)
   if (z > 0) {
     const code = zoneReasons(s)[i] ?? 0;
     const grown = (g.building[i] ?? 0) !== 0 && code !== REASON.empty;
-    const why = grown ? 'Grown and working.' : reasonText(code, z);
+    const why = grown ? 'Grown and working.' : reasonTextFor(s, code, z);
     return { html: `<b>${ZONE_NAME[z as ZoneKind]}</b>${why ? `<br>${why}` : ''}`, tone: grown || code === REASON.ready ? 'ok' : '', ok: true };
   }
   const why = kind === 0 ? 'Nothing is zoned here' : zoneProblem(s, tx, ty, kind);
@@ -112,7 +112,7 @@ export function inspectZone(s: GameState, b: PlacedBuilding): ZoneInspect | null
   if (d.jobs > 0) rows.push({ k: 'Jobs', v: b.empty ? 'none right now' : String(d.jobs) });
   rows.push({ k: 'Built', v: String(b.builtYear) });
   if (b.upgrades?.includes('retrofit')) rows.push({ k: 'Retrofitted', v: 'half the electricity, a quarter of the CO₂' });
-  const note = reason === REASON.empty ? reasonText(reason, z) : '';
+  const note = reason === REASON.empty ? reasonTextFor(s, reason, z) : '';
   let upgrade: ZoneInspect['upgrade'] = null;
   let pending = '';
   const wanted = g.zoning[i] ?? z;

@@ -246,6 +246,9 @@ export function reportCard(s: GameState): ReportCard | undefined {
       if (c.seen === false) items.push({ label: `${c.name}`, grade: '–', ok: true, detail: 'Never recorded here this game, so not graded' });
       else items.push({ label: `${c.name}`, grade: c.status === 'thriving' ? 'A' : c.status === 'gone' ? 'D' : 'B', ok: c.status !== 'gone', detail: `${c.pop} animals (started with ${c.start})` });
     }
+    // The town's footprint: land per person against a compact town (only when people live in zoned or built homes).
+    const fp = rc.footprint as { grade?: string; line?: string } | null | undefined;
+    if (fp && typeof fp.line === 'string') items.push({ label: 'Town footprint: land per person', grade: String(fp.grade ?? '–'), ok: fp.grade === 'A' || fp.grade === 'B', detail: fp.line });
     const residents = Array.isArray(rc.residents) ? (rc.residents as Record<string, unknown>[]) : [];
     return {
       title: `${rc.scenarioName ?? ''} · ${SIM.getScenario(s.scenarioId).act2.endYear} Report Card`,

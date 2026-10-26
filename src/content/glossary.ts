@@ -46,6 +46,9 @@ export const GLOSSARY: readonly GlossTerm[] = [
   { id: 'marine-heatwave', term: 'Marine heatwave', match: 'marine heatwave', def: 'A spell when the sea stays unusually hot for weeks. It can bleach corals white.' },
   { id: 'bleaching', term: 'Coral bleaching', match: 'bleach(?:ing|ed)?', def: 'When hot water makes corals push out the tiny algae that feed and colour them. The coral turns white and may starve.' },
   { id: 'wetland', term: 'Wetland', match: 'wetlands?', def: 'Land that is soaked with water, like a swamp or billabong. Wetlands filter dirty water and are home to frogs, birds and fish.' },
+  { id: 'urban-sprawl', term: 'Urban sprawl', match: 'urban sprawl|sprawl(?:ing)?', def: 'When a town spreads out over a lot of land, with big blocks and long roads. Each person uses more land, more road and more fuel to get around, and more bush is cleared.' },
+  { id: 'density', term: 'Density', match: 'densit(?:y|ies)', def: 'How many people live on each hectare of land. Low density means houses on big blocks; high density means townhouses and flats. Denser towns use less land and shorter roads for each person, but they need buses, parks and good design.' },
+  { id: 'urban-heat-island', term: 'Urban heat island', match: 'urban heat islands?|heat islands?', def: 'A city that is hotter than the bush around it, because dark roofs and roads soak up heat, there are fewer trees to cool the air, and buildings and cars give off heat.' },
   { id: 'aquifer', term: 'Aquifer', match: 'aquifers?', def: 'Rock or sand underground that holds water, which bores can pump up.' },
 ];
 

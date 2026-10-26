@@ -573,6 +573,11 @@ export interface DecadeCost {
   /** A rough guide to bush birds (pairs) and creek fish (schools), before and after. Not a real census. */
   birdsBefore: number;
   birdsAfter: number;
+  /** Square metres of cleared land and metres of road per resident, at the start and end of the decade (absent in older saves, and before anyone lives here). */
+  clearedM2Before?: number;
+  clearedM2After?: number;
+  roadMBefore?: number;
+  roadMAfter?: number;
   fishBefore: number;
   fishAfter: number;
 }

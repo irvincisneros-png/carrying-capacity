@@ -21,7 +21,7 @@ import { applyLingeringRunoff } from './effects';
 import { recordAct1 } from './act1goals';
 import { applyCapacityToMap, capacityIncomePerDecade, capSummary, stepCapacity } from './capacity';
 import { applyLearn, stepLearn } from './fieldkit';
-import { decadeCost, landSnapshot } from './ledger';
+import { decadeCost, landSnapshot, roadTileCount } from './ledger';
 import type { LandSnapshot } from './ledger';
 import { applyUpgrade, choiceIncomePerDecade, co2Of, pollutesOf } from './upgrades';
 import { getScenario, isScenarioId } from './scenarios';
@@ -353,6 +353,7 @@ export function advanceYear(state: GameState): { state: GameState; report: Decad
       next.flags[DEC_M0V] = state.meters.environment;
       const land = landSnapshot(state);
       for (const k of LAND_KEYS) next.flags[`dec.l.${k}`] = land[k];
+      next.flags['dec.r.roads'] = roadTileCount(state);
     }
     next.meters = computeMeters(next);
     next.version = state.version + 1;
@@ -453,7 +454,7 @@ export function advanceYear(state: GameState): { state: GameState; report: Decad
     commuteTiles: commute.meanDist,
     fact: getFactForDecade(state.year),
     actComplete: next.status === 'act1-complete',
-    cost: decadeCost(state, next, total, startLand),
+    cost: decadeCost(state, next, total, startLand, { people: pop0, roadTiles: Number(f['dec.r.roads'] ?? roadTileCount(state)) }),
   };
   return { state: next, report };
 }

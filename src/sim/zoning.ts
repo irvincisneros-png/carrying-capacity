@@ -21,6 +21,7 @@ import { CLEAR_KT_PER_TILE, isPlayable } from './rules';
 import { getScenario } from './scenarios';
 import { seasonRng } from './season';
 import { cloneState } from './state';
+import { emitStory } from './story';
 import { latchTutorial } from './tutorial';
 import { fillFn } from './zonefill';
 import { TileKind } from './types';
@@ -92,6 +93,9 @@ export const ZONE_REASON_TEXT: readonly string[] = [
   'Waiting for money: the council pays for the street, pipes and wires of every new building',
 ];
 
+/** What a new building costs the council to connect, in plain words. Used by the hover text, Town needs and the Inspect panel. */
+export const COUNCIL_FEE_EXPLAINER = 'Each time a building grows, the council pays for its street, pipes and wires. Growth waits until the budget can cover that fee.';
+
 /** Plain words for one tile's reason, for the zone it holds ("No one needs more shops yet"). */
 export function reasonText(code: number, zone: number): string {
   if (code === REASON.noDemand) {
@@ -101,6 +105,19 @@ export function reasonText(code: number, zone: number): string {
         : 'No one needs more workshops yet: they grow to serve factories, mines and the port';
   }
   return ZONE_REASON_TEXT[code] ?? '';
+}
+
+/**
+ * The same words with the numbers for this town: the "Waiting for money" reason names the council fee and the budget, so a student
+ * can see what is missing. Other reasons are the plain text.
+ */
+export function reasonTextFor(state: GameState, code: number, zone: number): string {
+  if (code === REASON.noMoney && zone >= 1 && zone <= 5) {
+    const fee = growFee(state, ZONE_BUILDING[zone as 1 | 2 | 3 | 4 | 5]);
+    const have = Math.max(0, Math.floor(state.budget * 10) / 10);
+    return `Waiting for money: the council pays about $${Math.round(fee * 10) / 10}k for this building's street, pipes and wires, and the budget has $${have}k. Earn or save a little more and it will grow.`;
+  }
+  return reasonText(code, zone);
 }
 
 export function familyOf(zone: number): ZoneFamily | null {
@@ -552,6 +569,10 @@ export function growZones(s: GameState, year: number): GrowthReport {
     s.nextUid = uid;
     s.budget = Math.round(funds * 100) / 100;
   }
+  if (added.length) {
+    const line = growthLine(s, added);
+    if (line) emitStory(s, line, { channel: 'growth', tone: 'neutral' }, 0.1);
+  }
   s.flags['zg.year'] = year;
   s.flags['zg.res'] = rep.grown.res;
   s.flags['zg.com'] = rep.grown.com;
@@ -559,6 +580,48 @@ export function growZones(s: GameState, year: number): GrowthReport {
   if (rep.emptied) s.flags['zg.emptied'] = rep.emptied; else delete s.flags['zg.emptied'];
   for (const f of FAMILIES) if (rep.grown[f] > 0) noteAction(s, `grew.${f}`);
   return rep;
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// The calm yearly line in the Log
+// ---------------------------------------------------------------------------------------------------------
+
+const WATER_WORD: Partial<Record<string, string>> = {
+  'green-valley': 'the creek', 'river-town': 'the river', 'coal-coast': 'the harbour', 'reef-island': 'the beach', 'red-dirt': 'the bore', 'net-zero-city': 'the river',
+};
+
+/** A place name for where a batch of new buildings went: the water or beach they sit beside, else the town centre, else the road. */
+function placeWords(s: GameState, tiles: number[]): string {
+  const g = s.grid;
+  let cx = 0, cy = 0;
+  for (const i of tiles) { cx += i % g.w; cy += Math.floor(i / g.w); }
+  cx /= tiles.length; cy /= tiles.length;
+  let best = Infinity, word = '';
+  const R = 6;
+  for (let y = Math.max(0, Math.floor(cy) - R); y <= Math.min(g.h - 1, Math.floor(cy) + R); y++) {
+    for (let x = Math.max(0, Math.floor(cx) - R); x <= Math.min(g.w - 1, Math.floor(cx) + R); x++) {
+      const k = g.kind[y * g.w + x];
+      const w = k === TileKind.River || k === TileKind.Estuary ? (WATER_WORD[s.scenarioId] ?? 'the water') : k === TileKind.Beach || k === TileKind.Sea ? 'the beach' : '';
+      if (!w) continue;
+      const d = Math.hypot(x - cx, y - cy);
+      if (d < best) { best = d; word = w; }
+    }
+  }
+  if (word) return `near ${word}`;
+  const c = townCentre(s);
+  return Math.hypot(cx - c.x, cy - c.y) <= 5 ? 'near the town centre' : 'along the edge of town';
+}
+
+/** One calm sentence per kind of building that grew this year ("14 homes grew near the creek because jobs were waiting."), or ''. */
+export function growthLine(s: GameState, added: readonly PlacedBuilding[]): string {
+  const parts: string[] = [];
+  const by: Record<ZoneFamily, PlacedBuilding[]> = { res: [], com: [], ind: [] };
+  for (const b of added) { const f = familyOf(zoneOfType(b.type)); if (f) by[f].push(b); }
+  const idx = (b: PlacedBuilding): number => b.y * s.grid.w + b.x;
+  if (by.res.length) parts.push(`${by.res.length} ${by.res.length === 1 ? 'home' : 'homes'} grew ${placeWords(s, by.res.map(idx))} because jobs were waiting.`);
+  if (by.com.length) parts.push(`${by.com.length} ${by.com.length === 1 ? 'shop' : 'shops'} grew ${placeWords(s, by.com.map(idx))} because more people had moved in.`);
+  if (by.ind.length) parts.push(`${by.ind.length} ${by.ind.length === 1 ? 'workshop' : 'workshops'} grew ${placeWords(s, by.ind.map(idx))} to serve the factories and the port.`);
+  return parts.join(' ');
 }
 
 // ---------------------------------------------------------------------------------------------------------

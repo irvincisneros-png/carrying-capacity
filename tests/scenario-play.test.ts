@@ -313,10 +313,10 @@ describe('Green Valley: the tutorial is a short, friendly game', () => {
     expect(buildReportCard(valleyBad).stars).toBe(0);
     expect(status(valleyBad)).toMatchObject({ energy: 'missed', return: 'missed', recycle: 'missed' });
   });
-  it('has two residents, eight cards (six in the boom), and two species', () => {
+  it('has two residents, ten cards (eight in the boom), and two species', () => {
     expect((CAST['green-valley'] ?? []).map((r) => r.id)).toEqual(['jo-marsh', 'ali-rahman']);
-    // Eight regular cards plus the one innovation-timeline card (WP9: the CFC success story).
-    expect(valley.dilemmas.decisions.filter((d) => d.optionId !== 'ignored' && !d.dilemmaId.startsWith('inn-'))).toHaveLength(8);
+    // Ten regular cards (the two zoning cards, sprawl and flats, are offered in the scripted valley) plus the one innovation-timeline card (WP9: the CFC success story).
+    expect(valley.dilemmas.decisions.filter((d) => d.optionId !== 'ignored' && !d.dilemmaId.startsWith('inn-'))).toHaveLength(10);
     expect(valley.dilemmas.decisions.filter((d) => d.dilemmaId.startsWith('inn-'))).toHaveLength(1);
     expect(speciesFor('green-valley').map((x) => x.id)).toEqual(['koala', 'frogs']);
     for (const r of CAST['green-valley'] ?? []) expect(beatsFired(valley, r.id)).toBeGreaterThanOrEqual(3);
@@ -326,7 +326,8 @@ describe('Green Valley: the tutorial is a short, friendly game', () => {
     // Re-banded 22-36 -> 24-38 (Round 6 WP5): Act 1 now has six cards instead of one, about five more minutes at 55 s a card,
     // so the card on the scenario-select screen says 28-38 minutes.
     expect(pt.minutes).toBeGreaterThanOrEqual(24);
-    expect(pt.minutes).toBeLessThanOrEqual(38);
+    // Re-banded 24-38 -> 24-40 (zoning phase 3): the two zoning cards add about two minutes at 55 s a card; the card says 28-40.
+    expect(pt.minutes).toBeLessThanOrEqual(40);
   });
   it('has no random hazards (only the scripted fire at the turning point)', () => {
     expect(valley.eventLog.filter((e) => e.type !== 'story')).toHaveLength(0);
