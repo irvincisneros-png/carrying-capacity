@@ -59,8 +59,14 @@ function queueRun(queue: QueueWant[], respectful: boolean): GameState {
   return capBudget(s, 350);
 }
 
+/**
+ * Re-banded for zoning (phase 2): reserve 120 -> 180. The zoned Act 1 town is smaller (fewer people to earn from) and a thoughtful player who adopts
+ * the innovations and the data centre reaches the pit's reshaping step only in 2063, and that step's one-off 118 kt of land emissions resets the
+ * net-zero year to 2065 (the goal is 2060). Keeping 180 in the bank for the pit does the reshaping years sooner (net zero 2057 on that run, 2043 on
+ * the plain one, every other goal met).
+ */
 export const RED_BOT = {
-  startDelay: 0, scale: 1, closeMineYear: 2038, solar: 8, batteries: 5, wind: 1, bores: 2, reservoirs: 2, nurseries: 3, parks: 6, centres: 1, restrict: 1, reserve: 120,
+  startDelay: 0, scale: 1, closeMineYear: 2038, solar: 8, batteries: 5, wind: 1, bores: 2, reservoirs: 2, nurseries: 3, parks: 6, centres: 1, restrict: 1, reserve: 180,
 };
 
 /** Connected parts of the mine site (any tile with a zone value, 4-connected). */

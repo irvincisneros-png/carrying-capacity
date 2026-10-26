@@ -147,7 +147,7 @@ export function zoneHomesFor(state: GameState, wantPeople: number, hub: { x: num
   const need = wantPeople - housingOf(s) - pendingHousing(s);
   if (need <= 0) return s;
   const want = emptyZoned(s, ZONE.rlow) + Math.ceil(need / per);
-  const score = (x: number, y: number): number => -Math.hypot(x - hub.x, y - hub.y);
+  const score = (x: number, y: number): number => (homes.score ? homes.score(s, x, y) : -Math.hypot(x - hub.x, y - hub.y));
   for (let attempt = 0; attempt < 3; attempt++) {
     const before = emptyZoned(s, ZONE.rlow);
     s = keepZoned(s, kind, want, { score, ...(homes.tileOk ? { tileOk: homes.tileOk } : {}) });

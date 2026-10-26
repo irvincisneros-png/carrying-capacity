@@ -118,7 +118,8 @@ describe('River Town: doing nothing', () => {
   it('leaves the river sick and the people unhappy, with the animals gone', () => {
     expect(value(riverBad, 'river')).toBeLessThan(value(river, 'river') - 25);
     // Re-banded from 5 (round 6): Kerry's orchard (farm viability 35 or more) and Ray (partnership 20 or more) end 'mixed' as before.
-    expect(rc.residents.filter((r) => r.quality === 'bad').length).toBeGreaterThanOrEqual(4);
+    // Re-banded again from 4 (zoning phase 2): the idle river town has fewer homes in the way (490 people, was 559), so a third resident ends 'mixed'.
+    expect(rc.residents.filter((r) => r.quality === 'bad').length).toBeGreaterThanOrEqual(3);
     expect(riverBad.wildlife.species.platypus?.pop ?? 0).toBe(0);
     expect(riverBad.wildlife.species['murray-cod']?.pop ?? 0).toBe(0);
     expect(riverBad.flags['w.blooms'] as number).toBeGreaterThan(1.3 * (river.flags['w.blooms'] as number));
@@ -165,13 +166,16 @@ describe('Reef Island: doing nothing', () => {
   const rc = buildReportCard(reefBad);
   it('loses the reef, the homes and the visitors, and the planet warms past what the island can take', () => {
     expect(rc.stars).toBe(0);
-    expect(status(reefBad)).toMatchObject({ reef: 'missed', tourism: 'missed', turtles: 'missed' });
+    // Zoning phase 2: the boom town now zones its homes beside the beach, the surge takes 52 of them, and with their lights gone the turtles
+    // nest again (the turtle bonus is met, as it was before bridges); the reef and the visitors are still lost.
+    expect(status(reefBad)).toMatchObject({ reef: 'missed', tourism: 'missed' });
     // Round 7 (bridges): the island's entrance road ends two tiles off the water, so the idle island's low homes are no longer the ones the surge takes (the homes goal is met with none lost); the reef, visitors and turtles are still lost.
     expect(value(reefBad, 'reef')).toBeLessThan(20);
     expect(value(reefBad, 'homes')).toBeGreaterThanOrEqual(0);
     expect(reefBad.tempC).toBeGreaterThan(reef.tempC + 0.7);
     expect(reefBad.phase === 'failed' ? reefBad.a2.failure?.reason : 'warming-cap').toBe('warming-cap');
-    expect(rc.residents.filter((r) => r.quality === 'bad').length).toBeGreaterThanOrEqual(5);
+    // Re-banded from 5 (zoning phase 2): with the turtles nesting again (see above) one more story ends 'mixed'.
+    expect(rc.residents.filter((r) => r.quality === 'bad').length).toBeGreaterThanOrEqual(4);
   });
 });
 commonChecks('reef-island', reef, reefBad);
@@ -224,7 +228,9 @@ describe('Red Dirt: doing nothing', () => {
     expect(value(redBad, 'water')).toBeLessThan(10);
     expect(value(redBad, 'taps')).toBeGreaterThan(100);
     expect(redBad.a2.yearly.at(-1)?.totalKt ?? 0).toBeGreaterThan(40);
-    expect(redBad.wildlife.species.bilby?.pop ?? 0).toBe(0);
+    // Re-banded from none left (zoning phase 2): the idle town clears less bush for its homes (about 40 fewer tiles of road and homes), so a
+    // few bilbies (13) hold on; the other animals and the goal are lost as before.
+    expect(redBad.wildlife.species.bilby?.pop ?? 0).toBeLessThan(20);
     // Re-banded from 5 (round 6): one more resident's story ends 'mixed' on the roomier map.
     expect(rc.residents.filter((r) => r.quality === 'bad').length).toBeGreaterThanOrEqual(4);
   });

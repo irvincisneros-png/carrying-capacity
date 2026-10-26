@@ -157,7 +157,8 @@ describe('doing nothing leaves every arc unresolved or bad', () => {
     expect(['priya-shah', 'sam-jordan'].every((id) => q[id] === 'bad' || q[id] === 'mixed')).toBe(true);
     expect(['mick-kowalski', 'dot-harris'].every((id) => q[id] === 'bad' || q[id] === 'mixed')).toBe(true);
     expect(rc.residentsGood).toBe(false);
-    for (const r of rc.residents) expect(r.mood).toBeLessThan(50);
+    // Re-banded from 50 (zoning phase 2): the capped dirty town keeps a little more of its people and jobs (Society 54, not 41).
+    for (const r of rc.residents) expect(r.mood).toBeLessThan(58);
     expect(rc.residents.find((r) => r.id === 'aunty-june')?.needsConsultation).toBe(true);
   });
   it('tells the sad versions of the stories, in their own words', () => {
@@ -166,7 +167,9 @@ describe('doing nothing leaves every arc unresolved or bad', () => {
     expect(f('lena-linh-bad')).toBe(true);
     expect(f('dot-later-bad')).toBe(true);
     expect(f('june-neglect')).toBe(true);
-    expect(f('priya-emissions-bad')).toBe(true);
+    // Re-banded (zoning phase 2): the idle town's peak is now the 1980 boom (1287 kt a year, with its land clearing), and the Act 2 town runs at
+    // 77% of it (was 88%), so Priya's "still close to the peak" line (over 80%) does not fire; her warming and letter lines do.
+    expect(f('priya-lag')).toBe(true);
     expect(f('priya-letter-bad')).toBe(true);
     expect(f('mick-later-good')).toBe(false);
     expect(f('lena-linh-good')).toBe(false);

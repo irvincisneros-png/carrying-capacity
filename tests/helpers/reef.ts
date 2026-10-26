@@ -35,8 +35,19 @@ export const REEF_THOUGHTFUL_WANTS: Want[] = [
   { id: 'landfill', max: 1 },
 ];
 
+/** The tourism boom builds its homes beside the beach (the view, the resort life), where the street lights shine on the nesting sand. */
+const beachScore = (s: GameState, x: number, y: number): number => {
+  const g = s.grid;
+  let best = 99;
+  for (let i = 0; i < g.kind.length; i++) {
+    if (g.kind[i] !== TileKind.Beach) continue;
+    best = Math.min(best, Math.hypot((i % g.w) - x, Math.floor(i / g.w) - y));
+  }
+  return -best;
+};
+
 export function reefAct1Idle(seed: number | null = null): GameState {
-  return runScript(seededGame('reef-island', seed), queuePlan(REEF_BOOM_WANTS, 1.0)).state;
+  return runScript(seededGame('reef-island', seed), queuePlan(REEF_BOOM_WANTS, 1.0, 30, undefined, { score: beachScore })).state;
 }
 
 export function reefAct1Thoughtful(seed: number | null = null): GameState {
