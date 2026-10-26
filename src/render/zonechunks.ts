@@ -1,12 +1,12 @@
 // Grown zone buildings, baked into one merged mesh per chunk of tiles instead of one BatchedMesh instance each.
 // Why: every instance of a BatchedMesh is its own sub-draw, and software GL (a school Chromebook's fallback) pays a fixed
-// cost per sub-draw, so 700 grown tiles cost far more than their triangles suggest. One merged Mesh per 16x16 chunk is
+// cost per sub-draw, so 700 grown tiles cost far more than their triangles suggest. One merged Mesh per 24x24 chunk is
 // a handful of real draw calls, is frustum-culled with a true bounding sphere, and rebuilds only the chunk that changed.
 // Buildings that are still growing or being demolished stay in the animated batch (see BuildingLayer) until they settle.
 import { BufferGeometry, Color, Float32BufferAttribute, Matrix4, Mesh, Vector3, type Group, type Material } from 'three';
 
-/** Tiles along one side of a chunk. */
-export const ZONE_CHUNK = 16;
+/** Tiles along one side of a chunk (3x3 chunks on the 64x64 and 72x72 maps, so at most nine draw calls, eighteen with a shadow pass). */
+export const ZONE_CHUNK = 24;
 
 interface Item { geo: BufferGeometry; m: Matrix4; c: Color }
 interface Chunk {

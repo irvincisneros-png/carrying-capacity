@@ -29,7 +29,7 @@ await page.waitForFunction(() => window.__cc && window.__cc.renderer && window._
 const ttfi = Date.now() - t0;
 const gpu = await page.evaluate(() => { const gl = document.createElement('canvas').getContext('webgl2'); const e = gl.getExtension('WEBGL_debug_renderer_info'); return e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : 'n/a'; });
 // start scenario & populate
-const info = await page.evaluate(async ([scn, zones, ztype]) => {
+const info = await page.evaluate(async ([scn, zones, ztype, bare]) => {
   const cc = window.__cc;
   cc.start(scn);
   cc.closeModals();
@@ -57,8 +57,9 @@ const info = await page.evaluate(async ([scn, zones, ztype]) => {
     for (const i of cand) {
       if (n >= zones || uid > 65000) break;
       const [type0, z] = kinds[n % kinds.length]; const type = ztype || type0;
-      added.push({ uid, type, x: i % W, y: Math.floor(i / W), rotation: 0, w: 1, h: 1, builtYear: 1960 + (n % 60), grown: true });
-      gr.building[i] = uid; gr.zoning[i] = z; gr.kind[i] = 4; uid++; n++;
+      if (!bare) added.push({ uid, type, x: i % W, y: Math.floor(i / W), rotation: 0, w: 1, h: 1, builtYear: 1960 + (n % 60), grown: true });
+      if (!bare) gr.building[i] = uid;
+      gr.zoning[i] = z; gr.kind[i] = 4; uid++; n++;
     }
     st.buildings = [...st.buildings, ...added]; st.nextUid = uid; st.version++;
     note += ' zones:' + n;
@@ -67,7 +68,7 @@ const info = await page.evaluate(async ([scn, zones, ztype]) => {
   g.setSpeed(0);
   const s = g.state;
   return { note, phase: s.phase, year: s.year, w: s.grid.w, h: s.grid.h, items: (s.items||s.buildings||[]).length };
-}, [scn, +(process.env.ZONES || 0), process.env.ZTYPE || ""]);
+}, [scn, +(process.env.ZONES || 0), process.env.ZTYPE || "", !!process.env.ZBARE]);
 await page.waitForTimeout(3000); // let deferred rebuilds settle and auto-tier sample
 if (WARM > 0) await warmup(WARM);
 // Profiling aids: LIST=1 prints the scene's named objects with triangle / instance counts; HIDE=a,b,c* takes the named
