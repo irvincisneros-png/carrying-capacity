@@ -135,6 +135,15 @@ kbd { font: 700 11px/1 var(--font); background: var(--paper-3); border-radius: 5
 @keyframes pulse { 50% { transform: scale(1.12); } }
 .tool.util { width: 72px; background: #efe4cf; }
 .tool.util .ic { width: 36px; height: 36px; }
+/* zone tools: the density picker sits beside the Homes card */
+.tool.zone { width: 104px; }
+.densitypick { flex: none; display: flex; flex-direction: column; gap: 4px; justify-content: center; padding: 0 2px; }
+.dens { border: 2px solid transparent; border-radius: 10px; background: var(--paper-2); padding: 3px 9px; display: flex; justify-content: space-between; align-items: baseline; gap: 10px; min-width: 112px; font: inherit; color: inherit; cursor: pointer; }
+.dens:hover { background: #fff8ea; }
+.dens .dn { font-size: 12px; font-weight: 900; }
+.dens .dy { font-size: 10px; font-weight: 800; color: var(--ink-3); }
+.dens.on { border-color: var(--gold-2); background: #fff4d8; box-shadow: 0 0 0 2px rgba(242, 182, 50, .3); }
+.dens.locked { opacity: .55; filter: grayscale(.8); cursor: not-allowed; }
 
 /* ---------- tooltip */
 .tip { position: fixed; z-index: 60; max-width: 300px; padding: 10px 12px; border-radius: 12px; background: rgba(45, 36, 30, .95); color: #fbf3e4; font-size: 13px; line-height: 1.4; pointer-events: none; box-shadow: var(--shadow); transform: translate(-50%, calc(-100% - 14px)); }
@@ -391,6 +400,8 @@ kbd { font: 700 11px/1 var(--font); background: var(--paper-3); border-radius: 5
   .meter-top .lbl { display: none; }
   .dock { bottom: 6px; width: calc(100vw - 12px); }
   .tool { width: 80px; }
+  .tool.zone { width: 88px; }
+  .dens { min-width: 96px; padding: 2px 7px; }
   .tool .ic { width: 38px; height: 38px; }
   .tool .key { display: none; }
   .tab span.t { display: none; }

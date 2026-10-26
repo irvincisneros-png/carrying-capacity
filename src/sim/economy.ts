@@ -248,14 +248,14 @@ export function computeDemand(state: GameState): Demand {
   const items: string[] = [];
   const homesNeeded = Math.max(0, s.jobs - s.housing);
   if (s.unfilledJobs > 0 && s.housing < s.jobs) {
-    items.push(`${Math.ceil(homesNeeded / 10) * 10} new workers' homes (${s.unfilledJobs} jobs are unfilled)`);
+    items.push(`homes: zone more Residential, about ${Math.ceil(homesNeeded / 10) * 10} people's worth (${s.unfilledJobs} jobs are unfilled)`);
   }
   if (s.gridActive && s.powerDeficit > 0) {
     items.push(`power for the factories and homes (${s.powerDeficit} units short)`);
   } else if (state.year >= GRID_YEAR - 10 && !s.gridActive && s.powerDemand > 0) {
     items.push('plan for electricity - the grid starts in 1920');
   }
-  if (s.unemployed > 20) items.push(`work for ${s.unemployed} people without jobs`);
+  if (s.unemployed > 20) items.push(`work for ${s.unemployed} people without jobs (zone shops and offices, or build a farm or factory)`);
   const text = items.length ? `Your town needs: ${items.join('; ')}.` : 'Your town needs: nothing urgent right now. What will you build next?';
   return { text, items };
 }
@@ -309,17 +309,17 @@ export function demandBars(state: GameState): DemandBar[] {
   bars.push(mkBar('homes', 'Homes',
     (wanted - s.housing) / Math.max(wanted, s.housing, 1),
     s.population > s.housing
-      ? `Not enough homes: ${s.population} people but room for ${s.housing}. Build more homes.`
-      : `Not enough homes: ${s.jobs} jobs but room for only ${s.housing} people. Build homes so the jobs get filled.`,
+      ? `Homes needed: ${s.population} people but room for ${s.housing}. Zone more Residential (Zones tab) and homes will grow.`
+      : `Homes needed: ${s.jobs} jobs but room for only ${s.housing} people. Zone more Residential so the jobs get filled.`,
     'Homes and jobs are about even. Nice.',
     `Plenty of homes: room for ${s.housing} people and only ${wanted} wanted. Some will sit empty until you add jobs.`));
 
   // Jobs: people without work against jobs nobody is here to do.
   bars.push(mkBar('jobs', 'Jobs',
     (s.unemployed - s.unfilledJobs) / Math.max(s.jobs, s.population, 1),
-    `Not enough jobs: ${s.unemployed} people have no work. Build farms, shops or factories.`,
+    `Not enough jobs: ${s.unemployed} people have no work. Zone shops and offices, or build farms or factories.`,
     'Jobs and workers are about even. Nice.',
-    `Too many jobs: ${s.unfilledJobs} jobs have nobody to do them. Build homes so more people move in.`));
+    `Too many jobs: ${s.unfilledJobs} jobs have nobody to do them. Zone more Residential so more people move in.`));
 
   // Power: Act 2 reads the last season's grid (worst of day and night); Act 1 reads building supply and demand.
   const gr = state.phase === 'act2' ? state.a2.lastGrid : null;

@@ -11,6 +11,8 @@ import { clear, h, svg } from './dom';
 import { bIcon, UI_ICONS } from './icons';
 import type { Tip } from './modal';
 import { sfx } from '../audio/sfx';
+import { legacyHomeHidden } from './zonemenu';
+import { ZONE_COST, ZONE_NAME, ZONE_UNLOCK, zoneTileCost } from '../sim/zoning';
 
 /**
  * Buildings that drag-paint (hold the mouse and sweep). The number is the spacing in tiles between pieces in one stroke: 1 means
@@ -22,13 +24,26 @@ export const BRUSH_SPACING: Partial<Record<BuildingId, number>> = {
   nursery: 7, coralnursery: 6, wetland: 4, phytoremediation: 4,
 };
 
-export type UtilTool = 'demolish' | 'clear' | 'inspect' | 'comanage' | 'burn' | 'dispose' | 'rehab';
+/** The zone tools: paint homes (at the chosen density), shops and offices or light industry over a dragged rectangle, or remove a zone. */
+export type ZoneTool = 'zonehomes' | 'zoneshops' | 'zoneind' | 'dezone';
+export const ZONE_TOOLS: readonly ZoneTool[] = ['zonehomes', 'zoneshops', 'zoneind', 'dezone'];
+export type UtilTool = 'demolish' | 'clear' | 'inspect' | 'comanage' | 'burn' | 'dispose' | 'rehab' | ZoneTool;
 export type Tool = BuildingId | UtilTool | null;
-export const UTIL_TOOLS: readonly string[] = ['demolish', 'clear', 'inspect', 'comanage', 'burn', 'dispose', 'rehab'];
+export const UTIL_TOOLS: readonly string[] = ['demolish', 'clear', 'inspect', 'comanage', 'burn', 'dispose', 'rehab', ...ZONE_TOOLS];
+export const isZoneTool = (t: Tool | string): t is ZoneTool => (ZONE_TOOLS as readonly string[]).includes(t as string);
 
-interface Cat { id: string; name: string; icon: string; ids: BuildingId[] }
+const ZONE_LABEL: Record<ZoneTool, string> = { zonehomes: 'Homes', zoneshops: 'Shops and offices', zoneind: 'Light industry', dezone: 'Dezone' };
+const DENSITY_LABEL: Record<1 | 2 | 3, string> = { 1: 'Low', 2: 'Medium', 3: 'High' };
+const DENSITY_HINT: Record<1 | 2 | 3, string> = {
+  1: 'One house a tile: lots of garden, 20 people. Uses the most land and road per person.',
+  2: 'Townhouses: 50 people a tile. From 1950.',
+  3: 'Apartments: 120 people a tile, but they need power and, in hot cities, parks. From 1970.',
+};
+
+interface Cat { id: string; name: string; icon: string; ids: BuildingId[]; zones?: true }
 
 const CATS: Cat[] = [
+  { id: 'zones', name: 'Zones', icon: UI_ICONS.zones, ids: [], zones: true },
   { id: 'homes', name: 'Homes', icon: UI_ICONS.people, ids: ['cottage', 'suburb', 'rooftopsolar', 'greensuburb'] },
   { id: 'work', name: 'Industry', icon: bIcon('factory'), ids: ['farm', 'dripfarm', 'coalmine', 'factory', 'steelworks', 'resort'] },
   { id: 'move', name: 'Transport', icon: bIcon('road'), ids: ['road', 'rail', 'port', 'carpark', 'transitline'] },
@@ -43,8 +58,11 @@ export class Toolbar {
   el: HTMLElement;
   private tabsEl: HTMLElement;
   private toolsEl: HTMLElement;
-  private cat = 'homes';
+  private cat = 'zones';
   tool: Tool = null;
+  /** Home density for the Homes zone tool: 1 low, 2 medium, 3 high. */
+  density: 1 | 2 | 3 = 1;
+  private densityBtns = new Map<number, HTMLButtonElement>();
   private cards = new Map<string, HTMLButtonElement>();
   private state: GameState | null = null;
   private sig = '';
@@ -99,6 +117,8 @@ export class Toolbar {
       if (d.phases && !d.phases.includes(phase)) return false;
       if ((d as { repurposeOnly?: boolean }).repurposeOnly) return false;
       if (availability(s.scenarioId, id).disabled) return false;
+      // Homes are zoned now: the placeable cottage and brick suburb stay only for a saved town that already has them.
+      if (legacyHomeHidden(s, id)) return false;
       if (d.requiresFeature && !sc.act2.features[d.requiresFeature]) return false;
       return true;
     });
@@ -108,8 +128,8 @@ export class Toolbar {
     this.state = s;
     requestAnimationFrame(() => this.scrollCue());
     const ids = this.visibleIds(s);
-    const cats = CATS.filter((c) => c.ids.some((id) => ids.includes(id)));
-    if (!cats.some((c) => c.id === this.cat)) this.cat = cats[0]?.id ?? 'homes';
+    const cats = CATS.filter((c) => c.zones || c.ids.some((id) => ids.includes(id)));
+    if (!cats.some((c) => c.id === this.cat)) this.cat = cats[0]?.id ?? 'zones';
     const sig = `${s.phase}|${this.cat}|${ids.join(',')}|${s.circular?.unlocked}|${s.country?.unlocked.culturalBurning}`;
     if (sig !== this.sig) {
       this.sig = sig;
@@ -124,7 +144,9 @@ export class Toolbar {
       }
       clear(this.toolsEl);
       this.cards.clear();
+      this.densityBtns.clear();
       const cat = cats.find((c) => c.id === this.cat);
+      if (cat?.zones) this.zoneCards(s);
       let n = 1;
       for (const id of cat?.ids ?? []) {
         if (!ids.includes(id)) continue;
@@ -157,10 +179,21 @@ export class Toolbar {
       if (s.phase === 'act2' && s.country?.unlocked.culturalBurning) util('burn', hideDraft() ? 'Planned burn' : 'Cool burn', UI_ICONS.fire, hideDraft() ? NEUTRAL_COMMUNITY + '.' : 'A small, cool mosaic burn on co-managed bush (autumn or winter). Cuts wildfire risk and helps regrowth.');
       if (s.phase === 'act1') util('clear', 'Clear bush', UI_ICONS.axe, 'Clear bushland for building ($1 per tile, releases CO₂). Placing a building on bush clears it automatically.');
     }
+    for (const [d, b] of this.densityBtns) {
+      const locked = s.year < ZONE_UNLOCK[d as 1 | 2 | 3];
+      b.classList.toggle('on', this.density === d);
+      b.classList.toggle('locked', locked);
+      b.setAttribute('aria-pressed', this.density === d ? 'true' : 'false');
+    }
     // per-frame-cheap refresh of costs / locks
     for (const [id, card] of this.cards) {
       if (UTIL_TOOLS.includes(id)) {
         card.classList.toggle('sel', this.tool === id);
+        if (isZoneTool(id) && id !== 'dezone') {
+          const cost = card.querySelector('.cost') as HTMLElement | null;
+          if (cost) cost.textContent = `$${Math.round(zoneTileCost(s) * 10) / 10}k a tile`;
+          card.classList.toggle('poor', s.budget < zoneTileCost(s));
+        }
         continue;
       }
       const av = availability(s.scenarioId, id as BuildingId);
@@ -193,20 +226,81 @@ export class Toolbar {
     this.onTool?.(t);
   }
 
+  /** The zone the active zone tool paints (0 removes a zone), or null for any other tool. */
+  zoneKind(): number | null {
+    switch (this.tool) {
+      case 'zonehomes': return this.density;
+      case 'zoneshops': return 4;
+      case 'zoneind': return 5;
+      case 'dezone': return 0;
+      default: return null;
+    }
+  }
+
+  private setDensity(d: 1 | 2 | 3): void {
+    const s = this.state;
+    if (s && s.year < ZONE_UNLOCK[d]) { sfx('error'); return; }
+    sfx('click');
+    this.density = d;
+    if (s) this.update(s);
+    if (this.tool !== 'zonehomes') this.select('zonehomes');
+    else this.onTool?.(this.tool);
+  }
+
+  /** The Zones tab: Homes (with a Low / Medium / High picker), Shops and offices, Light industry, Dezone. */
+  private zoneCards(s: GameState): void {
+    const card = (key: ZoneTool, icon: string, extra?: HTMLElement): void => {
+      const b = h('button', { class: 'tool zone', 'aria-label': ZONE_LABEL[key], onclick: () => this.select(this.tool === key ? null : key) },
+        svg(icon), h('span', { class: 'nm' }, ZONE_LABEL[key]), h('span', { class: 'cost' }, key === 'dezone' ? 'free' : `$${ZONE_COST}k a tile`));
+      b.addEventListener('pointerenter', () => this.zoneTip(key, b));
+      b.addEventListener('pointerleave', () => this.tip.hide());
+      b.addEventListener('focus', () => this.zoneTip(key, b));
+      b.addEventListener('blur', () => this.tip.hide());
+      this.cards.set(key, b);
+      this.toolsEl.appendChild(b);
+      if (extra) this.toolsEl.appendChild(extra);
+    };
+    const pick = h('div', { class: 'densitypick', role: 'group', 'aria-label': 'Home density' },
+      ...([1, 2, 3] as const).map((d) => {
+        const b = h('button', { class: 'dens', type: 'button', title: DENSITY_HINT[d], onclick: () => this.setDensity(d) },
+          h('span', { class: 'dn' }, DENSITY_LABEL[d]), h('span', { class: 'dy' }, s.year < ZONE_UNLOCK[d] ? `from ${ZONE_UNLOCK[d]}` : d === 1 ? '20 people' : d === 2 ? '50 people' : '120 people')) as HTMLButtonElement;
+        this.densityBtns.set(d, b);
+        return b;
+      }));
+    card('zonehomes', UI_ICONS.zonehomes, pick);
+    card('zoneshops', UI_ICONS.zoneshops);
+    card('zoneind', UI_ICONS.zoneind);
+    card('dezone', UI_ICONS.dezone);
+  }
+
+  private zoneTip(key: ZoneTool, card: HTMLElement): void {
+    const r = card.getBoundingClientRect();
+    const text: Record<ZoneTool, string> = {
+      zonehomes: `Paint land where homes can grow. Pick how dense with Low, Medium or High. <b>${DENSITY_LABEL[this.density]}</b>: ${DENSITY_HINT[this.density]}`,
+      zoneshops: 'Paint land for shops and offices. They give jobs and grow as more people move in.',
+      zoneind: 'Paint land for workshops and depots. They grow to serve factories, mines and the port, and add local air pollution.',
+      dezone: 'Remove a zone. Anything grown on it is knocked down (no refund).',
+    };
+    const name = key === 'zonehomes' ? `Homes (${DENSITY_LABEL[this.density].toLowerCase()} density)` : ZONE_NAME[key === 'zoneshops' ? 4 : key === 'zoneind' ? 5 : 0];
+    const cost = key === 'dezone' ? '' : ` · $${Math.round((this.state ? zoneTileCost(this.state) : ZONE_COST) * 10) / 10}k a tile`;
+    this.tip.show(r.left + r.width / 2, r.top,
+      `<b>${name}</b>${cost}<br>${text[key]}<div class="row"><span>🖌 Hold and drag a box beside a road. Zones must be within 2 tiles of a road.</span></div>`);
+  }
+
   /** Tutorial: the element to highlight for a building or tool (switching to its tab if it is in another one). */
   elementFor(key: string): HTMLElement | null {
     const card = this.cards.get(key);
     if (card) return card;
     const s = this.state;
     if (!s) return null;
-    const cat = CATS.find((c) => c.ids.includes(key as BuildingId));
+    const cat = isZoneTool(key) ? CATS.find((c) => c.zones) : CATS.find((c) => c.ids.includes(key as BuildingId));
     if (!cat) return null;
     return [...this.tabsEl.querySelectorAll('.tab')].find((t) => t.textContent?.includes(cat.name)) as HTMLElement | null ?? null;
   }
 
   /** Number-key selection within the current tab. */
   selectIndex(i: number): void {
-    const keys = [...this.cards.keys()].filter((k) => !UTIL_TOOLS.includes(k));
+    const keys = this.cat === 'zones' ? [...ZONE_TOOLS] : [...this.cards.keys()].filter((k) => !UTIL_TOOLS.includes(k));
     const k = keys[i];
     if (k) this.select(this.tool === k ? null : (k as Tool));
   }

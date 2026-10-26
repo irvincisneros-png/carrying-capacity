@@ -32,10 +32,11 @@ import type { DilemmaCard } from './types';
 import { GraphsPanel } from './graphs';
 import { Hud } from './hud';
 import { bIcon, UI_ICONS } from './icons';
-import { closeAllModals, closeTopModal, floater, modalOpen, Tip, toast } from './modal';
+import { closeAllModals, closeTopModal, floater, modalOpen, openModal, Tip, toast } from './modal';
 import { Act1GoalsPanel, upgradeBlock } from './act1';
 import { showDecadeReport, showEnding, showIntro, showSettings, showTitle, showTurningPoint } from './screens';
-import { BRUSH_SPACING, Toolbar, type Tool } from './toolbar';
+import { BRUSH_SPACING, isZoneTool, Toolbar, type Tool } from './toolbar';
+import { zoneDragInfo, zoneOverlayCodes, zoneTileInfo } from './zonemenu';
 import { EVENT_NAMES } from '../content/act2';
 import { HIDDEN_COSTS } from '../content/hiddencosts';
 import { learnOf } from '../sim/fieldkit';
@@ -92,6 +93,9 @@ export class App {
   private debugEl: HTMLElement | null = null;
   private rot: Rotation = 0;
   private hover: { tx: number; ty: number } | null = null;
+  /** A zone rectangle being dragged out (tile corners, inclusive). */
+  private zoneDrag: { x0: number; y0: number; x1: number; y1: number } | null = null;
+  private zoneShown = '';
   private down: { x: number; y: number; button: number; moved: boolean; painted: Set<number>; anchors: { x: number; y: number }[] } | null = null;
   /** Set by act() when a building went down, so a brush stroke can keep its spacing. */
   private placedNow = false;
@@ -745,6 +749,7 @@ export class App {
       }
     } catch { /* layer state missing in old saves */ }
     if (this.overlayFn) this.renderer.setOverlay(this.overlayFn(s), this.overlayRamp);
+    this.refreshZoneOverlay(false);
     this.readouts.update(s);
     if (this.policies.el.classList.contains('open')) this.policies.render(s);
     this.tutorial.update(s, this.playing);
@@ -874,6 +879,8 @@ export class App {
     rig?.setLeftPans(t === null || t === 'inspect');
     this.renderer.setGrid(t !== null && t !== 'inspect');
     this.inspectEl.classList.add('hidden');
+    this.zoneDrag = null;
+    this.refreshZoneOverlay(true);
     this.refreshHover();
   }
 
@@ -887,6 +894,7 @@ export class App {
       }
       const p = this.renderer.pick(e.clientX, e.clientY);
       this.hover = p ? { tx: p.tx, ty: p.ty } : null;
+      if (this.zoneDrag && p) { this.zoneDrag.x1 = p.tx; this.zoneDrag.y1 = p.ty; }
       // drag-paint roads / rail, and the brush buildings
       const t = this.toolbar.tool;
       if (this.down && this.down.button === 0 && e.pointerType === 'mouse' && this.paints(t) && p) {
@@ -908,6 +916,10 @@ export class App {
       unlockAudio();
       this.down = { x: e.clientX, y: e.clientY, button: e.button, moved: false, painted: new Set(), anchors: [] };
       const t = this.toolbar.tool;
+      if (e.button === 0 && e.pointerType === 'mouse' && isZoneTool(t)) {
+        const p = this.renderer.pick(e.clientX, e.clientY);
+        if (p) { this.zoneDrag = { x0: p.tx, y0: p.ty, x1: p.tx, y1: p.ty }; this.refreshHover(e.clientX, e.clientY); }
+      }
       if (e.button === 0 && e.pointerType === 'mouse' && this.paints(t)) {
         const p = this.renderer.pick(e.clientX, e.clientY);
         if (p) {
@@ -919,6 +931,14 @@ export class App {
     window.addEventListener('pointerup', (e) => {
       const d = this.down;
       this.down = null;
+      // A zone rectangle: paint it where the mouse is let go (letting go off the map cancels it).
+      const zd = this.zoneDrag;
+      this.zoneDrag = null;
+      if (zd && d && d.button === 0 && this.playing) {
+        if (e.target === cv) this.commitZone(zd, e.clientX, e.clientY);
+        else this.refreshHover();
+        return;
+      }
       if (!d || !this.playing || e.target !== cv) return;
       if (d.moved) return;
       if (d.button === 2) {
@@ -963,6 +983,78 @@ export class App {
     window.addEventListener('keyup', (e) => this.renderer.rig?.setKey(e.code, false));
     window.addEventListener('blur', () => { for (const c of ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']) this.renderer.rig?.setKey(c, false); });
     window.addEventListener('resize', () => this.syncUi(this.game.state, true));
+  }
+
+  // ---------------------------------------------------------------- zones
+  private zoneRect(d: { x0: number; y0: number; x1: number; y1: number }): { x: number; y: number; w: number; h: number } {
+    return { x: Math.min(d.x0, d.x1), y: Math.min(d.y0, d.y1), w: Math.abs(d.x1 - d.x0) + 1, h: Math.abs(d.y1 - d.y0) + 1 };
+  }
+
+  /** The soft zone wash while a zone tool is active: green homes, blue shops, ochre industry; hatched where nothing can grow yet. */
+  private refreshZoneOverlay(force: boolean): void {
+    const s = this.game.state;
+    const on = isZoneTool(this.toolbar.tool) && this.playing;
+    const key = on ? `${s.version}|${s.year}` : '';
+    if (!force && key === this.zoneShown) return;
+    this.zoneShown = key;
+    if (!on) { this.renderer.setZones(null); return; }
+    const codes = zoneOverlayCodes(s);
+    this.renderer.setZones(codes);
+  }
+
+  /** The tooltip and cursor while a zone tool is active: a live cost while dragging, the reason a tile is waiting while hovering. */
+  private zoneHover(tx: number, ty: number, px: number, py: number): void {
+    const s = this.game.state;
+    const kind = this.toolbar.zoneKind() ?? 0;
+    const drag = this.zoneDrag;
+    if (drag) {
+      const r = this.zoneRect(drag);
+      const info = zoneDragInfo(s, r, kind);
+      this.renderer.showZoneRect(r.x, r.y, r.w, r.h, info.ok);
+      this.tip.show(px, py, degC(info.html), info.tone);
+      return;
+    }
+    const info = zoneTileInfo(s, tx, ty, kind);
+    this.renderer.showZoneRect(tx, ty, 1, 1, info.ok);
+    this.tip.show(px, py, degC(info.html), info.tone);
+  }
+
+  /** Paint the dragged rectangle. Knocking down grown buildings (dezoning them) asks first. */
+  private commitZone(zd: { x0: number; y0: number; x1: number; y1: number }, cx: number, cy: number): void {
+    const kind = this.toolbar.zoneKind();
+    if (kind === null) return;
+    const r = this.zoneRect(zd);
+    const plan = SIM.zonePlan(this.game.state, r.x, r.y, r.w, r.h, kind);
+    if (!plan.ok) {
+      sfx('error');
+      floater(cx, cy - 30, degC(plan.reason ?? 'Cannot zone here'), 'bad');
+      this.refreshHover();
+      return;
+    }
+    const go = (): void => {
+      const res = this.game.dispatch({ type: 'zone', x: r.x, y: r.y, w: r.w, h: r.h, zone: kind });
+      if (res.ok) {
+        sfx(kind === 0 ? 'demolish' : 'place');
+        if (res.spent) { setTimeout(() => sfx('coin'), 90); floater(cx, cy - 20, `-$${res.spent}k`, 'cost'); }
+        this.renderer.dust(r.x, r.y, r.w, r.h);
+      } else {
+        sfx('error');
+        floater(cx, cy - 30, degC(res.reason ?? 'Cannot zone here'), 'bad');
+      }
+      this.refreshZoneOverlay(true);
+      this.refreshHover();
+    };
+    if (kind === 0 && plan.demolish > 0) {
+      const m = openModal([
+        h('h3', null, 'Remove the zone and knock down what grew?'),
+        h('p', null, `This removes the zone from ${plan.tiles.length} tile${plan.tiles.length > 1 ? 's' : ''} and knocks down ${plan.demolish} grown building${plan.demolish > 1 ? 's' : ''}. There is no refund.`),
+        h('div', { class: 'modal-actions' },
+          h('button', { class: 'btn', onclick: () => m.close() }, 'Keep them'),
+          h('button', { class: 'btn primary', onclick: () => { m.close(); go(); } }, 'Remove the zone')),
+      ]);
+      return;
+    }
+    go();
   }
 
   /** Anchor so the footprint is centred on the hovered tile. */
@@ -1011,6 +1103,10 @@ export class App {
       const b = buildingAt(s, hv.tx, hv.ty);
       this.renderer.showCursor(t, hv.tx, hv.ty, 0, true, b ? { x: b.x, y: b.y, w: b.w, h: b.h } : undefined);
       this.tip.hide();
+      return;
+    }
+    if (isZoneTool(t)) {
+      this.zoneHover(hv.tx, hv.ty, px, py);
       return;
     }
     if (t === 'demolish') {
@@ -1088,6 +1184,10 @@ export class App {
     const s = this.game.state;
     if (t === null || t === 'inspect') {
       this.inspect(tx, ty, cx, cy);
+      return;
+    }
+    if (isZoneTool(t)) {
+      this.commitZone({ x0: tx, y0: ty, x1: tx, y1: ty }, cx, cy);
       return;
     }
     if (t === 'demolish') {
@@ -1387,6 +1487,58 @@ export class App {
           const dt = (performance.now() - t0) / 1000;
           out.push({ tier: t, fps: Math.round((n / dt) * 10) / 10, calls: maxCalls, tris: maxTris, cpuMs: Math.round(this.renderer.stats.cpuMs * 10) / 10, dpr: this.renderer.renderer.getPixelRatio() });
         }
+        return out;
+      },
+      /**
+       * Debug (screenshots): a scripted zoning town. Step 0 zones homes and shops beside the road, 1 adds work and lets two decades
+       * pass, 2 zones more and lets the town grow; each step leaves the zone tool on so the wash shows (the last step turns it off).
+       */
+      zoneDemo: (step: number) => {
+        const g = this.game;
+        const zoneTiles = (kind: number, n: number): number => {
+          let done = 0;
+          const w = g.state.grid.w;
+          for (const [x, y] of this.tilesNearTown()) {
+            if (done >= n) break;
+            if ((g.state.grid.zoning[y * w + x] ?? 0) !== 0 || SIM.zoneProblem(g.state, x, y, kind) !== null) continue;
+            if (g.dispatch({ type: 'zone', x, y, w: 1, h: 1, zone: kind }).ok) done++;
+          }
+          return done;
+        };
+        const cc = (window as unknown as { __cc: { autoPlace: (t: BuildingId, n: number, r?: number, f?: number) => number } }).__cc;
+        const decade = (n: number): void => { for (let i = 0; i < n && g.state.phase === 'act1'; i++) { closeAllModals(); g.state.budget = Math.max(g.state.budget, 400); g.nextDecade(); } closeAllModals(); this.dilemmaQueue.length = 0; };
+        const out: Record<string, number | string> = {};
+        if (step === 0) {
+          g.state.budget = Math.max(g.state.budget, 400);
+          out.homes = zoneTiles(1, 10) + zoneTiles(2, 6);
+          out.shops = zoneTiles(4, 5);
+          this.toolbar.select('zonehomes');
+        } else if (step === 1) {
+          cc.autoPlace('farm', 2, 0, 0);
+          cc.autoPlace('coalpower', 1, 0, 0);
+          SIM.connectAllFree(g.state);
+          decade(1);
+          cc.autoPlace('farm', 1, 0, 0);
+          cc.autoPlace('factory', 1, 0, 0);
+          SIM.connectAllFree(g.state);
+          out.more = zoneTiles(1, 14) + zoneTiles(2, 8) + zoneTiles(4, 4);
+          decade(2);
+          this.toolbar.select('zonehomes');
+        } else {
+          cc.autoPlace('coalmine', 1, 0, 0);
+          SIM.connectAllFree(g.state);
+          out.more = zoneTiles(1, 16) + zoneTiles(2, 10) + zoneTiles(4, 6);
+          decade(2);
+          this.toolbar.select(null);
+        }
+        // Close up on the town (where the grown buildings are, else the town focus).
+        const grownB = g.state.buildings.filter((b) => b.grown);
+        const f = grownB.length ? { x: grownB.reduce((a, b) => a + b.x, 0) / grownB.length, y: grownB.reduce((a, b) => a + b.y, 0) / grownB.length } : SIM.townFocus(g.state);
+        const wp = this.renderer.tileWorld(Math.round(f.x), Math.round(f.y));
+        this.renderer.rig?.focus(wp.x, wp.z, 26);
+        out.year = g.state.year;
+        out.grown = grownB.length;
+        out.pop = g.state.population;
         return out;
       },
       /** Debug: skip the rest of Act 1 (no building) and begin Act 2. */
