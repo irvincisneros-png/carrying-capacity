@@ -6,7 +6,7 @@ import { TileKind, type BuildingId, type GameState, type PlacedBuilding } from '
 import { Batch, prepBatchGeo } from './batch';
 import type { MapGeo } from './mapgeo';
 import type { MatLib } from './materials';
-import { SUBURB_STREET_TOP, ZONED_IDS, buildBuildingModel, modelVariant, rotorGeo, wheelGeo, type BuildingModel } from './models/buildings';
+import { SUBURB_STREET_TOP, ZONED_IDS, buildBuildingModel, buildScaffold, modelVariant, rotorGeo, wheelGeo, type BuildingModel } from './models/buildings';
 import { RoadMesh } from './roadmesh';
 import { ZoneChunks } from './zonechunks';
 import { ASPHALT_LIFT, gradeRoads, type RoadPin, type RoadTile } from './roadnet';
@@ -35,6 +35,8 @@ interface Rec {
   /** Grown zone buildings settle into a merged chunk mesh (see zonechunks.ts); until then (growing, demolishing) they are batch instances. */
   chunked?: boolean;
   tint?: Color;
+  /** Batch instance of the scaffold frame while a grown building is going up (its first half second). */
+  scaf?: number;
 }
 
 interface Anim {
@@ -112,6 +114,9 @@ const _e = new Euler();
 const _p = new Vector3();
 const _s = new Vector3();
 const _c = new Color();
+const SCAFFOLD_TINT = new Color(1.1, 1.1, 1.1);
+/** Seconds a grown building takes to go up: the scaffold stands for the first half, then the building pops in. */
+const GROW_SECS = 1.0;
 
 export class BuildingLayer {
   batch: Batch;
@@ -275,14 +280,22 @@ export class BuildingLayer {
           const lift = INDUSTRIAL.has(b.type) ? 1.32 : 1.12;
           _c.setRGB(lift - ((b.uid * 0.37) % 1) * 0.06, lift - ((b.uid * 0.53) % 1) * 0.05, lift - ((b.uid * 0.71) % 1) * 0.07);
           rec.tint = _c.clone();
-          if (ZONED.has(b.type) && this.initial) {
+          const zoned = ZONED.has(b.type);
+          // Grown buildings join the merged chunk meshes at once on the first sync and on Very low (no grow animation there).
+          if (zoned && (this.initial || this.cull > 0)) {
             this.toChunk(rec);
           } else {
-          const gid = this.gid(`${b.type}:${rec.variant}:${this.detail}:${this.cull}`, () => model.geo);
-          this.compose(rec, this.initial ? 1 : 0.001, this.initial ? 1 : 0.001);
-          rec.ids.push(this.batch.add(gid, _m, rec.tint));
+            const gid = this.gid(`${b.type}:${rec.variant}:${this.detail}:${this.cull}`, () => model.geo);
+            this.compose(rec, this.initial ? 1 : 0.001, this.initial ? 1 : 0.001);
+            rec.ids.push(this.batch.add(gid, _m, rec.tint));
+            if (zoned) {
+              // A scaffold frame stands on the lot while the building is going up.
+              const sgid = this.gid(`scaffold:${this.detail}:${this.cull}`, () => buildScaffold(this.detail).geo);
+              this.compose(rec, 1, 1);
+              rec.scaf = this.batch.add(sgid, _m, SCAFFOLD_TINT);
+            }
           }
-          if (!this.initial) {
+          if (!this.initial && !(zoned && this.cull > 0)) {
             this.anims.push({ rec, t: 0, dir: 1 });
             this.onPop?.(rec.x, rec.y, rec.z, Math.max(b.w, b.h) * 0.45, false);
           }
@@ -429,6 +442,7 @@ export class BuildingLayer {
       if (animate) this.toBatch(rec);
       else { this.zc.remove(rec.uid); rec.chunked = false; }
     }
+    if (rec.scaf !== undefined) { this.batch.remove(rec.scaf); rec.scaf = undefined; }
     if (animate) {
       this.anims.push({ rec, t: 1, dir: -1 });
       const m = this.model(rec.type, rec.variant);
@@ -497,11 +511,21 @@ export class BuildingLayer {
   update(dt: number, time: number): void {
     for (let i = this.anims.length - 1; i >= 0; i--) {
       const a = this.anims[i]!;
-      a.t += (a.dir * dt) / (a.dir > 0 ? 0.55 : 0.28);
+      const scaf = a.dir > 0 && a.rec.scaf !== undefined;
+      a.t += (a.dir * dt) / (a.dir > 0 ? (scaf ? GROW_SECS : 0.55) : 0.28);
       const t = Math.max(0, Math.min(1, a.t));
       let sxz: number;
       let sy: number;
-      if (a.dir > 0) {
+      if (scaf) {
+        // Scaffold up for the first half (rising a little), taken down quickly while the building pops in.
+        const u = Math.max(0, (t - 0.45) / 0.55);
+        const e = easeOutBack(u);
+        sy = e * (1 + 0.18 * Math.sin(u * Math.PI));
+        sxz = e * (1 - 0.08 * Math.sin(u * Math.PI));
+        const sc = t < 0.45 ? 0.7 + 0.3 * Math.min(1, t / 0.2) : Math.max(0.001, 1 - (t - 0.45) / 0.15);
+        this.compose(a.rec, Math.max(0.001, t < 0.45 ? 1 : sc), Math.max(0.001, sc));
+        this.batch.set(a.rec.scaf!, _m);
+      } else if (a.dir > 0) {
         // squash & stretch overshoot
         const e = easeOutBack(t);
         sy = e * (1 + 0.18 * Math.sin(t * Math.PI));
@@ -514,6 +538,7 @@ export class BuildingLayer {
       this.compose(rec, Math.max(0.001, sxz), Math.max(0.001, sy));
       for (const id of rec.ids) this.batch.set(id, _m);
       if ((a.dir > 0 && a.t >= 1) || (a.dir < 0 && a.t <= 0)) {
+        if (rec.scaf !== undefined) { this.batch.remove(rec.scaf); rec.scaf = undefined; }
         if (a.dir < 0) {
           for (const id of rec.ids) this.batch.remove(id);
           rec.ids.length = 0;

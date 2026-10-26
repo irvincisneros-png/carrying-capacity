@@ -52,6 +52,32 @@ Act 2 time: 1 in-game year = 15 s at 1× (≈19 min for 2025→2100 at 1×; play
 
 **Old saves** have no entrance, so one is added on load (with its country road). The town's buildings then need roads like any other, and the town works again as soon as they are joined to it.
 
+## 2c. Zoning: the town grows itself (zoning build, phases 1 to 3)
+
+Design brief: `docs/plans/zoning-spec.md`. Homes, shops and offices, and light industry are **zoned**, not placed. Big environmental decisions (farms, mines, factories, power, roads, rail, bridges and everything in Act 2 restoration) stay placed by hand.
+
+**Painting a zone.** The Zones tab has Homes (a density picker: Low 20 people a tile, Medium 50 from 1950, High 120 from 1970), Shops and offices, Light industry and Dezone. The player drags a box; the cost shows live ($0.3k a tile times the scenario's budget multiplier; dezoning is free, and dezoning a grown tile knocks its building down). A tile can be zoned if it is Land or Bush, within 2 tiles (Chebyshev) of a road, not contaminated above 0.6, not a place that matters to the community, and not water, wetland, beach, rock or pit. Zoned bush stays bush until a building actually grows on it: that is the sprawl cost, and it goes through the usual clearing path (CO2 and Environment). In Act 2 bush stays protected.
+
+**Growth, once a year** (Act 1 `advanceYear`, so ten years equal `advanceDecade`; the Act 2 year end). Demand: homes = jobs minus housing plus 20; shops and offices = 10 percent of the population minus the shop jobs there are; workshops = 20 percent of the jobs in factories, mines, the port and steel minus the workshop jobs there are. Per family, up to a cap (about 8 tiles on a 64x64 map, more as the town grows), growth picks tiles joined to the road first, nearest the town centre first, ties broken by `seasonRng` (never `Math.random`). A zoned tile that cannot grow says why: *no road*, *waiting for power*, *waiting for money*, *no one needs more yet*, *waiting for water* (Red Dirt), *too polluted*, or *empty* (a grown building with no road or short of power for 3 years in a row empties and recovers when the cause is fixed).
+
+**The council fee.** When a building grows, the council pays for its street, pipes and wires from the budget first: $10k for low-density homes, $14k medium, $28k high, $8k shops, $12k workshops, times the budget multiplier (`GROW_FEE`). It is the per-person cost of sprawl (a low-density home costs the council the most per person) and it keeps the Act 1 economy where cottages and brick suburbs held it. When the budget is short, growth waits with "Waiting for money"; the hover text and the Town needs drawer name the fee and the money the budget has, and say what to do.
+
+**Density.** Medium and high density use much less land for each person. High-density homes only fill half way (60 of 120) unless a light-rail or rail line is within 4 tiles. In Net Zero City each lived-in high-density tile adds 1.2 percent to heatwave deaths (at most 40 percent) and street trees and parks win it back (urban heat island). Inspect on a grown home offers the next density up ($2k times the multiplier, era-gated); it swaps at the next growth tick.
+
+**Commuting teaches the same lesson.** Transport CO2 from commuting counts the mean road distance from homes to jobs plus 3 tiles of everyday trips, so a sprawling all-low-density town makes 15 to 25 percent more transport CO2 per person than a compact mixed one (`tests/zoning-phase2.test.ts`).
+
+**Act 2.** Zoning stays on, by the same rules. "Retrofit homes" is an area tool in the Zones tab (half the electricity, a quarter of the CO2, $28k per 120 people). Net Zero City's finished city stays placed and zoning grows around it.
+
+**Seeing it.** While a zone tool is active the map shows a soft wash (green homes, blue shops, ochre light industry), hatched where a zone cannot grow yet; hovering a tile says why. When a building grows it shows a scaffold frame for about half a second and then pops in (about a second in all; off on Very low, where the building just appears). The Log gets one calm line a year ("14 homes grew near the creek because jobs were waiting."; the line is Log-only, not a toast or a Town voices remark). Grown buildings are drawn in era variants (cottage then brick bungalow, townhouses, walk-up flats then apartments, shopfronts then offices) facing the nearest road, merged into one mesh per 16x16 chunk of tiles so hundreds of them stay cheap (`render/zonechunks.ts`).
+
+**Teaching hooks (phase 3).**
+- **Land per person** (Town needs drawer, and two rows in each decade's "what it cost" ledger): square metres of cleared land and metres of road for each resident, and the ground under homes against a compact town of townhouses. One map tile stands for about one hectare (10,000 m2) and a road tile for about 100 m of street (`landPerPerson` in `sim/ledger.ts`).
+- **Two cards** in every scenario with an Act 1, built from one factory (`content/dilemmas/zoning.ts`): *Subdivide the ridge?* (a developer wants to subdivide the bushland: fees now and sprawl later, or build up near the station, which costs more and is the evidence-backed choice) once 6 grown homes exist, and *Residents oppose flats next door* (no clean answer: approve, refuse and push the homes to the edge of town, or a smaller block) once 8 exist. They have a lower priority than each town's own cards, so they use a free slot. Both have sourced evidence (Trubka, Newman and Bilsborough 2010; Newman and Kenworthy 1989 and 1999; State of the Environment 2021) and a who-wins, who-loses preview.
+- **Report card**: a "Town footprint" line grades the town's homes against a compact town (`footprintOf` in `sim/report.ts`).
+- **Field guide**: urban sprawl, density and urban heat island. Teacher notes: the "Zoning and the sprawl lesson" section of `teacher.html`.
+
+**Old saves** have no zone grid; it loads empty, and old cottages and brick suburbs still work and can still be retrofitted. Scripted players zone through `tests/helpers/zoning.ts` (`zoneHomesFor`, `keepZoned`, `zoneShopsFor`).
+
 ## 3. Empathy layer — people and creatures you care about
 
 **Residents (5–7 per scenario), recurring across decades as families:** each has a portrait, name, family, job, home tile, mood (0–100) and a short story arc with 3–5 beats triggered by player actions/events. Examples for Coal Coast:

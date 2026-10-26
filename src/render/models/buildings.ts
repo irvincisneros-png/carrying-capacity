@@ -2857,6 +2857,33 @@ function genericModel(k: Kit, id: ModelId): void {
   k.box(-bw * 0.2, 0.08, bd / 2 + 0.005, 0.12, 0.18, 0.01, 0x2b3a46);
 }
 
+/**
+ * The scaffold frame a grown building shows for about half a second before it appears: a lot, four timber poles, two rails, cross
+ * braces and a pale site net. Low-key colours, one tile, about 130 triangles. Not used on Very low (no grow animation there).
+ */
+export function buildScaffold(detail: 0 | 1): BuildingModel {
+  const k = new Kit(detail, 0);
+  pad(k, 1, 1, LAWN2);
+  const W = 0.62, D = 0.46, H = 0.3, z0 = -0.12, P = 0.022;
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) k.box(sx * W / 2, G, z0 + sz * D / 2, P, H, P, TIMBER_L, PAINT);
+  for (const y of [G + 0.1, G + H - 0.02]) {
+    for (const sz of [-1, 1]) k.box(0, y, z0 + sz * D / 2, W, 0.014, 0.014, TIMBER, PAINT);
+    for (const sx of [-1, 1]) k.box(sx * W / 2, y, z0, 0.014, 0.014, D, TIMBER, PAINT);
+  }
+  k.rbox(0, G + H / 2, z0 + D / 2, Math.hypot(W, H) * 0.98, 0.012, 0.012, TIMBER, 0, 0, Math.atan2(H, W), PAINT);
+  k.rbox(0, G + H / 2, z0 - D / 2, Math.hypot(W, H) * 0.98, 0.012, 0.012, TIMBER, 0, 0, -Math.atan2(H, W), PAINT);
+  if (detail === 1) {
+    k.quad(0, G + H * 0.55, z0 + D / 2 + 0.004, W - 0.03, H * 0.8, '+z', 0xd9e2cf, MATTE);
+    k.quad(-W / 2 - 0.004, G + H * 0.55, z0, D - 0.03, H * 0.8, '-x', 0xd9e2cf, MATTE);
+    // a stack of bricks and a barrow on the lot
+    k.box(0.36, G, 0.3, 0.12, 0.05, 0.08, BRICK, WALL);
+    k.box(-0.34, G, 0.32, 0.1, 0.04, 0.07, CONC_L, WALL);
+  }
+  const geo = k.merge();
+  geo.computeBoundingBox();
+  return { geo, stacks: [], rotors: [], height: H };
+}
+
 export function buildBuildingModel(id: ModelId, detail: 0 | 1, cull = 0, variant = 0): BuildingModel {
   const k = new Kit(detail, cull);
   const zoned = ZONED_BUILDERS[id];
