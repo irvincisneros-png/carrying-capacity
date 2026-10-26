@@ -36,7 +36,7 @@ import { closeAllModals, closeTopModal, floater, modalOpen, openModal, Tip, toas
 import { Act1GoalsPanel, upgradeBlock } from './act1';
 import { showDecadeReport, showEnding, showIntro, showSettings, showTitle, showTurningPoint } from './screens';
 import { BRUSH_SPACING, isZoneTool, Toolbar, type Tool } from './toolbar';
-import { zoneDragInfo, zoneOverlayCodes, zoneTileInfo } from './zonemenu';
+import { inspectZone, RETROFIT, zoneDragInfo, zoneOverlayCodes, zoneTileInfo } from './zonemenu';
 import { EVENT_NAMES } from '../content/act2';
 import { HIDDEN_COSTS } from '../content/hiddencosts';
 import { learnOf } from '../sim/fieldkit';
@@ -1024,6 +1024,18 @@ export class App {
     const kind = this.toolbar.zoneKind();
     if (kind === null) return;
     const r = this.zoneRect(zd);
+    if (kind === RETROFIT) {
+      const rp = SIM.retrofitPlan(this.game.state, r.x, r.y, r.w, r.h);
+      if (!rp.ok) { sfx('error'); floater(cx, cy - 30, degC(rp.reason ?? 'Nothing to retrofit here'), 'bad'); this.refreshHover(); return; }
+      const res = this.game.dispatch({ type: 'retrofit', x: r.x, y: r.y, w: r.w, h: r.h });
+      if (res.ok) {
+        sfx('place');
+        if (res.spent) { setTimeout(() => sfx('coin'), 90); floater(cx, cy - 20, `-$${res.spent}k`, 'cost'); }
+        this.renderer.sparkle(r.x, r.y, r.w, r.h, false);
+      } else { sfx('error'); floater(cx, cy - 30, degC(res.reason ?? 'Cannot retrofit here'), 'bad'); }
+      this.refreshHover();
+      return;
+    }
     const plan = SIM.zonePlan(this.game.state, r.x, r.y, r.w, r.h, kind);
     if (!plan.ok) {
       sfx('error');
@@ -1314,6 +1326,25 @@ export class App {
       } }, svg(UI_ICONS.speech), 'Talk with the community first ($3k)'));
     }
     if (b) {
+      const zi = inspectZone(s, b);
+      if (zi) {
+        for (const r of zi.rows) if (r.k === 'Zone' || r.k === 'Retrofitted') rows.push(kv(r.k, r.v));
+        if (zi.note) rows.push(h('div', { class: 'fact', style: 'margin:6px 0' }, h('p', null, zi.note)));
+        if (zi.pending) rows.push(h('div', { class: 'fact', style: 'margin:6px 0' }, h('p', null, h('b', null, zi.pending))));
+        else if (zi.upgrade) {
+          const up = zi.upgrade;
+          rows.push(h('button', {
+            class: 'btn small green', style: 'margin-top:6px', 'data-qa': 'density-upgrade', disabled: up.why !== '', title: up.why,
+            onclick: () => {
+              const r = this.game.dispatch({ type: 'zone', x: b.x, y: b.y, w: 1, h: 1, zone: up.zone });
+              if (r.ok) { sfx('good'); floater(cx, cy - 20, `-$${r.spent}k`, 'cost'); this.renderer.sparkle(b.x, b.y, 1, 1, false); this.inspect(tx, ty, cx, cy); }
+              else { sfx('error'); toast('Not yet', degC(r.reason ?? ''), 'warn', UI_ICONS.info, 4000); }
+            },
+          }, svg(UI_ICONS.zonehomes), `Raise density: ${up.label} · $${Math.round(up.cost * 10) / 10}k`));
+          if (up.why) rows.push(h('p', { style: 'margin:2px 0 6px;font-size:12px;opacity:.8' }, up.why));
+          else rows.push(h('p', { style: 'margin:2px 0 6px;font-size:12px;opacity:.8' }, 'The new homes replace these at the next growth tick (once a year).'));
+        }
+      }
       const ub = upgradeBlock(s, b, (id) => {
         const r = this.game.dispatch({ type: 'upgrade', uid: b.uid, id });
         if (r.ok) {

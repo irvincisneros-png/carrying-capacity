@@ -25,14 +25,16 @@ export const BRUSH_SPACING: Partial<Record<BuildingId, number>> = {
 };
 
 /** The zone tools: paint homes (at the chosen density), shops and offices or light industry over a dragged rectangle, or remove a zone. */
-export type ZoneTool = 'zonehomes' | 'zoneshops' | 'zoneind' | 'dezone';
-export const ZONE_TOOLS: readonly ZoneTool[] = ['zonehomes', 'zoneshops', 'zoneind', 'dezone'];
+export type ZoneTool = 'zonehomes' | 'zoneshops' | 'zoneind' | 'dezone' | 'retrofit';
+export const ZONE_TOOLS: readonly ZoneTool[] = ['zonehomes', 'zoneshops', 'zoneind', 'dezone', 'retrofit'];
+/** zoneKind() for the Retrofit homes area tool (Act 2): it drags a rectangle like the zone tools but retrofits homes. */
+export const RETROFIT_KIND = -1;
 export type UtilTool = 'demolish' | 'clear' | 'inspect' | 'comanage' | 'burn' | 'dispose' | 'rehab' | ZoneTool;
 export type Tool = BuildingId | UtilTool | null;
 export const UTIL_TOOLS: readonly string[] = ['demolish', 'clear', 'inspect', 'comanage', 'burn', 'dispose', 'rehab', ...ZONE_TOOLS];
 export const isZoneTool = (t: Tool | string): t is ZoneTool => (ZONE_TOOLS as readonly string[]).includes(t as string);
 
-const ZONE_LABEL: Record<ZoneTool, string> = { zonehomes: 'Homes', zoneshops: 'Shops and offices', zoneind: 'Light industry', dezone: 'Dezone' };
+const ZONE_LABEL: Record<ZoneTool, string> = { zonehomes: 'Homes', zoneshops: 'Shops and offices', zoneind: 'Light industry', dezone: 'Dezone', retrofit: 'Retrofit homes' };
 const DENSITY_LABEL: Record<1 | 2 | 3, string> = { 1: 'Low', 2: 'Medium', 3: 'High' };
 const DENSITY_HINT: Record<1 | 2 | 3, string> = {
   1: 'One house a tile: lots of garden, 20 people. Uses the most land and road per person.',
@@ -189,7 +191,7 @@ export class Toolbar {
     for (const [id, card] of this.cards) {
       if (UTIL_TOOLS.includes(id)) {
         card.classList.toggle('sel', this.tool === id);
-        if (isZoneTool(id) && id !== 'dezone') {
+        if (isZoneTool(id) && id !== 'dezone' && id !== 'retrofit') {
           const cost = card.querySelector('.cost') as HTMLElement | null;
           if (cost) cost.textContent = `$${Math.round(zoneTileCost(s) * 10) / 10}k a tile`;
           card.classList.toggle('poor', s.budget < zoneTileCost(s));
@@ -233,6 +235,7 @@ export class Toolbar {
       case 'zoneshops': return 4;
       case 'zoneind': return 5;
       case 'dezone': return 0;
+      case 'retrofit': return RETROFIT_KIND;
       default: return null;
     }
   }
@@ -251,7 +254,7 @@ export class Toolbar {
   private zoneCards(s: GameState): void {
     const card = (key: ZoneTool, icon: string, extra?: HTMLElement): void => {
       const b = h('button', { class: 'tool zone', 'aria-label': ZONE_LABEL[key], onclick: () => this.select(this.tool === key ? null : key) },
-        svg(icon), h('span', { class: 'nm' }, ZONE_LABEL[key]), h('span', { class: 'cost' }, key === 'dezone' ? 'free' : `$${ZONE_COST}k a tile`));
+        svg(icon), h('span', { class: 'nm' }, ZONE_LABEL[key]), h('span', { class: 'cost' }, key === 'dezone' ? 'free' : key === 'retrofit' ? 'by the home' : `$${ZONE_COST}k a tile`));
       b.addEventListener('pointerenter', () => this.zoneTip(key, b));
       b.addEventListener('pointerleave', () => this.tip.hide());
       b.addEventListener('focus', () => this.zoneTip(key, b));
@@ -271,6 +274,7 @@ export class Toolbar {
     card('zoneshops', UI_ICONS.zoneshops);
     card('zoneind', UI_ICONS.zoneind);
     card('dezone', UI_ICONS.dezone);
+    if (s.phase === 'act2') card('retrofit', UI_ICONS.retrofit);
   }
 
   private zoneTip(key: ZoneTool, card: HTMLElement): void {
@@ -280,11 +284,12 @@ export class Toolbar {
       zoneshops: 'Paint land for shops and offices. They give jobs and grow as more people move in.',
       zoneind: 'Paint land for workshops and depots. They grow to serve factories, mines and the port, and add local air pollution.',
       dezone: 'Remove a zone. Anything grown on it is knocked down (no refund).',
+      retrofit: 'Drag a box over grown homes (or old cottages and brick suburbs) to fit insulation, heat pumps, rooftop panels and cool roofs. Half the electricity and a quarter of the CO₂. About $0.23k per person housed.',
     };
-    const name = key === 'zonehomes' ? `Homes (${DENSITY_LABEL[this.density].toLowerCase()} density)` : ZONE_NAME[key === 'zoneshops' ? 4 : key === 'zoneind' ? 5 : 0];
-    const cost = key === 'dezone' ? '' : ` · $${Math.round((this.state ? zoneTileCost(this.state) : ZONE_COST) * 10) / 10}k a tile`;
+    const name = key === 'retrofit' ? 'Retrofit homes' : key === 'zonehomes' ? `Homes (${DENSITY_LABEL[this.density].toLowerCase()} density)` : ZONE_NAME[key === 'zoneshops' ? 4 : key === 'zoneind' ? 5 : 0];
+    const cost = key === 'dezone' || key === 'retrofit' ? '' : ` · $${Math.round((this.state ? zoneTileCost(this.state) : ZONE_COST) * 10) / 10}k a tile`;
     this.tip.show(r.left + r.width / 2, r.top,
-      `<b>${name}</b>${cost}<br>${text[key]}<div class="row"><span>🖌 Hold and drag a box beside a road. Zones must be within 2 tiles of a road.</span></div>`);
+      `<b>${name}</b>${cost}<br>${text[key]}<div class="row"><span>🖌 Hold and drag a box. ${key === 'retrofit' ? 'Only homes in the box are changed.' : 'Zones must be within 2 tiles of a road.'}</span></div>`);
   }
 
   /** Tutorial: the element to highlight for a building or tool (switching to its tab if it is in another one). */
