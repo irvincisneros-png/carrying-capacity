@@ -69,6 +69,7 @@ export function showTitle(hd: TitleHandlers, saved: { scenarioId: ScenarioId; ye
       h('div', { class: 'title-foot' },
         h('button', { class: 'btn small ghost', onclick: () => hd.settings() }, svg(UI_ICONS.gear), 'Settings'),
         h('a', { class: 'btn small ghost', href: `${import.meta.env.BASE_URL}teacher.html`, target: '_blank', rel: 'noopener' }, svg(UI_ICONS.info), 'For teachers'),
+        h('a', { class: 'btn small ghost', href: 'https://irvincisneros-png.github.io/' }, '← Learning Hub'),
         h('span', { class: 'muted tagline' }, 'Year 9 Science · Environmental sustainability')),
     ].filter((x): x is HTMLButtonElement | HTMLDivElement => x !== null));
   };
