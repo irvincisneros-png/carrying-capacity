@@ -157,6 +157,7 @@ export class SatellitePanel {
   render(s: GameState): void {
     clear(this.body);
     const gs = hasGroundStation(s);
+    this.body.appendChild(h('div', { class: 'muted', style: 'font-size:12px;font-weight:800;margin-bottom:6px' }, 'Simulated for this town: these map layers are made-up game data that behave like real satellite data, not real measurements.'));
     this.body.appendChild(h('p', { style: 'font-size:13px' }, gs
       ? 'Your ground station downloads data from Earth-observation satellites. Subscribe to a data layer, then view it on the map.'
       : 'Build a Satellite ground station (Restore tab) to receive satellite data.'));
@@ -170,6 +171,10 @@ export class SatellitePanel {
           ? h('button', { class: `btn small ${this.active === o ? 'primary' : ''}`, onclick: () => { this.active = this.active === o ? null : o; this.show(this.active); this.render(s); } }, this.active === o ? 'Hide on map' : 'Show on map')
           : h('button', { class: 'btn small teal', disabled: !gs || s.budget < info.cost, onclick: () => this.subscribe(o) }, 'Subscribe')));
     }
+    this.body.appendChild(h('div', { class: 'dil-opt', style: 'margin-top:8px' },
+      h('h4', null, h('span', null, 'How is this measured?')),
+      h('p', { style: 'margin:0 0 6px;font-size:13px' }, 'Real satellites measure sea temperature, sea height, forest and fire scars in different ways. Find out how in Ground Truth.'),
+      h('a', { class: 'btn small', href: 'https://irvincisneros-png.github.io/ground-truth/', target: '_blank', rel: 'noopener' }, 'Open Ground Truth')));
   }
 }
 

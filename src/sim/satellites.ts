@@ -20,7 +20,7 @@ export const OVERLAY_INFO: Readonly<Record<SatelliteOverlay, { name: string; cos
   },
   sealevel: {
     name: 'Sea level', cost: 25,
-    blurb: 'Radar satellites measure the height of the sea surface to within centimetres, showing which low-lying streets will be flooded first.',
+    blurb: 'Radar satellites bounce pulses off the open ocean to measure sea height to within a few centimetres, tracking how fast the sea is rising. To work out which streets flood first, planners combine this with tide gauges, land-height maps and computer models.',
   },
   forest: {
     name: 'Forest cover', cost: 20,
@@ -28,7 +28,7 @@ export const OVERLAY_INFO: Readonly<Record<SatelliteOverlay, { name: string; cos
   },
   fire: {
     name: 'Fire fuel and scars', cost: 30,
-    blurb: 'Satellites map how much dry fuel is on the ground and where fires have burnt, so crews know where the next fire could be worst.',
+    blurb: 'Satellites estimate how dry and leafy the bush is, which hints at how much fuel could burn, and map where fires have already burnt, so crews know where the next fire could be worst.',
   },
 };
 

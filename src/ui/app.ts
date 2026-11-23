@@ -113,6 +113,7 @@ export class App {
   research: ResearchPanel;
   sats: SatellitePanel;
   private warnEl: HTMLElement;
+  private simChip: HTMLElement | null = null;
   private droughtEl: HTMLElement;
   private droughtDismissed = -1;
   private projectNudge = '';
@@ -170,7 +171,7 @@ export class App {
       const r = this.game.dispatch({ type: 'subscribe', overlay: o });
       if (r.ok) sfx('good'); else { sfx('error'); toast('Not yet', degC(r.reason ?? ''), 'warn', UI_ICONS.info, 4000); }
       this.sats.render(this.game.state);
-    }, (o) => this.setOverlay(o ? (st) => SIM.overlayData(st, o) : null, o === 'forest' ? 'forest' : o === 'sealevel' ? 'flood' : o === 'fire' ? 'fire' : 'heat'));
+    }, (o) => this.setOverlay(o ? (st) => SIM.overlayData(st, o) : null, o === 'forest' ? 'forest' : o === 'sealevel' ? 'flood' : o === 'fire' ? 'fire' : 'heat', o ? `${SIM.OVERLAY_INFO[o].name} · Simulated for this town` : undefined));
     this.toolbar.countryOn = (st) => { try { return SIM.countryActive(st); } catch { return false; } };
     this.policies.onChange = (id, value) => {
       const r = this.game.dispatch({ type: 'policy', id, value } as unknown as SIM.Action);
@@ -802,7 +803,15 @@ export class App {
         h('button', { class: 'btn small', onclick: () => { this.droughtDismissed = d?.endsAt ?? -1; this.droughtEl.replaceChildren(); this.droughtEl.classList.add('hidden'); } }, 'Not now'))));
   }
 
-  private setOverlay(fn: ((s: GameState) => ArrayLike<number>) | null, ramp: import('../render/overlay').Ramp): void {
+  private setOverlay(fn: ((s: GameState) => ArrayLike<number>) | null, ramp: import('../render/overlay').Ramp, simLabel?: string): void {
+    if (!this.simChip) {
+      this.simChip = h('div', { class: 'panel hidden', style: 'position:fixed;bottom:12px;left:50%;transform:translateX(-50%);z-index:44;padding:4px 12px;font-size:12px;font-weight:800;pointer-events:none' });
+      document.body.appendChild(this.simChip);
+    }
+    this.simChip.textContent = simLabel ?? '';
+    const tb = this.toolbar.el.getBoundingClientRect();
+    this.simChip.style.bottom = `${tb.height ? Math.max(12, innerHeight - tb.top + 8) : 12}px`;
+    this.simChip.classList.toggle('hidden', !fn || !simLabel);
     if (ramp !== 'attention') this.attn = null;
     this.overlayFn = fn;
     this.overlayRamp = ramp;
